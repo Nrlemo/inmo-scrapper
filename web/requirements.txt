@@ -5,6 +5,6 @@ python-multipart
 sqlalchemy>=2
 argon2-cffi
 # dependencias del scrapper (corre como subproceso desde la web)
-httpx[http2]
+httpx
 selectolax
 pyyaml
