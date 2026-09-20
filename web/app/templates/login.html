@@ -1,0 +1,12 @@
+{% extends "base_min.html" %}
+{% block title %}Ingresar · Inmo{% endblock %}
+{% block body %}
+<h1>Ingresar</h1>
+<form method="post" action="/login" class="stack" autocomplete="on">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="next" value="{{ next }}">
+  {% if error %}<div class="up" role="alert">{{ error }}</div>{% endif %}
+  <label class="fld">Usuario<input name="usuario" value="{{ usuario }}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus maxlength="32"></label>
+  <label class="fld">Contraseña<input type="password" name="clave" autocomplete="current-password" required maxlength="128"></label>
+  <button class="pri" type="submit">Ingresar</button>
+</form>
+{% endblock %}

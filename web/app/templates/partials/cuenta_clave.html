@@ -1,0 +1,7 @@
+<form hx-post="/cuenta/clave" hx-target="this" hx-swap="outerHTML" class="stack" autocomplete="off">
+  {% if error %}<div class="up" role="alert">{{ error }}</div>{% endif %}{% if msg %}<div class="down" role="status">{{ msg }}</div>{% endif %}
+  <label class="fld">Contraseña actual<input type="password" name="actual" autocomplete="current-password" required maxlength="128"></label>
+  <label class="fld">Contraseña nueva<input type="password" name="nueva" autocomplete="new-password" required minlength="12" maxlength="128"><small class="mut">Mínimo 12 caracteres.</small></label>
+  <label class="fld">Repetir contraseña nueva<input type="password" name="nueva2" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+  <div><button class="pri" type="submit">Cambiar contraseña</button></div>
+</form>

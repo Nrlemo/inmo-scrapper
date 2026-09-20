@@ -63,7 +63,8 @@ def tick(engine, now: datetime | None = None, iniciar=scrapper_ctl.iniciar) -> N
                 p.ultima_auto = now
             else:
                 log.warning("Corrida programada omitida: la hora %s ya pasó por más de %s h", p.proxima, GRACIA_H)
-            p.proxima = calcular_proxima(p.hora, now)
+            # siempre para un día posterior: con la demora aleatoria, la hora de hoy podría caer unos minutos después
+            p.proxima = calcular_proxima(p.hora, now.replace(hour=23, minute=59, second=59))
             s.commit()
     if _cola:
         try:

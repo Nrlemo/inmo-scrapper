@@ -13,10 +13,22 @@ DB_PATH = os.environ.get("INMO_DB", str(ROOT.parent / "scrapper" / "data" / "inm
 # Cabeceras que inyecta authentik (forward-auth). El proxy debe ser el único camino a la app.
 USER_HEADER = os.environ.get("AUTH_USER_HEADER", "X-authentik-username")
 EMAIL_HEADER = os.environ.get("AUTH_EMAIL_HEADER", "X-authentik-email")
-# Modo sin autenticación: nadie inicia sesión y todos actúan como AUTH_DEFAULT_USER (o como la cabecera de
-# identidad, si el proxy la envía). Usarlo sólo en red privada/local o con otra protección delante.
-AUTH_DISABLED = os.environ.get("AUTH_DISABLED", "").strip().lower() in ("1", "true", "yes", "si", "sí", "on")
+# Modo de autenticación:
+#   basic     (default) formulario de usuario/contraseña propio, con instalación inicial y administración de usuarios
+#   authentik el proxy autentica (forward-auth) y envía la identidad en cabeceras
+#   none      sin autenticación: todos actúan como AUTH_DEFAULT_USER (sólo red privada / otra protección delante)
+AUTH_MODE = os.environ.get("AUTH_MODE", "basic").strip().lower()
+if AUTH_MODE not in ("basic", "authentik", "none"):
+    raise RuntimeError(f"AUTH_MODE inválido: {AUTH_MODE!r} (usar basic, authentik o none)")
 DEFAULT_USER = os.environ.get("AUTH_DEFAULT_USER", "anonimo")
+# Código exigido en la instalación inicial (modo basic). Si no se define, se genera y se imprime en el log.
+SETUP_TOKEN = os.environ.get("SETUP_TOKEN") or None
+# Cantidad de proxies inversos delante de la app (Traefik = 1; acceso directo = 0). La IP del cliente se toma
+# de X-Forwarded-For contando desde la derecha (lo que agregan nuestros proxies), nunca de lo que envía el cliente.
+TRUSTED_PROXY_HOPS = int(os.environ.get("TRUSTED_PROXY_HOPS", "1"))
+SESSION_IDLE_HOURS = float(os.environ.get("SESSION_IDLE_HOURS", "8"))     # cierre por inactividad
+SESSION_MAX_DAYS = float(os.environ.get("SESSION_MAX_DAYS", "7"))         # duración máxima absoluta
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "auto").strip().lower()   # auto (según https) | true | false
 # Secreto opcional compartido con el proxy (cabecera X-Proxy-Secret) como defensa extra.
 PROXY_SECRET = os.environ.get("PROXY_SECRET")
 # Configuración de perfiles/zonas del scrapper (la misma que usa el CLI).

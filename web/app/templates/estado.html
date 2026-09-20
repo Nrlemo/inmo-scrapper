@@ -3,7 +3,7 @@
 {% block main %}
 <h1>Estado del scrapper</h1>
 <p class="mut">{{ tot[0] }} publicaciones · {{ tot[1] or 0 }} activas · {{ tot[2] or 0 }} con coordenadas (mapa)</p>
-{% if auth_off %}<div class="card in" style="margin-bottom:1rem;border-color:var(--bad)"><b class="up">⚠ Autenticación desactivada</b>
+{% if auth_mode == 'none' %}<div class="card in" style="margin-bottom:1rem;border-color:var(--bad)"><b class="up">⚠ Autenticación desactivada</b>
   <div class="mut" style="font-size:.9rem">Cualquiera que llegue a esta URL puede ver, modificar y lanzar el scrapper. Usalo sólo en red privada o con otra protección delante.</div></div>{% endif %}
 {% include "partials/scrapper.html" %}
 {% include "partials/programacion.html" %}

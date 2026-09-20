@@ -124,3 +124,11 @@ pre.log{white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1
 .switch input::after{content:"";position:absolute;top:.15rem;left:.15rem;width:1.2rem;height:1.2rem;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 3px #0004}
 .switch input:checked{background:var(--acc)}.switch input:checked::after{transform:translateX(1.1rem)}
 .switch input:disabled{opacity:.5;cursor:not-allowed}
+
+/* ---- autenticación ---- */
+.auth-wrap{max-width:400px;margin:6vh auto 2rem;padding:1rem}
+.auth-brand{text-align:center;font-size:1.4rem;margin-bottom:1rem}
+.stack{display:flex;flex-direction:column;gap:.8rem}
+.fld{flex-direction:column;align-items:stretch;gap:.25rem;font-weight:600}.fld small{font-weight:400}
+code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:0 .3rem;font-size:.85em}
+@media(max-width:700px){.desk{display:none}}

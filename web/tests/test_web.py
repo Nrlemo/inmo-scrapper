@@ -135,7 +135,7 @@ def test_scrapper_rejects_unknown_zone(client):
 
 # ---------- autenticación opcional ----------
 def test_auth_disabled_mode(client, monkeypatch):
-    monkeypatch.setattr("app.config.AUTH_DISABLED", True)
+    monkeypatch.setattr("app.config.AUTH_MODE", "none")
     r = client.get("/estado", headers={"X-authentik-username": ""})
     assert r.status_code == 200 and "Autenticación desactivada" in r.text and "anonimo" in r.text
     monkeypatch.setattr("app.config.PROXY_SECRET", "s3cret")            # en este modo no se exige el secreto

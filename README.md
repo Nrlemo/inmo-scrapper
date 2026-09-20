@@ -30,7 +30,7 @@ Una **web liviana** pensada para el celular te deja revisar, marcar y comparar l
 | 🔎 **Detalle** | Notas, puntaje 1–5, etiquetas, marca de contactada, avisos repetidos en otros portales y link al original. |
 | ⚙️ **Estado** | Lanzá el scrapper eligiendo zonas, con barra de progreso, cancelación e historial de corridas. Activá una **ejecución automática diaria** de madrugada. |
 
-También: **multiusuario** (el estado es compartido y cada cambio registra quién lo hizo), modo oscuro y navegación inferior en móvil.
+También: **multiusuario** (el estado es compartido y cada cambio registra quién lo hizo; login propio, authentik o sin autenticación), modo oscuro y navegación inferior en móvil.
 
 ## 📸 Capturas
 
@@ -70,40 +70,49 @@ También: **multiusuario** (el estado es compartido y cada cambio registra quié
 - **`web/`** — FastAPI + Jinja2 + HTMX, sin build de JS. HTMX y Leaflet se sirven localmente.
 - **Una sola imagen Docker**: la web lanza el scrapper como subproceso y le sigue el progreso por la base.
 
-## 🚀 Inicio rápido
+## 🔐 Autenticación: tres modos
 
-Probar en tu máquina, sin authentik:
+Se elige con `AUTH_MODE` en `.env`:
+
+| Modo | Para qué | Cómo se levanta |
+|---|---|---|
+| **`basic`** (por defecto) | Login propio con usuario y contraseña. Asistente de instalación y administración de usuarios. | `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build` (o con `docker-compose.traefik.yml` detrás de TLS) |
+| **`authentik`** | Delegar el login en authentik (SSO, MFA, grupos) por forward auth. | `docker compose -f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.authentik.yml up -d --build` |
+| **`none`** | Sin autenticación: red privada o protección externa. Todos actúan como `AUTH_DEFAULT_USER`. | `AUTH_MODE=none` + `docker-compose.local.yml` o `docker-compose.traefik.yml` |
 
 ```bash
-cp .env.example .env
-docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
-# → http://127.0.0.1:8000
+cp .env.example .env          # elegí AUTH_MODE y completá lo que corresponda
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build    # → http://127.0.0.1:8000
 ```
 
 > **Podman:** `podman build -t inmo-web .` y correrlo con `--userns=keep-id:uid=1000,gid=1000` y los volúmenes con `:Z`.
 
-Los datos viven en `scrapper/data/` (SQLite y logs de corridas) y la configuración en `scrapper/config/profiles.yaml`.
+Los datos viven en `scrapper/data/` (SQLite, que incluye usuarios y sesiones, y logs de corridas) y la configuración en `scrapper/config/profiles.yaml`.
 El contenedor corre con UID 1000: si tu usuario es otro, hacé `chown` de `scrapper/data`.
 
-## 🔐 Producción con Traefik + authentik
+### Modo `basic`: primer inicio
+1. Al levantar por primera vez, cualquier página redirige a **`/setup`**, una ventana simple para crear el **administrador**.
+2. Pide un **código de instalación** para que nadie más pueda reclamar la cuenta si la URL ya está expuesta: lo imprime el servidor en el log
+   (`docker compose logs web | grep INSTALACI`) o es el valor de `SETUP_TOKEN` si lo definiste.
+3. Desde **Cuenta → Administrar usuarios** (solo admin) se crean, desactivan y restablecen usuarios, y se les da rol de administrador.
+   Las cuentas nuevas reciben una contraseña temporal (generada, se muestra una sola vez) y deben cambiarla al primer ingreso.
 
-```bash
-cp .env.example .env    # INMO_DOMAIN, TRAEFIK_NETWORK, PROXY_SECRET (openssl rand -hex 32), ...
-docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
-```
+**Protecciones del login por formulario**
+- Contraseñas con **argon2id**; mínimo 12 caracteres, sin claves triviales ni que contengan el usuario.
+- Sesiones **del lado del servidor** (solo se guarda el hash del token), cookie `HttpOnly`, `SameSite=Lax` y `Secure` con prefijo `__Host-` bajo HTTPS; sesión nueva en cada login; cierre por inactividad (8 h) y duración máxima (7 días).
+- **CSRF** con token por sesión en todos los pedidos que modifican datos, y doble envío firmado en el login.
+- **Fuerza bruta:** límite de intentos por IP y bloqueo creciente de la cuenta (15 min, 30, 60… hasta 24 h) tras 5 fallos seguidos; mensaje de error genérico y tiempo de respuesta igualado para no revelar qué usuarios existen.
+- Cambiar la contraseña o desactivar a un usuario cierra sus otras sesiones; siempre queda al menos un administrador activo.
+- Redirección post-login solo a rutas propias (sin *open redirect*), `Cache-Control: no-store`, HSTS y CSP estricta.
+- Recomendado: publicarlo detrás de un proxy con **HTTPS** (Traefik). Sin HTTPS las cookies no pueden llevar `Secure`.
 
-La app **no tiene login propio**: confía en la cabecera `X-authentik-username`, que solo llega si el pedido pasó por el proxy.
+### Modo `authentik`
+La app **no tiene login propio** en este modo: confía en `X-authentik-username`, que solo llega si el pedido pasó por Traefik + authentik.
+Guía paso a paso (Proxy Provider, outpost, nginx) en [`deploy/authentik.md`](deploy/authentik.md).
+- ✅ No publiques el puerto de la app (la base no lo hace) y definí `PROXY_SECRET`: Traefik lo agrega a cada pedido y la app lo exige.
 
-- ✅ No publiques el puerto de la app (la base no lo hace).
-- ✅ Definí `PROXY_SECRET`: Traefik lo agrega a cada pedido y la app lo exige.
-- ⛔ No definas `AUTH_DISABLED` en producción expuesta a internet.
-
-**¿Sin autenticación?** Para una red privada o si ya protegés el acceso por otro lado: `AUTH_DISABLED=true`. Nadie inicia sesión y todos
-actúan como `AUTH_DEFAULT_USER` (por defecto `anonimo`), salvo que el proxy envíe `X-authentik-username`. En ese modo no se exige
-`PROXY_SECRET`, y la pantalla Estado muestra un aviso. Con el override de Traefik agregá `INMO_MIDDLEWARES=` (vacío) para quitar authentik.
-Como todos son el mismo usuario, `RUN_ALLOWED_USERS` no aplica.
-
-Guía completa (Proxy Provider, outpost, nginx): [`deploy/authentik.md`](deploy/authentik.md).
+### Modo `none`
+Sin usuarios ni contraseñas: la pantalla Estado muestra un aviso y el log lo advierte al arrancar. Si la URL es pública, cualquiera podrá ver, modificar y lanzar el scrapper.
 
 ## ⚙️ Configuración
 
@@ -114,10 +123,15 @@ Guía completa (Proxy Provider, outpost, nginx): [`deploy/authentik.md`](deploy/
 | Variable | Uso |
 |---|---|
 | `INMO_DB`, `INMO_CONFIG` | Rutas de la SQLite y del YAML (en la imagen: `/data/inmo.sqlite`, `/config/profiles.yaml`) |
-| `AUTH_USER_HEADER`, `AUTH_EMAIL_HEADER` | Cabeceras de identidad (por defecto `X-authentik-username` y `X-authentik-email`) |
-| `PROXY_SECRET` | Si se define, exige `X-Proxy-Secret` igual en cada pedido |
-| `RUN_ALLOWED_USERS` | Usuarios que pueden lanzar o cancelar el scrapper (vacío = todos los autenticados) |
-| `AUTH_DISABLED`, `AUTH_DEFAULT_USER` | Modo **sin autenticación** (default `false`) y nombre con el que actúan todos (`anonimo`) |
+| `AUTH_MODE` | `basic` (default), `authentik` o `none` |
+| `SETUP_TOKEN` | Modo `basic`: código de instalación (vacío = aleatorio, en el log) |
+| `SESSION_IDLE_HOURS`, `SESSION_MAX_DAYS` | Modo `basic`: cierre por inactividad (8) y duración máxima de la sesión (7) |
+| `TRUSTED_PROXY_HOPS` | Proxies delante de la app (1 con Traefik; 0 si se accede directo). La IP del cliente se lee de `X-Forwarded-For` desde la derecha, así no se puede falsear para esquivar los límites de intentos |
+| `COOKIE_SECURE` | `auto` (Secure si el pedido llega por https), `true` o `false` |
+| `AUTH_DEFAULT_USER` | Modo `none`: nombre con el que actúan todos (`anonimo`) |
+| `AUTH_USER_HEADER`, `AUTH_EMAIL_HEADER` | Modo `authentik`: cabeceras de identidad (por defecto `X-authentik-username` y `X-authentik-email`) |
+| `PROXY_SECRET` | Modo `authentik`: exige `X-Proxy-Secret` igual en cada pedido |
+| `RUN_ALLOWED_USERS` | Usuarios que pueden lanzar el scrapper y cambiar la programación (vacío = todos los autenticados) |
 | `SCHEDULER_ENABLED` | Habilita el programador diario (default `true`); se prende/apaga desde la pantalla Estado |
 | `PAGE_SIZE`, `TZ` | Paginación; zona horaria (la misma para web y scrapper, las fechas son locales) |
 
@@ -143,7 +157,7 @@ cd scrapper && python -m venv .venv && .venv/bin/pip install -e '.[dev]' && .ven
 
 # web
 cd web && python -m venv .venv && .venv/bin/pip install -r requirements.txt pytest
-AUTH_DISABLED=true .venv/bin/uvicorn app.main:app --reload
+AUTH_MODE=none .venv/bin/uvicorn app.main:app --reload
 .venv/bin/pytest
 ```
 

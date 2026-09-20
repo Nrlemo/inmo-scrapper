@@ -1,6 +1,12 @@
-# Base neutra: sin puertos publicados. Elegí un complemento:
-#   Producción con Traefik + authentik:  docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
-#   Prueba local (sin authentik):        docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+# Base neutra: sin puertos publicados. Elegí el modo de autenticación (AUTH_MODE en .env) y un complemento:
+#
+#   AUTH_MODE=basic      (por defecto) login propio con formulario + asistente de instalación + usuarios
+#   AUTH_MODE=none       sin autenticación (sólo red privada / otra protección delante)
+#   AUTH_MODE=authentik  authentik por forward auth (usar docker-compose.authentik.yml)
+#
+#   Local / red privada:      docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+#   Traefik (basic o none):   docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
+#   Traefik + authentik:      docker compose -f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.authentik.yml up -d --build
 services:
   web:
     build: { context: ., dockerfile: Dockerfile }
@@ -8,13 +14,18 @@ services:
     restart: unless-stopped
     environment:
       TZ: ${TZ:-America/Argentina/Buenos_Aires}   # las fechas del scrapper son locales, sin zona
-      PROXY_SECRET: ${PROXY_SECRET:-}             # si se define, el proxy debe enviarlo en X-Proxy-Secret
+      AUTH_MODE: ${AUTH_MODE:-basic}              # basic | none | authentik
+      AUTH_DEFAULT_USER: ${AUTH_DEFAULT_USER:-anonimo}   # modo none: nombre con el que actúan todos
+      SETUP_TOKEN: ${SETUP_TOKEN:-}               # modo basic: código de instalación (vacío = aleatorio, en el log)
+      SESSION_IDLE_HOURS: ${SESSION_IDLE_HOURS:-8}
+      SESSION_MAX_DAYS: ${SESSION_MAX_DAYS:-7}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}   # proxies delante de la app (Traefik = 1; acceso directo = 0)
+      COOKIE_SECURE: ${COOKIE_SECURE:-auto}       # auto = Secure cuando el pedido llega por https
+      PROXY_SECRET: ${PROXY_SECRET:-}             # modo authentik: secreto que el proxy envía en X-Proxy-Secret
       RUN_ALLOWED_USERS: ${RUN_ALLOWED_USERS:-}   # usuarios que pueden lanzar el scrapper (vacío = todos)
-      AUTH_DISABLED: ${AUTH_DISABLED:-false}      # true = sin autenticación (todos actúan como AUTH_DEFAULT_USER)
-      AUTH_DEFAULT_USER: ${AUTH_DEFAULT_USER:-anonimo}
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}   # programador diario (se activa desde Estado)
     volumes:
-      - ./scrapper/data:/data                     # SQLite + logs de corridas (persistente)
+      - ./scrapper/data:/data                     # SQLite (incluye usuarios y sesiones) + logs de corridas
       - ./scrapper/config:/config:ro              # profiles.yaml (perfiles, zonas, cortesía)
     expose: ["8000"]
     security_opt: ["no-new-privileges:true"]

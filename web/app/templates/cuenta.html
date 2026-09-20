@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Mi cuenta{% endblock %}
+{% block main %}
+<h1>Mi cuenta</h1>
+{% if cta.debe_cambiar %}<div class="card in" style="border-color:var(--fav);margin-bottom:1rem"><b>Tenés que cambiar tu contraseña temporal antes de continuar.</b></div>{% endif %}
+<div class="card in" style="margin-bottom:1rem">
+  <div><b>{{ cta.username }}</b> <span class="badge">{{ 'administrador' if cta.rol == 'admin' else 'usuario' }}</span></div>
+  <div class="mut" style="font-size:.9rem">Último ingreso: {{ cta.ultimo_login.strftime('%d/%m/%y %H:%M') if cta.ultimo_login else '—' }}</div>
+  <div class="row" style="margin-top:.6rem">
+    {% if user.es_admin %}<a class="btn" href="/usuarios">👥 Administrar usuarios</a>{% endif %}
+    <button hx-post="/logout" hx-swap="none">Cerrar sesión</button>
+    <button hx-post="/cuenta/cerrar-otras" hx-target="#otras" hx-swap="innerHTML">Cerrar mis otras sesiones</button><span id="otras"></span>
+  </div>
+</div>
+<div class="card in">
+  <h2 style="margin-top:0">Cambiar contraseña</h2>
+  {% include "partials/cuenta_clave.html" %}
+</div>
+{% endblock %}

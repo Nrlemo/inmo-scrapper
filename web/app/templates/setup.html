@@ -1,0 +1,16 @@
+{% extends "base_min.html" %}
+{% block title %}Instalación · Inmo{% endblock %}
+{% block body %}
+<h1>Bienvenido 👋</h1>
+<p class="mut">Creá la cuenta de <b>administrador</b> para empezar. Sólo se hace una vez.</p>
+<form method="post" action="/setup" class="stack" autocomplete="off">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  {% if error %}<div class="up" role="alert">{{ error }}</div>{% endif %}
+  <label class="fld">Código de instalación<input name="codigo" autocomplete="off" autocapitalize="characters" spellcheck="false" required placeholder="XXXX-XXXX-XXXX">
+    <small class="mut">Está en el log del servidor: <code>docker compose logs web | grep INSTALACI</code> (o el valor de <code>SETUP_TOKEN</code>).</small></label>
+  <label class="fld">Usuario administrador<input name="usuario" value="{{ usuario }}" autocomplete="username" autocapitalize="none" spellcheck="false" required minlength="3" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9._\-]{2,31}" placeholder="admin"></label>
+  <label class="fld">Contraseña<input type="password" name="clave" autocomplete="new-password" required minlength="12" maxlength="128"><small class="mut">Mínimo 12 caracteres. Una frase larga es mejor que una clave corta con símbolos.</small></label>
+  <label class="fld">Repetir contraseña<input type="password" name="clave2" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+  <button class="pri" type="submit">Crear administrador</button>
+</form>
+{% endblock %}

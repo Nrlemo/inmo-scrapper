@@ -58,3 +58,31 @@ class Programacion(WebBase):
     proxima: Mapped[datetime | None] = mapped_column(DateTime)
     ultima_auto: Mapped[datetime | None] = mapped_column(DateTime)
     modificado_por: Mapped[str | None] = mapped_column(String(128))
+
+
+class Cuenta(WebBase):
+    """Cuenta de usuario del modo de autenticación `basic`."""
+    __tablename__ = "web_cuentas"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(32), unique=True, index=True)   # siempre en minúsculas
+    password_hash: Mapped[str] = mapped_column(String(255))                      # argon2id
+    rol: Mapped[str] = mapped_column(String(10), default="usuario")              # admin | usuario
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    debe_cambiar: Mapped[bool] = mapped_column(Boolean, default=False)           # clave temporal: cambiarla al entrar
+    creado: Mapped[datetime] = mapped_column(DateTime)
+    ultimo_login: Mapped[datetime | None] = mapped_column(DateTime)
+    fallos: Mapped[int] = mapped_column(Integer, default=0)                      # intentos fallidos seguidos
+    bloqueado_hasta: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class Sesion(WebBase):
+    """Sesión del lado del servidor. Se guarda sólo el hash del token de la cookie."""
+    __tablename__ = "web_sesiones"
+    id_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    cuenta_id: Mapped[int] = mapped_column(Integer, index=True)
+    csrf: Mapped[str] = mapped_column(String(64))
+    creada: Mapped[datetime] = mapped_column(DateTime)
+    actividad: Mapped[datetime] = mapped_column(DateTime)
+    expira: Mapped[datetime] = mapped_column(DateTime)
+    ip: Mapped[str | None] = mapped_column(String(45))
+    agente: Mapped[str | None] = mapped_column(String(200))

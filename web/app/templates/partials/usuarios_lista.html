@@ -1,0 +1,29 @@
+<section id="usuarios">
+  {% if error %}<div class="card in up" role="alert" style="margin-bottom:.75rem">{{ error }}</div>{% endif %}
+  {% if aviso %}<div class="card in" style="margin-bottom:.75rem;border-color:var(--ok)"><div>{{ aviso }}</div>
+    {% if clave_temp %}<div style="margin-top:.4rem">Contraseña temporal de <b>{{ clave_de }}</b> (se muestra una sola vez):</div>
+      <pre class="log" style="font-size:1.1rem;user-select:all">{{ clave_temp }}</pre>
+      <div class="mut" style="font-size:.85rem">Pasásela por un canal seguro. Al ingresar tendrá que cambiarla.</div>{% endif %}</div>{% endif %}
+  <div class="card in" style="margin-bottom:1rem">
+    <h2 style="margin-top:0">Nuevo usuario</h2>
+    <form hx-post="/usuarios/crear" hx-target="#usuarios" hx-swap="outerHTML" class="grid" autocomplete="off">
+      <input name="usuario" placeholder="usuario" autocapitalize="none" spellcheck="false" required minlength="3" maxlength="32">
+      <input type="password" name="clave" placeholder="contraseña (vacía = generar)" autocomplete="new-password" maxlength="128">
+      <select name="rol"><option value="usuario">Usuario</option><option value="admin">Administrador</option></select>
+      <button class="pri" type="submit">Crear</button>
+    </form>
+  </div>
+  <div class="scroll"><table>
+    <tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Último ingreso</th><th></th></tr>
+    {% for c in cuentas %}
+    <tr><td><b>{{ c.username }}</b>{% if c.id == yo.cuenta_id %} <span class="badge">vos</span>{% endif %}</td>
+      <td>{{ 'admin' if c.rol == 'admin' else 'usuario' }}</td>
+      <td>{% if not c.activo %}<span class="up">desactivado</span>{% elif c.bloqueado_hasta and c.bloqueado_hasta > ahora %}<span class="up">bloqueado hasta {{ c.bloqueado_hasta.strftime('%H:%M') }}</span>{% elif c.debe_cambiar %}<span class="mut">clave temporal</span>{% else %}activo{% endif %}</td>
+      <td class="mut">{{ c.ultimo_login.strftime('%d/%m/%y %H:%M') if c.ultimo_login else '—' }}</td>
+      <td><div class="row" hx-target="#usuarios" hx-swap="outerHTML">
+        <button hx-post="/usuarios/{{ c.id }}/clave" hx-confirm="¿Generar una contraseña temporal nueva para {{ c.username }}?">Restablecer clave</button>
+        <button hx-post="/usuarios/{{ c.id }}/rol" hx-confirm="¿Cambiar el rol de {{ c.username }}?">{{ 'Quitar admin' if c.rol == 'admin' else 'Hacer admin' }}</button>
+        <button class="{{ 'bad' if c.activo }}" hx-post="/usuarios/{{ c.id }}/activo">{{ 'Desactivar' if c.activo else 'Activar' }}</button></div></td></tr>
+    {% endfor %}
+  </table></div>
+</section>

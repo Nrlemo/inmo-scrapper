@@ -1,7 +1,7 @@
-# Sólo para probar en tu máquina: sin authentik, escucha en 127.0.0.1.
+# Local / red privada: publica el puerto sólo en 127.0.0.1 (cambiá a "8000:8000" para exponerlo en tu LAN;
+# sin HTTPS las cookies no llevan Secure, así que en una LAN abierta preferí un proxy con TLS).
 services:
   web:
     ports: ["127.0.0.1:8000:8000"]
     environment:
-      AUTH_DISABLED: "true"
-      AUTH_DEFAULT_USER: ${AUTH_DEFAULT_USER:-local}
+      TRUSTED_PROXY_HOPS: "0"      # acceso directo, sin proxy: no confiar en X-Forwarded-*

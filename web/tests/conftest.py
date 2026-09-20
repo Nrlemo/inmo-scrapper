@@ -8,8 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scrapper" / "src"))
 
 
-@pytest.fixture()
-def client(tmp_path, monkeypatch):
+def _build(tmp_path, monkeypatch, mode, headers=None, base_url="http://testserver"):
     db = tmp_path / "t.sqlite"
     monkeypatch.setenv("INMO_DB", str(db))
     cfg = tmp_path / "profiles.yaml"
@@ -18,7 +17,8 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("INMO_CONFIG", str(cfg))
     monkeypatch.delenv("RUN_ALLOWED_USERS", raising=False)
     monkeypatch.setenv("SCHEDULER_ENABLED", "false")
-    monkeypatch.delenv("AUTH_DISABLED", raising=False)
+    monkeypatch.setenv("AUTH_MODE", mode)
+    monkeypatch.setenv("SETUP_TOKEN", "TEST-CODE-1234")
     monkeypatch.delenv("PROXY_SECRET", raising=False)
     for m in [m for m in sys.modules if m == "app" or m.startswith("app.")]:
         del sys.modules[m]
@@ -39,5 +39,22 @@ def client(tmp_path, monkeypatch):
         s.commit()
     from fastapi.testclient import TestClient
     from app.main import app
-    with TestClient(app, headers={"X-authentik-username": "ana"}) as c:
+    with TestClient(app, headers=headers or {}, base_url=base_url, follow_redirects=False) as c:
         yield c
+
+
+@pytest.fixture()
+def client(tmp_path, monkeypatch):
+    """Modo authentik: la identidad llega por cabecera (usuario «ana»)."""
+    yield from _build(tmp_path, monkeypatch, "authentik", {"X-authentik-username": "ana"})
+
+
+@pytest.fixture()
+def basic(tmp_path, monkeypatch):
+    """Modo basic (formulario propio), sin ningún usuario creado."""
+    yield from _build(tmp_path, monkeypatch, "basic")
+
+
+@pytest.fixture()
+def basic_https(tmp_path, monkeypatch):
+    yield from _build(tmp_path, monkeypatch, "basic", base_url="https://testserver")

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="color-scheme" content="light dark"><meta name="theme-color" content="#1b6b58">
+<meta name="color-scheme" content="light dark">{% if user.csrf %}<meta name="csrf-token" content="{{ user.csrf }}">{% endif %}<meta name="theme-color" content="#1b6b58">
 <title>{% block title %}Inmo{% endblock %}</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='19' font-size='19'%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="/static/app.css">
@@ -26,7 +26,7 @@
     {{ tab('/cambios', path == '/cambios', 'trend', 'Precios') }}
     {{ tab('/mapa', path == '/mapa', 'map', 'Mapa') }}
   </nav>
-  <div class="sec">{% if cont.corriendo %}<a href="/estado" class="on runlink" title="Scrapper corriendo"><i class="dot"></i>corriendo</a>{% endif %}<a href="/comparar" class="{{ 'on' if path == '/comparar' }}">Comparar</a><a href="/estado" class="{{ 'on' if path == '/estado' }}">Estado</a><span class="mut user">{{ user.username }}</span></div>
+  <div class="sec">{% if cont.corriendo %}<a href="/estado" class="on runlink" title="Scrapper corriendo"><i class="dot"></i>corriendo</a>{% endif %}<a href="/comparar" class="{{ 'on' if path == '/comparar' }}">Comparar</a><a href="/estado" class="{{ 'on' if path == '/estado' }}">Estado</a>{% if auth_mode == 'basic' %}{% if user.es_admin %}<a href="/usuarios" class="desk {{ 'on' if path == '/usuarios' }}">Usuarios</a>{% endif %}<a href="/cuenta" class="{{ 'on' if path == '/cuenta' }}">Cuenta</a>{% else %}<span class="mut user">{{ user.username }}</span>{% endif %}</div>
 </header>
 <main>{% block main %}{% endblock %}</main>
 <dialog id="panel"><button class="x" aria-label="Cerrar" onclick="this.closest('dialog').close()">✕</button><div id="panel-body"></div></dialog>
