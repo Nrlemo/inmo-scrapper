@@ -316,3 +316,64 @@ def test_user_agent_has_no_contact_unless_configured(monkeypatch):
     assert "contacto: yo@example.com" in importlib.reload(h).UA
     monkeypatch.delenv("INMO_CONTACT")
     importlib.reload(h)
+
+
+# ---------- cliente curl opcional ----------
+def _fake_curl(monkeypatch, stdout=b"", returncode=0, stderr=b"", capture=None):
+    import subprocess
+    from inmo import http as h
+    monkeypatch.setattr(h.shutil, "which", lambda n: "/usr/bin/curl")
+
+    def run(cmd, **kw):
+        if capture is not None:
+            capture.append((cmd, kw))
+        return subprocess.CompletedProcess(cmd, returncode, stdout, stderr)
+    monkeypatch.setattr(h.subprocess, "run", run)
+    return h
+
+
+def test_client_selection_env_over_yaml(monkeypatch):
+    from inmo import http as h
+    monkeypatch.delenv("INMO_HTTP_CLIENT", raising=False)
+    assert isinstance(h.PoliteClient((0, 0))._client, __import__("httpx").Client)
+    _fake_curl(monkeypatch)
+    assert isinstance(h.PoliteClient((0, 0), http_client="curl")._client, h._CurlClient)      # YAML
+    monkeypatch.setenv("INMO_HTTP_CLIENT", "httpx")
+    assert isinstance(h.PoliteClient((0, 0), http_client="curl")._client, __import__("httpx").Client)  # env gana
+    monkeypatch.setenv("INMO_HTTP_CLIENT", "otro")
+    with pytest.raises(ValueError):
+        h.PoliteClient((0, 0))
+
+
+def test_curl_missing_binary_is_a_clear_error(monkeypatch):
+    from inmo import http as h
+    monkeypatch.setattr(h.shutil, "which", lambda n: None)
+    with pytest.raises(RuntimeError, match="curl"):
+        h.PoliteClient((0, 0), http_client="curl")
+
+
+def test_curl_get_parses_body_status_and_uses_safe_args(monkeypatch):
+    calls = []
+    h = _fake_curl(monkeypatch, stdout="<html>ñandú\n</html>\n200".encode(), capture=calls)
+    c = h.PoliteClient((0, 0), http_client="curl", sleep=lambda s: None)
+    assert c.get("https://www.zonaprop.com.ar/x.html") == "<html>ñandú\n</html>"
+    cmd, kw = calls[0]
+    assert cmd[cmd.index("-A") + 1] == h.UA and cmd[-2:] == ["--url", "https://www.zonaprop.com.ar/x.html"]
+    assert kw.get("shell") is None and kw["capture_output"] is True                    # sin shell
+    with pytest.raises(ValueError):
+        h._CurlClient(5).get("-o /etc/passwd")                                          # nada que curl tome como opción
+
+
+def test_curl_block_and_network_errors_follow_same_policy(monkeypatch):
+    import httpx
+    from inmo.errors import BlockedError
+    h = _fake_curl(monkeypatch, stdout=b"<html><title>Just a moment...</title></html>\n403")
+    c = h.PoliteClient((0, 0), retries=1, backoff=(0, 0), sleep=lambda s: None, http_client="curl")
+    with pytest.raises(BlockedError):
+        c.get("https://www.zonaprop.com.ar/x.html")                                     # 403 -> BlockedError tras reintentar
+    h = _fake_curl(monkeypatch, stdout=b"<html><title>Un momento</title></html>\n200")
+    with pytest.raises(BlockedError):
+        h.PoliteClient((0, 0), http_client="curl", sleep=lambda s: None).get("https://x.example/")   # challenge en un 200
+    h = _fake_curl(monkeypatch, returncode=6, stderr=b"Could not resolve host")
+    with pytest.raises(httpx.TransportError):
+        h.PoliteClient((0, 0), retries=0, http_client="curl", sleep=lambda s: None).get("https://x.example/")

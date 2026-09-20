@@ -169,7 +169,7 @@ class ZonapropConnector(Connector):
         self.cfg = politeness
         self.client = client or PoliteClient(
             delay=tuple(politeness["page_delay"]), retries=politeness.get("retries", 1),
-            backoff=tuple(politeness.get("backoff", (120, 600))),
+            backoff=tuple(politeness.get("backoff", (120, 600))), http_client=politeness.get("http_client"),
         )
 
     def search(self, profile: dict[str, Any]) -> SearchResult:

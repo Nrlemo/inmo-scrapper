@@ -29,5 +29,6 @@ politeness:
     run_window_hours: [8, 22]    # hora local; la hora exacta es aleatoria dentro de la ventana
     min_hours_between_runs: 20
     retries: 1
+    # http_client: httpx          # httpx (default) o curl: si el portal da 403 a httpx pero acepta a curl (ver README). INMO_HTTP_CLIENT tiene prioridad
     backoff: [120, 600]
     cooldown_hours_on_block: 24  # ante 403/429/challenge: no volver a intentar por este tiempo

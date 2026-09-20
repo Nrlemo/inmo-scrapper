@@ -18,6 +18,7 @@ services:
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}   # 0 = acceso directo; 1 detrás de Traefik/nginx
       COOKIE_SECURE: ${COOKIE_SECURE:-auto}
       PROXY_SECRET: ${PROXY_SECRET:-}
+      INMO_HTTP_CLIENT: ${INMO_HTTP_CLIENT:-httpx}         # httpx | curl (curl: si el portal da 403 a httpx)
       INMO_CONTACT: ${INMO_CONTACT:-}                # contacto para el User-Agent del scrapper
       RUN_ALLOWED_USERS: ${RUN_ALLOWED_USERS:-}
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}

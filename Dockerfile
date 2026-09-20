@@ -4,6 +4,9 @@ ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
     INMO_SRC=/srv/scrapper_src INMO_DB=/data/inmo.sqlite INMO_CONFIG=/config/profiles.yaml \
     INMO_CONFIG_EXAMPLE=/srv/defaults/profiles.example.yaml
 WORKDIR /srv
+# curl: cliente HTTP alternativo del scrapper (INMO_HTTP_CLIENT=curl)
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 COPY web/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY scrapper/src/inmo /srv/scrapper_src/inmo

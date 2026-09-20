@@ -224,6 +224,7 @@ Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push 
 | `PROXY_SECRET` | Modo `authentik`: exige `X-Proxy-Secret` igual en cada pedido |
 | `RUN_ALLOWED_USERS` | Usuarios que pueden lanzar el scrapper y cambiar la programación (vacío = todos los autenticados) |
 | `PUID`, `PGID` | Usuario/grupo con el que corre el contenedor (default `1000:1000`); debe poder escribir la carpeta de datos |
+| `INMO_HTTP_CLIENT` | Cliente HTTP del scrapper: `httpx` (default) o `curl` (ver «Si Zonaprop responde 403») |
 | `INMO_CONTACT` | Email o URL que va en el User-Agent del scrapper (dato personal; vacío = sin contacto) |
 | `SCHEDULER_ENABLED` | Habilita el programador diario (default `true`); se prende/apaga desde la pantalla Estado |
 | `PAGE_SIZE`, `TZ` | Paginación; zona horaria (la misma para web y scrapper, las fechas son locales) |
@@ -235,6 +236,15 @@ Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push 
 - **Por CLI o cron externo:** `docker compose run --rm -e PYTHONPATH=/srv/scrapper_src web python -m inmo run --portal zonaprop`
 - **Cortesía:** respeta `robots.txt`, usa un User-Agent identificable, pausas aleatorias de 20 a 150 s y reintentos con backoff. Si el portal bloquea, se frena y entra en cooldown.
 - **Una corrida completa puede tardar 30 minutos o más**; los avisos se guardan al terminar.
+
+### Si Zonaprop responde 403
+Zonaprop usa Cloudflare, que además de la IP mira **cómo se presenta el cliente**. Puede pasar que acepte a un cliente y rechace a otro desde la misma red (en las pruebas: `httpx` HTTP/2 recibía un desafío; `httpx` HTTP/1.1 pasaba en un lado y no en otro). Qué hacer:
+1. **Esperar.** Los bloqueos son temporales y cada intento nuevo los empeora: tras un `403` el scrapper entra en cooldown de 24 h. No lances varias corridas seguidas.
+2. **Probar con una sola zona** antes de lanzar todas.
+3. Si un solo pedido con `curl` pasa pero el scrapper no, activá `INMO_HTTP_CLIENT=curl` (en `.env`): el scrapper pide las páginas con el binario `curl` incluido en la imagen, con **el mismo User-Agent honesto, las mismas pausas y la misma detección de bloqueos**; solo cambia el cliente de red. Es más frágil que `httpx`: depende de que el sitio siga aceptándolo.
+4. También podés correr el scrapper desde otra conexión (por ejemplo tu PC de casa).
+
+No se implementa nada para imitar a un navegador ni para rotar identidades: no es el uso responsable para el que se diseñó esto.
 
 ### Agregar un portal
 
