@@ -5,6 +5,7 @@ services:
   web:
     image: nrlemo/inmo-web:${INMO_TAG:-latest}
     restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"    # debe poder escribir ./data (si no: PUID=$(id -u) PGID=$(id -g) en el .env)
     ports: ["127.0.0.1:8000:8000"]     # detrás de un proxy inverso, quitá esta línea y usá `expose`/labels
     environment:
       TZ: ${TZ:-America/Argentina/Buenos_Aires}

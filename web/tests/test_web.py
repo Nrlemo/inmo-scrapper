@@ -262,3 +262,20 @@ def test_estado_without_profiles_yaml_shows_hint(client, monkeypatch, tmp_path):
     monkeypatch.setattr("app.config.CONFIG_PATH", str(tmp_path / "no-existe.yaml"))
     r = client.get("/estado")
     assert r.status_code == 200 and "profiles.example.yaml" in r.text and "Ejecutar ahora" not in r.text
+
+
+def test_unwritable_data_dir_gives_clear_error(tmp_path, monkeypatch):
+    import os
+    import pytest
+    if os.getuid() == 0:
+        pytest.skip("root ignora los permisos")
+    monkeypatch.setenv("INMO_DB", str(tmp_path / "ro" / "inmo.sqlite"))
+    (tmp_path / "ro").mkdir()
+    (tmp_path / "ro").chmod(0o500)
+    try:
+        from app.db import verificar_datos
+        with pytest.raises(RuntimeError) as e:
+            verificar_datos(str(tmp_path / "ro" / "inmo.sqlite"))
+        assert "chown" in str(e.value) and "PUID" in str(e.value)
+    finally:
+        (tmp_path / "ro").chmod(0o700)

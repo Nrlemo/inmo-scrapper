@@ -136,7 +136,7 @@ Sin clonar el repo: alcanza con [`docker-compose.hub.yml`](docker-compose.hub.ym
 
 ```bash
 mkdir -p data config                                   # en una carpeta de trabajo
-sudo chown 1000:1000 data                              # el contenedor corre con UID 1000
+sudo chown 1000:1000 data                              # el contenedor corre con UID 1000 (o usá PUID/PGID, ver abajo)
 cp profiles.example.yaml config/profiles.yaml          # y ajustalo: zonas y presupuesto
 docker compose -f docker-compose.hub.yml up -d         # → http://127.0.0.1:8000
 docker compose -f docker-compose.hub.yml logs web | grep INSTALACI    # código para crear el administrador
@@ -185,6 +185,13 @@ docker run -d --name inmo --restart unless-stopped \
 
 Las variables de entorno están descritas en la sección Configuración, más abajo. Para otro modo de autenticación agregá `-e AUTH_MODE=none` o `authentik`.
 
+### Si algo falla
+| Síntoma | Causa y solución |
+|---|---|
+| `sqlite3.OperationalError: unable to open database file` al arrancar | El usuario del contenedor no puede escribir `./data`. Suele pasar cuando Docker crea `./data` solo (queda como `root`) o cuando tu usuario no es el UID 1000. Solución: `sudo chown -R 1000:1000 data`, **o** correr con tu usuario poniendo `PUID=$(id -u)` y `PGID=$(id -g)` en el `.env`. Con SELinux, agregá `:Z` al volumen. |
+| `/estado` dice que falta `profiles.yaml` | Copiá `profiles.example.yaml` a `config/profiles.yaml`. |
+| Las cookies de sesión no se guardan / el login vuelve a pedirse | Accediendo por `http://` desde otra máquina las cookies `Secure` no se aceptan: usá HTTPS (proxy inverso) o `COOKIE_SECURE=false` solo en una red de confianza. |
+
 ### Actualizar
 ```bash
 docker compose -f docker-compose.hub.yml pull && docker compose -f docker-compose.hub.yml up -d
@@ -215,6 +222,7 @@ Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push 
 | `AUTH_USER_HEADER`, `AUTH_EMAIL_HEADER` | Modo `authentik`: cabeceras de identidad (por defecto `X-authentik-username` y `X-authentik-email`) |
 | `PROXY_SECRET` | Modo `authentik`: exige `X-Proxy-Secret` igual en cada pedido |
 | `RUN_ALLOWED_USERS` | Usuarios que pueden lanzar el scrapper y cambiar la programación (vacío = todos los autenticados) |
+| `PUID`, `PGID` | Usuario/grupo con el que corre el contenedor (default `1000:1000`); debe poder escribir la carpeta de datos |
 | `INMO_CONTACT` | Email o URL que va en el User-Agent del scrapper (dato personal; vacío = sin contacto) |
 | `SCHEDULER_ENABLED` | Habilita el programador diario (default `true`); se prende/apaga desde la pantalla Estado |
 | `PAGE_SIZE`, `TZ` | Paginación; zona horaria (la misma para web y scrapper, las fechas son locales) |

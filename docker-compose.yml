@@ -12,6 +12,7 @@ services:
     build: { context: ., dockerfile: Dockerfile }
     image: inmo-web:latest
     restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"    # debe poder escribir scrapper/data (si no: PUID=$(id -u) PGID=$(id -g) en el .env)
     environment:
       TZ: ${TZ:-America/Argentina/Buenos_Aires}   # las fechas del scrapper son locales, sin zona
       AUTH_MODE: ${AUTH_MODE:-basic}              # basic | none | authentik
