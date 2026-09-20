@@ -10,6 +10,7 @@
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
 ![authentik](https://img.shields.io/badge/authentik-forward--auth-FD4B2D)
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-nrlemo%2Finmo--web-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/nrlemo/inmo-web)
 
 </div>
 
@@ -68,7 +69,7 @@ También: **multiusuario** (el estado es compartido y cada cambio registra quié
 
 - **`scrapper/`** — conectores por portal (interfaz común), historial de precios, detección de duplicados entre portales y baja de avisos que dejan de aparecer.
 - **`web/`** — FastAPI + Jinja2 + HTMX, sin build de JS. HTMX y Leaflet se sirven localmente.
-- **Una sola imagen Docker**: la web lanza el scrapper como subproceso y le sigue el progreso por la base.
+- **Una sola imagen Docker** ([`nrlemo/inmo-web`](https://hub.docker.com/r/nrlemo/inmo-web) en Docker Hub): la web lanza el scrapper como subproceso y le sigue el progreso por la base.
 
 ## 🔐 Autenticación: tres modos
 
@@ -114,6 +115,87 @@ Guía paso a paso (Proxy Provider, outpost, nginx) en [`deploy/authentik.md`](de
 
 ### Modo `none`
 Sin usuarios ni contraseñas: la pantalla Estado muestra un aviso y el log lo advierte al arrancar. Si la URL es pública, cualquiera podrá ver, modificar y lanzar el scrapper.
+
+## 🐳 Imagen de Docker
+
+<table>
+<tr><td><b>Imagen</b></td><td><a href="https://hub.docker.com/r/nrlemo/inmo-web"><code>nrlemo/inmo-web</code></a> en Docker Hub (pública)</td></tr>
+<tr><td><b>Etiquetas</b></td><td><code>latest</code> (la última) y una por versión, con el hash corto del commit (por ejemplo <code>51fe5e2</code>). Para producción conviene fijar una versión.</td></tr>
+<tr><td><b>Plataforma</b></td><td><code>linux/amd64</code> (no hay build para ARM todavía)</td></tr>
+<tr><td><b>Tamaño</b></td><td>~68 MB comprimida al descargar (~290 MB en disco)</td></tr>
+<tr><td><b>Base</b></td><td><code>python:3.12-slim</code>, corre como usuario sin privilegios (UID 1000)</td></tr>
+<tr><td><b>Contenido</b></td><td>la web (FastAPI) y el scrapper. No incluye datos personales, configuración ni base de datos: todo eso se monta desde afuera.</td></tr>
+<tr><td><b>Puerto</b></td><td><code>8000</code></td></tr>
+<tr><td><b>Volúmenes</b></td><td><code>/data</code>: SQLite (avisos, usuarios, sesiones) y logs de corridas (escribible por UID 1000) · <code>/config</code>: <code>profiles.yaml</code> (solo lectura)</td></tr>
+<tr><td><b>Healthcheck</b></td><td><code>GET /healthz</code> cada 30 s</td></tr>
+</table>
+
+### Con Docker Compose (recomendado)
+
+Sin clonar el repo: alcanza con [`docker-compose.hub.yml`](docker-compose.hub.yml), un `config/profiles.yaml` (partiendo de [`profiles.example.yaml`](scrapper/config/profiles.example.yaml)) y, opcionalmente, un `.env` (ver [`.env.example`](.env.example)).
+
+```bash
+mkdir -p data config                                   # en una carpeta de trabajo
+sudo chown 1000:1000 data                              # el contenedor corre con UID 1000
+cp profiles.example.yaml config/profiles.yaml          # y ajustalo: zonas y presupuesto
+docker compose -f docker-compose.hub.yml up -d         # → http://127.0.0.1:8000
+docker compose -f docker-compose.hub.yml logs web | grep INSTALACI    # código para crear el administrador
+```
+
+<details><summary><code>docker-compose.hub.yml</code></summary>
+
+```yaml
+services:
+  web:
+    image: nrlemo/inmo-web:${INMO_TAG:-latest}
+    restart: unless-stopped
+    ports: ["127.0.0.1:8000:8000"]     # detrás de un proxy inverso, quitá esta línea y usá `expose`/labels
+    environment:
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+      AUTH_MODE: ${AUTH_MODE:-basic}                 # basic | none | authentik
+      AUTH_DEFAULT_USER: ${AUTH_DEFAULT_USER:-anonimo}
+      SETUP_TOKEN: ${SETUP_TOKEN:-}                  # modo basic: código de instalación (vacío = aleatorio, en el log)
+      SESSION_IDLE_HOURS: ${SESSION_IDLE_HOURS:-8}
+      SESSION_MAX_DAYS: ${SESSION_MAX_DAYS:-7}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}   # 0 = acceso directo; 1 detrás de Traefik/nginx
+      COOKIE_SECURE: ${COOKIE_SECURE:-auto}
+      PROXY_SECRET: ${PROXY_SECRET:-}
+      INMO_CONTACT: ${INMO_CONTACT:-}                # contacto para el User-Agent del scrapper
+      RUN_ALLOWED_USERS: ${RUN_ALLOWED_USERS:-}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+    volumes:
+      - ./data:/data
+      - ./config:/config:ro
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+```
+</details>
+
+### Con `docker run`
+
+```bash
+docker run -d --name inmo --restart unless-stopped \
+  -p 127.0.0.1:8000:8000 \
+  -e TZ=America/Argentina/Buenos_Aires \
+  -e TRUSTED_PROXY_HOPS=0 \
+  -e INMO_CONTACT=tu@email.com \
+  -v "$PWD/data:/data" -v "$PWD/config:/config:ro" \
+  nrlemo/inmo-web:latest
+```
+
+Las variables de entorno están descritas en la sección Configuración, más abajo. Para otro modo de autenticación agregá `-e AUTH_MODE=none` o `authentik`.
+
+### Actualizar
+```bash
+docker compose -f docker-compose.hub.yml pull && docker compose -f docker-compose.hub.yml up -d
+```
+Los datos viven en `./data`, así que sobreviven a la actualización. Para volver a una versión anterior: `INMO_TAG=51fe5e2 docker compose -f docker-compose.hub.yml up -d`.
+
+### Construir tu propia imagen
+```bash
+docker build -t inmo-web .        # desde la raíz del repo
+```
+Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push TU_USUARIO/inmo-web:latest`. Los compose del repo (`docker-compose.yml` y sus complementos `local`, `traefik` y `authentik`) construyen la imagen localmente en lugar de bajarla.
 
 ## ⚙️ Configuración
 

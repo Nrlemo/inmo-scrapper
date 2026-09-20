@@ -1,0 +1,26 @@
+# Autónomo: usa la imagen publicada en Docker Hub (https://hub.docker.com/r/nrlemo/inmo-web), sin clonar el repo ni construir.
+# Necesita en esta carpeta: este archivo, un .env (opcional; ver .env.example), ./config/profiles.yaml y ./data (escribible por UID 1000).
+#   docker compose -f docker-compose.hub.yml up -d
+services:
+  web:
+    image: nrlemo/inmo-web:${INMO_TAG:-latest}
+    restart: unless-stopped
+    ports: ["127.0.0.1:8000:8000"]     # detrás de un proxy inverso, quitá esta línea y usá `expose`/labels
+    environment:
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+      AUTH_MODE: ${AUTH_MODE:-basic}                 # basic | none | authentik
+      AUTH_DEFAULT_USER: ${AUTH_DEFAULT_USER:-anonimo}
+      SETUP_TOKEN: ${SETUP_TOKEN:-}                  # modo basic: código de instalación (vacío = aleatorio, en el log)
+      SESSION_IDLE_HOURS: ${SESSION_IDLE_HOURS:-8}
+      SESSION_MAX_DAYS: ${SESSION_MAX_DAYS:-7}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}   # 0 = acceso directo; 1 detrás de Traefik/nginx
+      COOKIE_SECURE: ${COOKIE_SECURE:-auto}
+      PROXY_SECRET: ${PROXY_SECRET:-}
+      INMO_CONTACT: ${INMO_CONTACT:-}                # contacto para el User-Agent del scrapper
+      RUN_ALLOWED_USERS: ${RUN_ALLOWED_USERS:-}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+    volumes:
+      - ./data:/data                                 # SQLite (incluye usuarios y sesiones) + logs de corridas
+      - ./config:/config:ro                          # profiles.yaml
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
