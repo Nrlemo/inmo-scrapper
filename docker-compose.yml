@@ -28,7 +28,7 @@ services:
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}   # programador diario (se activa desde Estado)
     volumes:
       - ./scrapper/data:/data                     # SQLite (incluye usuarios y sesiones) + logs de corridas
-      - ./scrapper/config:/config:ro              # profiles.yaml (perfiles, zonas, cortesía)
+      - ./scrapper/config:/config                 # profiles.yaml (perfiles, zonas, cortesía); se crea desde el ejemplo si falta
     expose: ["8000"]
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]

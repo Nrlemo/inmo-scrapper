@@ -1,5 +1,6 @@
 # Autónomo: usa la imagen publicada en Docker Hub (https://hub.docker.com/r/nrlemo/inmo-web), sin clonar el repo ni construir.
-# Necesita en esta carpeta: este archivo, un .env (opcional; ver .env.example), ./config/profiles.yaml y ./data (escribible por UID 1000).
+# Necesita en esta carpeta: este archivo, un .env (opcional; ver .env.example) y las carpetas ./config y ./data (escribibles por el
+# usuario del contenedor). El primer arranque crea ./config/profiles.yaml a partir del ejemplo incluido en la imagen.
 #   docker compose -f docker-compose.hub.yml up -d
 services:
   web:
@@ -22,6 +23,6 @@ services:
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
     volumes:
       - ./data:/data                                 # SQLite (incluye usuarios y sesiones) + logs de corridas
-      - ./config:/config:ro                          # profiles.yaml
+      - ./config:/config                             # profiles.yaml: se crea solo desde el ejemplo la primera vez; editalo
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]

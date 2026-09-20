@@ -33,6 +33,8 @@ COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "auto").strip().lower()   # auto
 PROXY_SECRET = os.environ.get("PROXY_SECRET")
 # Configuración de perfiles/zonas del scrapper (la misma que usa el CLI).
 CONFIG_PATH = os.environ.get("INMO_CONFIG", str(ROOT.parent / "scrapper" / "config" / "profiles.yaml"))
+# Ejemplo que se copia a CONFIG_PATH la primera vez (si falta). En la imagen: /srv/defaults/profiles.example.yaml.
+CONFIG_EXAMPLE = os.environ.get("INMO_CONFIG_EXAMPLE", str(ROOT.parent / "scrapper" / "config" / "profiles.example.yaml"))
 # Usuarios (separados por coma) que pueden lanzar el scrapper; vacío = cualquier usuario autenticado.
 RUN_ALLOWED_USERS = {u.strip() for u in os.environ.get("RUN_ALLOWED_USERS", "").split(",") if u.strip()}
 # Programador diario interno (lo activa/desactiva el usuario desde la pantalla Estado).

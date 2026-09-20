@@ -279,3 +279,31 @@ def test_unwritable_data_dir_gives_clear_error(tmp_path, monkeypatch):
         assert "chown" in str(e.value) and "PUID" in str(e.value)
     finally:
         (tmp_path / "ro").chmod(0o700)
+
+
+def test_seed_profiles_from_example(tmp_path, monkeypatch):
+    import os
+    import pytest
+    from app import config
+    from app.db import sembrar_config
+    ejemplo = tmp_path / "ejemplo.yaml"
+    ejemplo.write_text("profiles: []  # ejemplo\n")
+    destino = tmp_path / "config" / "profiles.yaml"
+    monkeypatch.setattr(config, "CONFIG_EXAMPLE", str(ejemplo))
+    monkeypatch.setattr(config, "CONFIG_PATH", str(destino))
+    assert sembrar_config() is True and destino.read_text() == "profiles: []  # ejemplo\n"     # crea carpeta y archivo
+    destino.write_text("profiles: [mio]\n")
+    assert sembrar_config() is False and destino.read_text() == "profiles: [mio]\n"            # nunca pisa el existente
+    monkeypatch.setattr(config, "CONFIG_EXAMPLE", str(tmp_path / "no-hay.yaml"))
+    destino.unlink()
+    assert sembrar_config() is False and not destino.exists()                                  # sin ejemplo: no hace nada
+    if os.getuid() != 0:                                                                        # carpeta sin permiso: avisa, no falla
+        ro = tmp_path / "ro"
+        ro.mkdir()
+        ro.chmod(0o500)
+        monkeypatch.setattr(config, "CONFIG_EXAMPLE", str(ejemplo))
+        monkeypatch.setattr(config, "CONFIG_PATH", str(ro / "profiles.yaml"))
+        try:
+            assert sembrar_config() is False
+        finally:
+            ro.chmod(0o700)

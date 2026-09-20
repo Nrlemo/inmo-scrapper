@@ -83,9 +83,10 @@ Se elige con `AUTH_MODE` en `.env`:
 
 ```bash
 cp .env.example .env          # elegí AUTH_MODE y completá lo que corresponda
-cp scrapper/config/profiles.example.yaml scrapper/config/profiles.yaml   # tus zonas y presupuesto (no se versiona)
 docker compose -f docker-compose.yml -f docker-compose.local.yml up --build    # → http://127.0.0.1:8000
 ```
+
+La primera vez se crea `scrapper/config/profiles.yaml` a partir de `profiles.example.yaml`: editalo con tus zonas y presupuesto (no hace falta reiniciar; no se versiona).
 
 > **Podman:** `podman build -t inmo-web .` y correrlo con `--userns=keep-id:uid=1000,gid=1000` y los volúmenes con `:Z`.
 
@@ -126,19 +127,19 @@ Sin usuarios ni contraseñas: la pantalla Estado muestra un aviso y el log lo ad
 <tr><td><b>Base</b></td><td><code>python:3.12-slim</code>, corre como usuario sin privilegios (UID 1000)</td></tr>
 <tr><td><b>Contenido</b></td><td>la web (FastAPI) y el scrapper. No incluye datos personales, configuración ni base de datos: todo eso se monta desde afuera.</td></tr>
 <tr><td><b>Puerto</b></td><td><code>8000</code></td></tr>
-<tr><td><b>Volúmenes</b></td><td><code>/data</code>: SQLite (avisos, usuarios, sesiones) y logs de corridas (escribible por UID 1000) · <code>/config</code>: <code>profiles.yaml</code> (solo lectura)</td></tr>
+<tr><td><b>Volúmenes</b></td><td><code>/data</code>: SQLite (avisos, usuarios, sesiones) y logs de corridas (escribible por UID 1000) · <code>/config</code>: <code>profiles.yaml</code> (se crea desde el ejemplo la primera vez; también escribible por UID 1000)</td></tr>
 <tr><td><b>Healthcheck</b></td><td><code>GET /healthz</code> cada 30 s</td></tr>
 </table>
 
 ### Con Docker Compose (recomendado)
 
-Sin clonar el repo: alcanza con [`docker-compose.hub.yml`](docker-compose.hub.yml), un `config/profiles.yaml` (partiendo de [`profiles.example.yaml`](scrapper/config/profiles.example.yaml)) y, opcionalmente, un `.env` (ver [`.env.example`](.env.example)).
+Sin clonar el repo: alcanza con [`docker-compose.hub.yml`](docker-compose.hub.yml) y, opcionalmente, un `.env` (ver [`.env.example`](.env.example)). La primera vez la app crea `config/profiles.yaml` a partir del [ejemplo](scrapper/config/profiles.example.yaml) incluido en la imagen.
 
 ```bash
 mkdir -p data config                                   # en una carpeta de trabajo
-sudo chown 1000:1000 data                              # el contenedor corre con UID 1000 (o usá PUID/PGID, ver abajo)
-cp profiles.example.yaml config/profiles.yaml          # y ajustalo: zonas y presupuesto
+sudo chown 1000:1000 data config                       # el contenedor corre con UID 1000 (o usá PUID/PGID, ver abajo)
 docker compose -f docker-compose.hub.yml up -d         # → http://127.0.0.1:8000
+nano config/profiles.yaml                              # se creó solo: ajustá zonas y presupuesto (sin reiniciar)
 docker compose -f docker-compose.hub.yml logs web | grep INSTALACI    # código para crear el administrador
 ```
 
@@ -165,7 +166,7 @@ services:
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
     volumes:
       - ./data:/data
-      - ./config:/config:ro
+      - ./config:/config                             # profiles.yaml: se crea solo desde el ejemplo
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]
 ```
@@ -189,7 +190,7 @@ Las variables de entorno están descritas en la sección Configuración, más ab
 | Síntoma | Causa y solución |
 |---|---|
 | `sqlite3.OperationalError: unable to open database file` al arrancar | El usuario del contenedor no puede escribir `./data`. Suele pasar cuando Docker crea `./data` solo (queda como `root`) o cuando tu usuario no es el UID 1000. Solución: `sudo chown -R 1000:1000 data`, **o** correr con tu usuario poniendo `PUID=$(id -u)` y `PGID=$(id -g)` en el `.env`. Con SELinux, agregá `:Z` al volumen. |
-| `/estado` dice que falta `profiles.yaml` | Copiá `profiles.example.yaml` a `config/profiles.yaml`. |
+| `/estado` dice que falta `profiles.yaml` | Normalmente se crea solo al arrancar. Si `/config` está montado como solo lectura o sin permisos, el log lo avisa: dale permiso de escritura o copiá `profiles.example.yaml` a `config/profiles.yaml`. |
 | Las cookies de sesión no se guardan / el login vuelve a pedirse | Accediendo por `http://` desde otra máquina las cookies `Secure` no se aceptan: usá HTTPS (proxy inverso) o `COOKIE_SECURE=false` solo en una red de confianza. |
 
 ### Actualizar
@@ -206,7 +207,7 @@ Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push 
 
 ## ⚙️ Configuración
 
-**Búsquedas** — `scrapper/config/profiles.yaml` (se crea a partir de `profiles.example.yaml`; no se versiona porque contiene tu presupuesto y zonas): perfiles (operación, tipo, precio, ambientes, m², palabras a excluir), zonas por portal y parámetros de cortesía (pausas, páginas, horarios).
+**Búsquedas** — `scrapper/config/profiles.yaml` (se crea sola a partir de `profiles.example.yaml` la primera vez; no se versiona porque contiene tu presupuesto y zonas): perfiles (operación, tipo, precio, ambientes, m², palabras a excluir), zonas por portal y parámetros de cortesía (pausas, páginas, horarios).
 
 **Variables de entorno**
 
@@ -259,7 +260,7 @@ Nada personal se versiona ni entra en la imagen de Docker. Lo que es tuyo vive e
 
 | Dato | Dónde va | Se versiona |
 |---|---|---|
-| Presupuesto y zonas de búsqueda | `scrapper/config/profiles.yaml` (partiendo de `profiles.example.yaml`) | ❌ ignorado |
+| Presupuesto y zonas de búsqueda | `scrapper/config/profiles.yaml` (se crea sola desde `profiles.example.yaml`) | ❌ ignorado |
 | Contacto del User-Agent del scrapper | variable `INMO_CONTACT` (en `.env`) | ❌ |
 | Credenciales, `SETUP_TOKEN`, `PROXY_SECRET` | `.env` | ❌ ignorado (solo `.env.example`) |
 | Claves de portales (`.ml_secrets`) | archivo local | ❌ ignorado |

@@ -1,4 +1,5 @@
-# EJEMPLO: copiá este archivo a profiles.yaml y ajustalo a lo que buscás. profiles.yaml NO se versiona (ver .gitignore).
+# Perfiles de búsqueda de EJEMPLO. En Docker, la primera vez se crea profiles.yaml a partir de este archivo:
+# editá zonas y presupuesto a lo que buscás (no hace falta reiniciar). profiles.yaml es tuyo y no se versiona (ver .gitignore).
 # Perfiles de búsqueda. Cada perfil puede tener una URL de búsqueda ya filtrada por portal.
 profiles:
   - name: caba-apto-credito

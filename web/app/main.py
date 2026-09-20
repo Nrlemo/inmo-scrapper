@@ -21,7 +21,7 @@ from . import auth
 from .auth import LoginRequired, PasswordChangeRequired, SetupRequired
 from .auth_routes import router as auth_router
 from .core import ctx, headers, render, templates
-from .db import init_engine
+from .db import init_engine, sembrar_config
 from .models_web import BusquedaGuardada, Evento, Revision, Usuario
 from .queries import Filtros
 
@@ -31,6 +31,7 @@ ENGINE = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global ENGINE
+    sembrar_config()
     ENGINE = app.state.engine = init_engine()
     scrapper_ctl.marcar_huerfanas(ENGINE)
     log = logging.getLogger("uvicorn.error")

@@ -1,4 +1,6 @@
+import logging
 import os
+import shutil
 from pathlib import Path
 
 from sqlalchemy import text
@@ -29,6 +31,23 @@ def verificar_datos(ruta: str) -> None:
             f"  Solución 1: en el host, dar la carpeta montada a ese usuario:  sudo chown -R {uid}:{gid} ./data\n"
             f"  Solución 2: correr el contenedor con tu propio usuario: PUID=$(id -u) PGID=$(id -g) en el .env\n"
             f"  (Si Docker creó ./data solo, quedó como root: por eso hay que corregirla. Con SELinux, montá el volumen con :Z)")
+
+
+def sembrar_config() -> bool:
+    """Si no existe profiles.yaml, lo crea copiando el ejemplo. Devuelve True si lo creó. Nunca pisa uno existente."""
+    log = logging.getLogger("uvicorn.error")
+    destino, origen = Path(config.CONFIG_PATH), Path(config.CONFIG_EXAMPLE)
+    if destino.exists() or not origen.is_file():
+        return False
+    try:
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(origen, destino)
+    except OSError as e:
+        log.warning("No se pudo crear %s a partir del ejemplo (%s). Si /config está montado como solo lectura o sin "
+                    "permisos, copiá profiles.example.yaml a mano.", destino, e)
+        return False
+    log.info("Se creó %s a partir del ejemplo: editalo con tus zonas y presupuesto.", destino)
+    return True
 
 
 def init_engine() -> Engine:
