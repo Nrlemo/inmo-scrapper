@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -17,7 +18,6 @@ log = logging.getLogger("inmo.auth")
 ip_login = security.Limitador(10, 600)      # 10 intentos de login cada 10 min por IP
 ip_setup = security.Limitador(10, 600)
 por_usuario_clave = security.Limitador(5, 600)   # cambios de clave fallidos/intentos por usuario
-MAX_FALLOS = 5
 _GENERICO = "Usuario o contraseña incorrectos (o cuenta bloqueada temporalmente)."
 
 
@@ -119,28 +119,45 @@ def login_post(request: Request, usuario: str = Form(""), clave: str = Form(""),
         resp = fallo("Demasiados intentos. Esperá unos minutos.", 429)
         resp.headers["Retry-After"] = "600"
         return resp
-    now = datetime.now()
-    cuenta = s.scalar(select(Cuenta).where(Cuenta.username == usuario)) if usuario else None
-    bloqueada = bool(cuenta and cuenta.bloqueado_hasta and cuenta.bloqueado_hasta > now)
-    if cuenta is None or not cuenta.activo or bloqueada:
-        security.verificar_falso(clave)          # mismo costo que un intento real: no revela si el usuario existe
-        log.warning("login fallido: usuario=%r ip=%s motivo=%s", usuario[:32], _ip(request),
-                    "bloqueada" if bloqueada else "inexistente/inactiva")
+    cuenta, motivo = auth.verificar_credenciales(s, usuario, clave)
+    if cuenta is None:
+        log.warning("login fallido: usuario=%r ip=%s motivo=%s", usuario[:32], _ip(request), motivo)
         return fallo()
-    if not security.verificar_clave(cuenta.password_hash, clave):
-        cuenta.fallos += 1
-        if cuenta.fallos % MAX_FALLOS == 0:      # 5, 10, 15… fallos: bloqueo creciente (15 min, 30, 60… máx. 24 h)
-            minutos = min(15 * 2 ** (cuenta.fallos // MAX_FALLOS - 1), 1440)
-            cuenta.bloqueado_hasta = now + timedelta(minutes=minutos)
-            log.warning("cuenta %r bloqueada %d min tras %d fallos (ip=%s)", cuenta.username, minutos, cuenta.fallos, _ip(request))
-        s.commit()
-        log.warning("login fallido: usuario=%r ip=%s", usuario[:32], _ip(request))
-        return fallo()
-    if security.necesita_rehash(cuenta.password_hash):
-        cuenta.password_hash = security.hash_clave(clave)
-    cuenta.fallos, cuenta.bloqueado_hasta = 0, None
     log.info("login ok: usuario=%r ip=%s", cuenta.username, _ip(request))
     return _entrar(request, s, cuenta, destino)     # sesión nueva en cada login (evita fijación de sesión)
+
+
+# ---------------- login para la app Android (JSON, sin CSRF de doble envío) ----------------
+# La app nativa no tiene cookies ambientes que un sitio malicioso pueda aprovechar (a diferencia de un
+# navegador): el usuario tipea user/pass en una pantalla propia de la app, así que el CSRF del formulario
+# HTML no aplica acá. Sí comparte el mismo límite por IP y el mismo bloqueo por intentos que /login.
+class LoginBody(BaseModel):
+    usuario: str
+    clave: str
+
+
+@router.post("/api/login")
+def api_login(request: Request, body: LoginBody, s: Session = Depends(get_session)):
+    _solo_basic()
+    usuario = security.normalizar_usuario(body.usuario)
+    if not ip_login.permitir(_ip(request)):
+        log.warning("api login: límite por IP superado (%s)", _ip(request))
+        raise HTTPException(429, "Demasiados intentos. Esperá unos minutos.", headers={"Retry-After": "600"})
+    cuenta, motivo = auth.verificar_credenciales(s, usuario, body.clave)
+    if cuenta is None:
+        log.warning("api login fallido: usuario=%r ip=%s motivo=%s", usuario[:32], _ip(request), motivo)
+        raise HTTPException(401, _GENERICO)
+    token = auth.crear_sesion(s, cuenta, request)   # mismo mecanismo de sesión que el login web
+    log.info("api login ok: usuario=%r ip=%s", cuenta.username, _ip(request))
+    return {
+        "usuario": cuenta.username,
+        "rol": cuenta.rol,
+        "debe_cambiar": cuenta.debe_cambiar,
+        "cookie_name": auth.cookie_sesion(request),
+        "cookie_value": token,
+        "max_age_seconds": int(config.SESSION_MAX_DAYS * 86400),
+        "secure": auth.es_https(request),
+    }
 
 
 @router.post("/logout")
