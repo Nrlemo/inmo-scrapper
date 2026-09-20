@@ -40,3 +40,7 @@ RUN_ALLOWED_USERS = {u.strip() for u in os.environ.get("RUN_ALLOWED_USERS", "").
 # Programador diario interno (lo activa/desactiva el usuario desde la pantalla Estado).
 SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
 PAGE_SIZE = int(os.environ.get("PAGE_SIZE", "40"))
+# App Android (TWA, repo aparte "inmo-android"): completar tras generar el keystore y build la primera vez.
+# Sin esto, /.well-known/assetlinks.json responde 404 y la app no queda verificada (Chrome muestra la barra de URL).
+TWA_PACKAGE_NAME = os.environ.get("TWA_PACKAGE_NAME") or None
+TWA_SHA256_FINGERPRINTS = [f.strip() for f in os.environ.get("TWA_SHA256_FINGERPRINTS", "").split(",") if f.strip()]
