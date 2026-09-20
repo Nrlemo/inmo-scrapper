@@ -32,6 +32,19 @@ Una **web liviana** pensada para el celular te deja revisar, marcar y comparar l
 
 También: **multiusuario** (el estado es compartido y cada cambio registra quién lo hizo), modo oscuro y navegación inferior en móvil.
 
+## 📸 Capturas
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/lista.png" alt="Lista de publicaciones con filtros"><br><sub><b>Todas</b> · búsqueda y filtros</sub></td>
+    <td width="50%"><img src="docs/screenshots/mapa.png" alt="Mapa con avisos agrupados"><br><sub><b>Mapa</b> · avisos agrupados y filtros</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/comparar.png" alt="Comparador de favoritas"><br><sub><b>Comparar</b> · USD/m² y diferencia con la mediana del barrio</sub></td>
+    <td width="50%"><img src="docs/screenshots/estado.png" alt="Pantalla de estado con selector de zonas"><br><sub><b>Estado</b> · ejecutar el scrapper eligiendo zonas</sub></td>
+  </tr>
+</table>
+
 ## 🧩 Arquitectura
 
 ```
