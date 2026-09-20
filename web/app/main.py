@@ -108,21 +108,6 @@ def service_worker():
                         headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"})
 
 
-@app.get("/.well-known/assetlinks.json", include_in_schema=False)
-def assetlinks():
-    """Digital Asset Links para la app Android (TWA, repo "inmo-android"). Sin configurar, 404."""
-    if not config.TWA_PACKAGE_NAME or not config.TWA_SHA256_FINGERPRINTS:
-        raise HTTPException(404)
-    return JSONResponse([{
-        "relation": ["delegate_permission/common.handle_all_urls"],
-        "target": {
-            "namespace": "android_app",
-            "package_name": config.TWA_PACKAGE_NAME,
-            "sha256_cert_fingerprints": config.TWA_SHA256_FINGERPRINTS,
-        },
-    }])
-
-
 @app.get("/", response_class=HTMLResponse)
 def revision(request: Request, despues: int | None = None, c=Depends(ctx)):
     p, total = queries.siguiente_pendiente(c["s"].connection(), despues)

@@ -228,11 +228,18 @@ Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push 
 | `INMO_CONTACT` | Email o URL que va en el User-Agent del scrapper (dato personal; vacío = sin contacto) |
 | `SCHEDULER_ENABLED` | Habilita el programador diario (default `true`); se prende/apaga desde la pantalla Estado |
 | `PAGE_SIZE`, `TZ` | Paginación; zona horaria (la misma para web y scrapper, las fechas son locales) |
-| `TWA_PACKAGE_NAME`, `TWA_SHA256_FINGERPRINTS` | App Android (ver «📱 App Android» abajo): `applicationId` y huella(s) SHA-256 del keystore, separadas por coma |
 
 ## 📱 App Android
 
-La web es una PWA (`manifest.json`, `sw.js`, íconos) y se puede empaquetar como TWA (Trusted Web Activity) para instalarla como app nativa desde un `.apk` sideloaded, sin pasar por Play Store. El proyecto Android vive aparte, en el repo [`inmo-android`](https://github.com/nrlemo/inmo-android): ahí están las instrucciones para generar el keystore, buildear el APK y completar `TWA_PACKAGE_NAME`/`TWA_SHA256_FINGERPRINTS` acá arriba (necesarios para que `/.well-known/assetlinks.json` verifique la app y no se vea la barra de URL de Chrome).
+La web es una PWA (`manifest.json`, `sw.js`, íconos) y además hay una app nativa aparte, en el repo
+[`inmo-android`](https://github.com/nrlemo/inmo-android): pantalla de login propia (llama a `POST /api/login`,
+ver abajo) y un WebView a pantalla completa ya autenticado con esa sesión. Se instala como `.apk` sideloaded, sin
+pasar por Play Store.
+
+**`POST /api/login`** — sólo en `AUTH_MODE=basic`. Cuerpo `{"usuario": "...", "clave": "..."}`; devuelve 401 si
+las credenciales no son válidas (mismo límite por IP y bloqueo progresivo que el login web) o, si son correctas,
+la cookie de sesión (`cookie_name`/`cookie_value`/`max_age_seconds`/`secure`) para que la app la use directo en
+su WebView — no hace falta abrir el formulario HTML desde la app.
 
 ## 🕷️ El scrapper
 

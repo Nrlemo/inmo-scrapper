@@ -27,8 +27,6 @@ services:
       INMO_HTTP_CLIENT: ${INMO_HTTP_CLIENT:-httpx}         # httpx | curl (curl: si el portal da 403 a httpx)
       INMO_CONTACT: ${INMO_CONTACT:-}             # contacto para el User-Agent del scrapper (dato personal, va en .env)
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}   # programador diario (se activa desde Estado)
-      TWA_PACKAGE_NAME: ${TWA_PACKAGE_NAME:-}         # app Android (repo inmo-android): applicationId, ej. com.tudominio.inmo
-      TWA_SHA256_FINGERPRINTS: ${TWA_SHA256_FINGERPRINTS:-}   # huella(s) SHA-256 del keystore, separadas por coma
     volumes:
       - ./scrapper/data:/data                     # SQLite (incluye usuarios y sesiones) + logs de corridas
       - ./scrapper/config:/config                 # profiles.yaml (perfiles, zonas, cortesía); se crea desde el ejemplo si falta
