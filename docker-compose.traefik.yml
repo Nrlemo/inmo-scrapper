@@ -9,7 +9,7 @@ services:
       traefik.http.routers.inmo.rule: Host(`${INMO_DOMAIN}`)
       traefik.http.routers.inmo.entrypoints: ${TRAEFIK_ENTRYPOINT:-websecure}
       traefik.http.routers.inmo.tls.certresolver: ${TRAEFIK_CERTRESOLVER}
-      traefik.http.routers.inmo.middlewares: inmo-authentik,inmo-secret
+      traefik.http.routers.inmo.middlewares: ${INMO_MIDDLEWARES-inmo-authentik,inmo-secret}   # vacío = sin authentik (usar con AUTH_DISABLED=true)
       # 1) authentik valida la sesión y devuelve la identidad en cabeceras
       traefik.http.middlewares.inmo-authentik.forwardauth.address: ${AUTHENTIK_FORWARD_AUTH_URL:-http://authentik-server:9000/outpost.goauthentik.io/auth/traefik}
       traefik.http.middlewares.inmo-authentik.forwardauth.trustForwardHeader: "true"

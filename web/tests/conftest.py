@@ -17,7 +17,8 @@ def client(tmp_path, monkeypatch):
                    "        zones: [almagro, {zone: almagro, price_min: 1}, palermo, recoleta]\n")
     monkeypatch.setenv("INMO_CONFIG", str(cfg))
     monkeypatch.delenv("RUN_ALLOWED_USERS", raising=False)
-    monkeypatch.delenv("AUTH_DEV_USER", raising=False)
+    monkeypatch.setenv("SCHEDULER_ENABLED", "false")
+    monkeypatch.delenv("AUTH_DISABLED", raising=False)
     monkeypatch.delenv("PROXY_SECRET", raising=False)
     for m in [m for m in sys.modules if m == "app" or m.startswith("app.")]:
         del sys.modules[m]

@@ -119,3 +119,8 @@ progress::-webkit-progress-bar{background:var(--line)}progress::-webkit-progress
 @keyframes pulse{50%{opacity:.25}}
 pre.log{white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:.5rem .7rem;font-size:.82rem;margin:.4rem 0}
 #scrapper{margin-bottom:1rem}
+.switch{display:inline-flex;align-items:center;gap:.45rem;cursor:pointer;font-weight:600}
+.switch input{appearance:none;width:2.6rem;height:1.5rem;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:background .15s;min-height:0}
+.switch input::after{content:"";position:absolute;top:.15rem;left:.15rem;width:1.2rem;height:1.2rem;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 3px #0004}
+.switch input:checked{background:var(--acc)}.switch input:checked::after{transform:translateX(1.1rem)}
+.switch input:disabled{opacity:.5;cursor:not-allowed}

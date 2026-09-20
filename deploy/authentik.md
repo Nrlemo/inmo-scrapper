@@ -38,6 +38,10 @@ El override define el router, el middleware `forwardauth` hacia authentik y las 
     }
     location /outpost.goauthentik.io { proxy_pass http://authentik-server:9000/outpost.goauthentik.io; proxy_set_header Host $host; }
 
+## Sin authentik
+Con `AUTH_DISABLED=true` la app no exige identidad. Con el override de Traefik, agregá `INMO_MIDDLEWARES=` (vacío) en `.env`
+para que el router no use el forward auth. Hacelo sólo en red privada: si la URL es pública, cualquiera podrá ver y modificar todo.
+
 ## 4. Verificación
 - Sin sesión, `https://inmo.tudominio.com` redirige al login de authentik.
 - Con sesión, la barra superior muestra tu usuario (en pantallas anchas).

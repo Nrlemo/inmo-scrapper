@@ -10,6 +10,9 @@ services:
       TZ: ${TZ:-America/Argentina/Buenos_Aires}   # las fechas del scrapper son locales, sin zona
       PROXY_SECRET: ${PROXY_SECRET:-}             # si se define, el proxy debe enviarlo en X-Proxy-Secret
       RUN_ALLOWED_USERS: ${RUN_ALLOWED_USERS:-}   # usuarios que pueden lanzar el scrapper (vacío = todos)
+      AUTH_DISABLED: ${AUTH_DISABLED:-false}      # true = sin autenticación (todos actúan como AUTH_DEFAULT_USER)
+      AUTH_DEFAULT_USER: ${AUTH_DEFAULT_USER:-anonimo}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}   # programador diario (se activa desde Estado)
     volumes:
       - ./scrapper/data:/data                     # SQLite + logs de corridas (persistente)
       - ./scrapper/config:/config:ro              # profiles.yaml (perfiles, zonas, cortesía)

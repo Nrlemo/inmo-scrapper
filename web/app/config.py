@@ -13,12 +13,16 @@ DB_PATH = os.environ.get("INMO_DB", str(ROOT.parent / "scrapper" / "data" / "inm
 # Cabeceras que inyecta authentik (forward-auth). El proxy debe ser el único camino a la app.
 USER_HEADER = os.environ.get("AUTH_USER_HEADER", "X-authentik-username")
 EMAIL_HEADER = os.environ.get("AUTH_EMAIL_HEADER", "X-authentik-email")
-# Sólo para desarrollo local sin proxy: si está definida, se usa como usuario cuando falta la cabecera.
-DEV_USER = os.environ.get("AUTH_DEV_USER")
+# Modo sin autenticación: nadie inicia sesión y todos actúan como AUTH_DEFAULT_USER (o como la cabecera de
+# identidad, si el proxy la envía). Usarlo sólo en red privada/local o con otra protección delante.
+AUTH_DISABLED = os.environ.get("AUTH_DISABLED", "").strip().lower() in ("1", "true", "yes", "si", "sí", "on")
+DEFAULT_USER = os.environ.get("AUTH_DEFAULT_USER", "anonimo")
 # Secreto opcional compartido con el proxy (cabecera X-Proxy-Secret) como defensa extra.
 PROXY_SECRET = os.environ.get("PROXY_SECRET")
 # Configuración de perfiles/zonas del scrapper (la misma que usa el CLI).
 CONFIG_PATH = os.environ.get("INMO_CONFIG", str(ROOT.parent / "scrapper" / "config" / "profiles.yaml"))
 # Usuarios (separados por coma) que pueden lanzar el scrapper; vacío = cualquier usuario autenticado.
 RUN_ALLOWED_USERS = {u.strip() for u in os.environ.get("RUN_ALLOWED_USERS", "").split(",") if u.strip()}
+# Programador diario interno (lo activa/desactiva el usuario desde la pantalla Estado).
+SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
 PAGE_SIZE = int(os.environ.get("PAGE_SIZE", "40"))

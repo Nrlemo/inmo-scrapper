@@ -28,7 +28,7 @@ Una **web liviana** pensada para el celular te deja revisar, marcar y comparar l
 | ⚖️ **Comparar** | Tus favoritas lado a lado, con USD/m² y diferencia contra la mediana del barrio. |
 | 🗺️ **Mapa** | Todos los avisos con filtros y colores por estado (favorita, contactada, descartada, bajó de precio). |
 | 🔎 **Detalle** | Notas, puntaje 1–5, etiquetas, marca de contactada, avisos repetidos en otros portales y link al original. |
-| ⚙️ **Estado** | Lanzá el scrapper eligiendo zonas, con barra de progreso, cancelación e historial de corridas. |
+| ⚙️ **Estado** | Lanzá el scrapper eligiendo zonas, con barra de progreso, cancelación e historial de corridas. Activá una **ejecución automática diaria** de madrugada. |
 
 También: **multiusuario** (el estado es compartido y cada cambio registra quién lo hizo), modo oscuro y navegación inferior en móvil.
 
@@ -96,7 +96,12 @@ La app **no tiene login propio**: confía en la cabecera `X-authentik-username`,
 
 - ✅ No publiques el puerto de la app (la base no lo hace).
 - ✅ Definí `PROXY_SECRET`: Traefik lo agrega a cada pedido y la app lo exige.
-- ⛔ No definas `AUTH_DEV_USER` en producción.
+- ⛔ No definas `AUTH_DISABLED` en producción expuesta a internet.
+
+**¿Sin autenticación?** Para una red privada o si ya protegés el acceso por otro lado: `AUTH_DISABLED=true`. Nadie inicia sesión y todos
+actúan como `AUTH_DEFAULT_USER` (por defecto `anonimo`), salvo que el proxy envíe `X-authentik-username`. En ese modo no se exige
+`PROXY_SECRET`, y la pantalla Estado muestra un aviso. Con el override de Traefik agregá `INMO_MIDDLEWARES=` (vacío) para quitar authentik.
+Como todos son el mismo usuario, `RUN_ALLOWED_USERS` no aplica.
 
 Guía completa (Proxy Provider, outpost, nginx): [`deploy/authentik.md`](deploy/authentik.md).
 
@@ -112,13 +117,15 @@ Guía completa (Proxy Provider, outpost, nginx): [`deploy/authentik.md`](deploy/
 | `AUTH_USER_HEADER`, `AUTH_EMAIL_HEADER` | Cabeceras de identidad (por defecto `X-authentik-username` y `X-authentik-email`) |
 | `PROXY_SECRET` | Si se define, exige `X-Proxy-Secret` igual en cada pedido |
 | `RUN_ALLOWED_USERS` | Usuarios que pueden lanzar o cancelar el scrapper (vacío = todos los autenticados) |
-| `AUTH_DEV_USER` | **Solo desarrollo**: usuario a usar cuando no hay proxy |
+| `AUTH_DISABLED`, `AUTH_DEFAULT_USER` | Modo **sin autenticación** (default `false`) y nombre con el que actúan todos (`anonimo`) |
+| `SCHEDULER_ENABLED` | Habilita el programador diario (default `true`); se prende/apaga desde la pantalla Estado |
 | `PAGE_SIZE`, `TZ` | Paginación; zona horaria (la misma para web y scrapper, las fechas son locales) |
 
 ## 🕷️ El scrapper
 
 - **Desde la web:** *Estado → Ejecutar ahora*. Con un subconjunto de zonas no se dan de baja los avisos de las demás.
-- **Por CLI o cron:** `docker compose run --rm -e PYTHONPATH=/srv/scrapper_src web python -m inmo run --portal zonaprop`
+- **Automático:** en *Estado → Ejecución automática diaria* elegís la hora (por defecto 03:00) y lo activás o desactivás. Se le suma una demora aleatoria de hasta 30 min, distinta cada día. Corre todas las zonas de todos los portales. Si la web estuvo apagada y se pasó la hora por más de 3 h, salta al día siguiente; y si hubo una corrida en las últimas 20 h, la automática se omite (cortesía con el portal). Queda guardado en la base, así que sobrevive a reinicios.
+- **Por CLI o cron externo:** `docker compose run --rm -e PYTHONPATH=/srv/scrapper_src web python -m inmo run --portal zonaprop`
 - **Cortesía:** respeta `robots.txt`, usa un User-Agent identificable, pausas aleatorias de 20 a 150 s y reintentos con backoff. Si el portal bloquea, se frena y entra en cooldown.
 - **Una corrida completa puede tardar 30 minutos o más**; los avisos se guardan al terminar.
 
@@ -136,7 +143,7 @@ cd scrapper && python -m venv .venv && .venv/bin/pip install -e '.[dev]' && .ven
 
 # web
 cd web && python -m venv .venv && .venv/bin/pip install -r requirements.txt pytest
-AUTH_DEV_USER=yo .venv/bin/uvicorn app.main:app --reload
+AUTH_DISABLED=true .venv/bin/uvicorn app.main:app --reload
 .venv/bin/pytest
 ```
 

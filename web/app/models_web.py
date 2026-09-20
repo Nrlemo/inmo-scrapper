@@ -47,3 +47,14 @@ class BusquedaGuardada(WebBase):
     nombre: Mapped[str] = mapped_column(String(80))
     querystring: Mapped[str] = mapped_column(Text)
     usuario: Mapped[str] = mapped_column(String(128))
+
+
+class Programacion(WebBase):
+    """Corrida automática diaria (una sola fila, id=1). Fechas locales sin zona, como el resto."""
+    __tablename__ = "web_programacion"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    activa: Mapped[bool] = mapped_column(Boolean, default=False)
+    hora: Mapped[str] = mapped_column(String(5), default="03:00")            # HH:MM
+    proxima: Mapped[datetime | None] = mapped_column(DateTime)
+    ultima_auto: Mapped[datetime | None] = mapped_column(DateTime)
+    modificado_por: Mapped[str | None] = mapped_column(String(128))

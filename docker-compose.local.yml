@@ -3,4 +3,5 @@ services:
   web:
     ports: ["127.0.0.1:8000:8000"]
     environment:
-      AUTH_DEV_USER: ${AUTH_DEV_USER:-local}
+      AUTH_DISABLED: "true"
+      AUTH_DEFAULT_USER: ${AUTH_DEFAULT_USER:-local}

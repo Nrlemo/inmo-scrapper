@@ -2,6 +2,8 @@
 import csv
 import io
 import json
+import logging
+import threading
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
@@ -14,7 +16,7 @@ from markupsafe import Markup
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from . import config, queries, scrapper_ctl
+from . import config, queries, scheduler, scrapper_ctl
 from .auth import User, current_user
 from .db import init_engine
 from .models_web import BusquedaGuardada, Evento, Revision, Usuario
@@ -28,7 +30,14 @@ async def lifespan(app: FastAPI):
     global ENGINE
     ENGINE = init_engine()
     scrapper_ctl.marcar_huerfanas(ENGINE)
+    if config.AUTH_DISABLED:
+        logging.getLogger("uvicorn.error").warning(
+            "AUTENTICACIÓN DESACTIVADA (AUTH_DISABLED): cualquiera que llegue a esta URL puede ver y modificar todo.")
+    stop = threading.Event()
+    if config.SCHEDULER_ENABLED:
+        threading.Thread(target=scheduler.run_forever, args=(ENGINE, stop), daemon=True, name="scheduler").start()
     yield
+    stop.set()
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
@@ -103,7 +112,7 @@ def ctx(request: Request, user: User = Depends(current_user), s: Session = Depen
 
 def render(request: Request, name: str, c: dict, **kw):
     conn = c["s"].connection()
-    data = {"user": c["user"], "cont": queries.contadores(conn, c["desde"]), **kw}
+    data = {"user": c["user"], "auth_off": config.AUTH_DISABLED, "cont": queries.contadores(conn, c["desde"]), **kw}
     return templates.TemplateResponse(request, name, data)
 
 
@@ -336,7 +345,8 @@ def _panel_scrapper(c) -> dict:
     e = act or ult
     return {"ej": scrapper_ctl.vista(e) if e else None, "activa": act is not None,
             "log": scrapper_ctl.cola_log(e.id) if e else [], "zonas_por_portal": scrapper_ctl.portales_y_zonas(),
-            "puede": not config.RUN_ALLOWED_USERS or c["user"].username in config.RUN_ALLOWED_USERS}
+            "puede": not config.RUN_ALLOWED_USERS or c["user"].username in config.RUN_ALLOWED_USERS,
+            "prog": scheduler.obtener(s)}
 
 
 @app.get("/estado", response_class=HTMLResponse)
@@ -373,6 +383,19 @@ def scrapper_iniciar(request: Request, portal: str = Form(...), zonas: list[str]
         error = str(e)
     c["s"].expire_all()
     return render(request, "partials/scrapper.html", c, error=error, **_panel_scrapper(c))
+
+
+@app.post("/scrapper/programacion", response_class=HTMLResponse)
+def scrapper_programacion(request: Request, activa: str = Form(""), hora: str = Form("03:00"), c=Depends(ctx)):
+    if config.RUN_ALLOWED_USERS and c["user"].username not in config.RUN_ALLOWED_USERS:
+        raise HTTPException(403, "No tenés permiso para cambiar la programación")
+    error = None
+    try:
+        scheduler.configurar(c["s"], activa == "1", hora.strip(), c["user"].username)
+    except ValueError as e:
+        error = str(e)
+    c["s"].expire_all()
+    return render(request, "partials/programacion.html", c, error_prog=error, **_panel_scrapper(c))
 
 
 @app.post("/scrapper/cancelar", response_class=HTMLResponse)
