@@ -1,17 +1,19 @@
 """Medición de bajo volumen: ¿qué cliente HTTP pasa la protección de Zonaprop, y cuándo se levantan los bloqueos?
 
-Cada "ciclo" hace exactamente 2 pedidos a la MISMA página de listado (uno por cliente, en orden aleatorio, con una
-pausa entre ambos) y anota el resultado en un CSV. Los dos clientes son los mismos que usa el scrapper:
-  - httpx_h1 : httpx sobre HTTP/1.1 (el cliente por defecto)
-  - curl     : el binario curl (INMO_HTTP_CLIENT=curl), con los mismos argumentos que inmo.http._CurlClient
+Cada "ciclo" hace exactamente 3 pedidos a la MISMA página de listado (uno por cliente, en orden aleatorio, con una
+pausa entre ellos) y anota el resultado en un CSV. Los clientes:
+  - httpx_h1    : httpx sobre HTTP/1.1 (el cliente por defecto del scrapper)
+  - curl        : el binario curl tal como lo usa el scrapper (INMO_HTTP_CLIENT=curl): --compressed, -L, Accept-Language
+  - curl_simple : curl mínimo, sólo User-Agent y URL (la forma que pasó en las pruebas manuales). Comparado con `curl`
+                  muestra si los argumentos extra del scrapper influyen en la decisión del sitio
 
 Uso
-  python probe_metodos.py                                   # un ciclo (2 pedidos); ideal para cron
+  python probe_metodos.py                                   # un ciclo (3 pedidos); ideal para cron
   python probe_metodos.py --loop --every 3600 --hours 72    # un ciclo por hora durante 72 h
   python probe_metodos.py --resumen medicion_zonaprop.csv   # resumen de lo medido (no hace pedidos)
 
-Límites de cortesía (no se pueden bajar contra un sitio remoto): un ciclo cada 30 min como mínimo y 20 s entre los
-dos pedidos. El intervalo lleva una variación aleatoria de ±10 % para no ser estrictamente periódico.
+Límites de cortesía (no se pueden bajar contra un sitio remoto): un ciclo cada 30 min como mínimo y 20 s entre
+pedidos. El intervalo lleva una variación aleatoria de ±10 % para no ser estrictamente periódico.
 """
 from __future__ import annotations
 
@@ -20,7 +22,9 @@ import csv
 import os
 import random
 import re
+import shutil
 import signal
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -38,7 +42,7 @@ from inmo.http import UA, _CurlClient  # noqa: E402
 
 URL_DEFECTO = ("https://www.zonaprop.com.ar/departamentos-venta-barrio-norte-con-apto-credito-mas-de-2-"
                "habitaciones-mas-de-3-ambientes-50000-125000-dolar.html")
-METODOS = ("httpx_h1", "curl")
+METODOS = ("httpx_h1", "curl", "curl_simple")
 CAMPOS = ["hora", "ciclo", "metodo", "resultado", "codigo", "http", "cf_mitigated", "avisos", "bytes", "ms", "error"]
 MIN_EVERY, MIN_PAUSA = 1800, 20
 CHALLENGE = re.compile(r"<title[^>]*>\s*(just a moment|attention required|un momento)", re.I)
@@ -57,7 +61,7 @@ def validar_limites(url: str, every: float, pausa: float) -> str | None:
         if every < MIN_EVERY:
             return f"--every mínimo {MIN_EVERY} s (un ciclo cada 30 min) contra un sitio remoto"
         if pausa < MIN_PAUSA:
-            return f"--pausa mínimo {MIN_PAUSA} s entre los dos pedidos"
+            return f"--pausa mínimo {MIN_PAUSA} s entre pedidos"
     return None
 
 
@@ -70,6 +74,19 @@ def clasificar(codigo: int | str, cuerpo: str, cf: str | None) -> str:
     return "ERROR"
 
 
+def _curl_simple(url: str, timeout: float) -> tuple[int, str]:
+    """curl mínimo: sólo User-Agent y URL (sin --compressed, sin -L, sin Accept-Language)."""
+    curl = shutil.which("curl")
+    if not curl:
+        raise RuntimeError("el binario curl no está instalado")
+    p = subprocess.run([curl, "-sS", "--max-time", str(int(timeout)), "-A", UA, "-w", "\n%{http_code}", "--url", url],
+                       capture_output=True, timeout=timeout + 10, check=False)
+    if p.returncode != 0:
+        raise RuntimeError(f"curl salió con código {p.returncode}: {p.stderr.decode('utf-8', 'replace').strip()[:150]}")
+    cuerpo, _, codigo = p.stdout.rpartition(b"\n")
+    return int(codigo.strip() or 0), cuerpo.decode("utf-8", "replace")
+
+
 def medir(metodo: str, url: str, timeout: float = 30) -> dict:
     t0 = time.monotonic()
     fila = {"metodo": metodo, "codigo": "", "http": "", "cf_mitigated": "", "avisos": "", "bytes": "", "error": ""}
@@ -80,9 +97,12 @@ def medir(metodo: str, url: str, timeout: float = 30) -> dict:
                 r = c.get(url)
             cuerpo, fila["codigo"], fila["http"] = r.text, r.status_code, r.http_version
             fila["cf_mitigated"] = r.headers.get("cf-mitigated") or ""
-        else:
+        elif metodo == "curl":
             r = _CurlClient(timeout).get(url)
             cuerpo, fila["codigo"], fila["http"] = r.text, r.status_code, "curl"
+        else:  # curl_simple
+            fila["codigo"], cuerpo = _curl_simple(url, timeout)
+            fila["http"] = "curl"
         fila["bytes"], fila["avisos"] = len(cuerpo), cuerpo.count('data-posting-type="PROPERTY"')
         fila["resultado"] = clasificar(fila["codigo"], cuerpo, fila["cf_mitigated"])
     except Exception as e:  # noqa: BLE001 - un fallo de red se registra, no aborta la medición
@@ -107,7 +127,7 @@ def ciclo(url: str, numero: int, out: Path, pausa: float, sleep=time.sleep) -> l
             if nuevo:
                 w.writeheader()
             w.writerow({k: f.get(k, "") for k in CAMPOS})
-        print(f"{f['hora']} ciclo {numero:>3} {m:<8} {f['resultado']:<8} código={f['codigo']} http={f['http']} "
+        print(f"{f['hora']} ciclo {numero:>3} {m:<11} {f['resultado']:<8} código={f['codigo']} http={f['http']} "
               f"avisos={f['avisos']} {f['ms']} ms {f['error']}", flush=True)
     return filas
 
@@ -143,8 +163,8 @@ def resumen(ruta: Path) -> str:
     por_ciclo: dict[str, dict[str, str]] = {}
     for f in filas:
         por_ciclo.setdefault(f["ciclo"], {})[f["metodo"]] = f["resultado"]
-    dif = [(c, r) for c, r in por_ciclo.items() if len(r) == 2 and len(set(r.values())) == 2]
-    out.append(f"\nCiclos en que los dos clientes dieron distinto resultado: {len(dif)} de {len(por_ciclo)}")
+    dif = [(c, r) for c, r in por_ciclo.items() if len(r) == len(METODOS) and len(set(r.values())) > 1]
+    out.append(f"\nCiclos en que los clientes dieron distinto resultado: {len(dif)} de {len(por_ciclo)}")
     for c, r in dif[:10]:
         out.append(f"  ciclo {c}: " + ", ".join(f"{m}={v}" for m, v in r.items()))
     return "\n".join(out)
@@ -157,7 +177,7 @@ def main(argv=None) -> int:
     ap.add_argument("--loop", action="store_true", help="repetir ciclos hasta cumplir --hours")
     ap.add_argument("--every", type=float, default=3600, help="segundos entre ciclos (mínimo 1800 contra un sitio remoto)")
     ap.add_argument("--hours", type=float, default=72, help="duración total del modo --loop")
-    ap.add_argument("--pausa", type=float, default=30, help="segundos entre los dos pedidos de un ciclo (mínimo 20)")
+    ap.add_argument("--pausa", type=float, default=30, help="segundos entre pedidos de un ciclo (mínimo 20)")
     ap.add_argument("--resumen", metavar="CSV", help="solo mostrar el resumen de un CSV existente")
     a = ap.parse_args(argv)
     if a.resumen:

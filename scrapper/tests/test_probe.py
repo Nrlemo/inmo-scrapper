@@ -16,8 +16,12 @@ OK = '<html><div data-posting-type="PROPERTY"></div><div data-posting-type="PROP
 NO = "<html><head><title>Just a moment...</title></head></html>"
 
 
+SEEN: list[dict] = []          # cabeceras de los pedidos recibidos (para comprobar qué manda cada cliente)
+
+
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
+        SEEN.append({k.lower(): v for k, v in self.headers.items()})
         code, body = {"/ok": (200, OK), "/bloqueo": (403, NO), "/anomalo": (200, "<html>vacío</html>")}.get(self.path, (404, "x"))
         self.send_response(code)
         self.send_header("Content-Type", "text/html")
@@ -71,9 +75,9 @@ def test_cycle_writes_csv_with_both_methods_and_pauses_between(base, tmp_path):
     probe.ciclo(base + "/ok", 1, out, 30, sleep=pausas.append)
     probe.ciclo(base + "/bloqueo", 2, out, 30, sleep=pausas.append)
     filas = list(csv.DictReader(open(out, encoding="utf-8")))
-    assert len(filas) == 4 and pausas == [30, 30]
+    assert len(filas) == 6 and pausas == [30] * 4               # 3 pedidos por ciclo, 2 pausas entre ellos
     assert {f["metodo"] for f in filas} == set(probe.METODOS)
-    assert [f["resultado"] for f in filas if f["ciclo"] == "2"] == ["BLOQUEO", "BLOQUEO"]
+    assert [f["resultado"] for f in filas if f["ciclo"] == "2"] == ["BLOQUEO"] * 3
     assert open(out, encoding="utf-8").read().count("hora,ciclo") == 1               # un solo encabezado
 
 
@@ -81,14 +85,14 @@ def test_cycle_writes_csv_with_both_methods_and_pauses_between(base, tmp_path):
 def test_loop_runs_multiple_cycles_and_stops(base, tmp_path):
     out = tmp_path / "loop.csv"
     assert probe.main(["--url", base + "/ok", "--out", str(out), "--loop", "--every", "0.5", "--pausa", "0", "--hours", "0.0008"]) == 0
-    assert len(list(csv.DictReader(open(out, encoding="utf-8")))) >= 4              # ≥ 2 ciclos
+    assert len(list(csv.DictReader(open(out, encoding="utf-8")))) >= 6              # ≥ 2 ciclos de 3 pedidos
 
 
 def test_summary_reports_block_lifted_and_ongoing(tmp_path):
     t0 = datetime(2026, 9, 20, 1, 0)
     filas = []
     for i, (h, c) in enumerate([("OK", "OK"), ("BLOQUEO", "OK"), ("BLOQUEO", "BLOQUEO"), ("OK", "BLOQUEO"), ("BLOQUEO", "BLOQUEO")]):
-        for m, r in (("httpx_h1", h), ("curl", c)):
+        for m, r in (("httpx_h1", h), ("curl", c), ("curl_simple", c)):
             filas.append({"hora": (t0 + timedelta(hours=i)).isoformat(), "ciclo": i + 1, "metodo": m, "resultado": r,
                           "codigo": "", "http": "", "cf_mitigated": "", "avisos": "", "bytes": "", "ms": "", "error": ""})
     p = tmp_path / "s.csv"
@@ -97,6 +101,17 @@ def test_summary_reports_block_lifted_and_ongoing(tmp_path):
         w.writeheader()
         w.writerows(filas)
     txt = probe.resumen(p)
-    assert "10 pedidos" in txt and "[httpx_h1] 5 pedidos: OK=2" in txt and "[curl] 5 pedidos: OK=2" in txt
+    assert "15 pedidos" in txt and "[httpx_h1] 5 pedidos: OK=2" in txt and "[curl] 5 pedidos: OK=2" in txt
     assert "·XX·X" in txt and "bloqueo levantado: bloqueado desde 20/09 02:00, ok de nuevo a las 20/09 04:00 (2.0 h)" in txt
     assert "bloqueo EN CURSO desde 20/09 05:00" in txt and "distinto resultado: 2 de 5" in txt and "bloqueo EN CURSO desde 20/09 03:00" in txt
+
+
+@needs_curl
+def test_curl_simple_sends_only_user_agent_while_scraper_curl_sends_its_extras(base):
+    SEEN.clear()
+    probe.medir("curl_simple", base + "/ok")
+    h = SEEN[-1]
+    assert h["user-agent"].startswith("inmo-scrapper/") and "accept-language" not in h and "accept-encoding" not in h
+    probe.medir("curl", base + "/ok")
+    h = SEEN[-1]
+    assert h["user-agent"].startswith("inmo-scrapper/") and "accept-language" in h and "accept-encoding" in h
