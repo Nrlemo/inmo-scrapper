@@ -9,9 +9,10 @@ from pathlib import Path
 
 import httpx
 
+from inmo.http import UA  # el contacto sale de INMO_CONTACT
+
 BASE = "https://www.zonaprop.com.ar"
 DEFAULT_URL = f"{BASE}/departamentos-venta-villa-urquiza.html"
-UA = "inmo-scrapper/0.1 (uso personal; contacto: nrlemo@gmail.com)"
 OUT = Path(__file__).resolve().parent.parent / "data" / "raw"
 
 MARKERS = {

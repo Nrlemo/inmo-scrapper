@@ -82,6 +82,7 @@ Se elige con `AUTH_MODE` en `.env`:
 
 ```bash
 cp .env.example .env          # elegí AUTH_MODE y completá lo que corresponda
+cp scrapper/config/profiles.example.yaml scrapper/config/profiles.yaml   # tus zonas y presupuesto (no se versiona)
 docker compose -f docker-compose.yml -f docker-compose.local.yml up --build    # → http://127.0.0.1:8000
 ```
 
@@ -116,7 +117,7 @@ Sin usuarios ni contraseñas: la pantalla Estado muestra un aviso y el log lo ad
 
 ## ⚙️ Configuración
 
-**Búsquedas** — `scrapper/config/profiles.yaml`: perfiles (operación, tipo, precio, ambientes, m², palabras a excluir), zonas por portal y parámetros de cortesía (pausas, páginas, horarios).
+**Búsquedas** — `scrapper/config/profiles.yaml` (se crea a partir de `profiles.example.yaml`; no se versiona porque contiene tu presupuesto y zonas): perfiles (operación, tipo, precio, ambientes, m², palabras a excluir), zonas por portal y parámetros de cortesía (pausas, páginas, horarios).
 
 **Variables de entorno**
 
@@ -132,6 +133,7 @@ Sin usuarios ni contraseñas: la pantalla Estado muestra un aviso y el log lo ad
 | `AUTH_USER_HEADER`, `AUTH_EMAIL_HEADER` | Modo `authentik`: cabeceras de identidad (por defecto `X-authentik-username` y `X-authentik-email`) |
 | `PROXY_SECRET` | Modo `authentik`: exige `X-Proxy-Secret` igual en cada pedido |
 | `RUN_ALLOWED_USERS` | Usuarios que pueden lanzar el scrapper y cambiar la programación (vacío = todos los autenticados) |
+| `INMO_CONTACT` | Email o URL que va en el User-Agent del scrapper (dato personal; vacío = sin contacto) |
 | `SCHEDULER_ENABLED` | Habilita el programador diario (default `true`); se prende/apaga desde la pantalla Estado |
 | `PAGE_SIZE`, `TZ` | Paginación; zona horaria (la misma para web y scrapper, las fechas son locales) |
 
@@ -161,9 +163,22 @@ AUTH_MODE=none .venv/bin/uvicorn app.main:app --reload
 .venv/bin/pytest
 ```
 
+## 🔒 Datos personales
+
+Nada personal se versiona ni entra en la imagen de Docker. Lo que es tuyo vive en archivos ignorados por git o en variables de entorno:
+
+| Dato | Dónde va | Se versiona |
+|---|---|---|
+| Presupuesto y zonas de búsqueda | `scrapper/config/profiles.yaml` (partiendo de `profiles.example.yaml`) | ❌ ignorado |
+| Contacto del User-Agent del scrapper | variable `INMO_CONTACT` (en `.env`) | ❌ |
+| Credenciales, `SETUP_TOKEN`, `PROXY_SECRET` | `.env` | ❌ ignorado (solo `.env.example`) |
+| Claves de portales (`.ml_secrets`) | archivo local | ❌ ignorado |
+| Base de datos (favoritas, notas, usuarios, sesiones) y logs | `scrapper/data/` | ❌ ignorado |
+
+Antes de publicar el repo, recordá que el historial de git conserva los commits anteriores (incluido el nombre y email del autor del commit).
+
 ## 📝 Notas
 
 - El **mapa** necesita coordenadas: se completan cuando cada aviso se vuelve a ver en una corrida.
 - «Ver aviso embebido» usa un iframe a pedido; si el portal lo bloquea, usá «Abrir aviso original».
-- El User-Agent del scrapper incluye un contacto (`scrapper/src/inmo/http.py`); cambialo si el repo se vuelve público.
 - Uso personal y de bajo volumen: respetá los términos de cada portal.

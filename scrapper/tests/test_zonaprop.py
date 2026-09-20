@@ -305,3 +305,14 @@ def test_tracker_records_progress_and_skip_gap(engine):
     with Session(engine) as s:
         e = s.get(Ejecucion, 1)
         assert e.estado == "ok" and e.zona_idx == 2 and e.fin is not None
+
+
+def test_user_agent_has_no_contact_unless_configured(monkeypatch):
+    import importlib
+    import inmo.http as h
+    monkeypatch.delenv("INMO_CONTACT", raising=False)
+    assert "contacto" not in importlib.reload(h).UA
+    monkeypatch.setenv("INMO_CONTACT", "yo@example.com")
+    assert "contacto: yo@example.com" in importlib.reload(h).UA
+    monkeypatch.delenv("INMO_CONTACT")
+    importlib.reload(h)

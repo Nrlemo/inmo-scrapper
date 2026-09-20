@@ -15,7 +15,9 @@
       {% if ej.mensaje %}<pre class="log">{{ ej.mensaje }}</pre>{% endif %}
       {% if log and ej.estado in ('error', 'interrumpida') %}<details><summary class="mut">Log</summary><pre class="log">{{ log|join('\n') }}</pre></details>{% endif %}
     {% endif %}
-    {% if puede %}
+    {% if not zonas_por_portal %}
+    <p class="mut">No hay configuración de búsqueda: copiá <code>scrapper/config/profiles.example.yaml</code> a <code>scrapper/config/profiles.yaml</code> y ajustalo.</p>
+    {% elif puede %}
     <form hx-post="/scrapper/iniciar" hx-target="#scrapper" hx-swap="outerHTML" style="display:flex;flex-direction:column;gap:.6rem;margin-top:.5rem">
       <b>Ejecutar scrapper</b>
       {% if zonas_por_portal|length > 1 %}<select name="portal">{% for p in zonas_por_portal %}<option>{{ p }}</option>{% endfor %}</select>

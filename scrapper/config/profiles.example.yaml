@@ -1,10 +1,11 @@
+# EJEMPLO: copiá este archivo a profiles.yaml y ajustalo a lo que buscás. profiles.yaml NO se versiona (ver .gitignore).
 # Perfiles de búsqueda. Cada perfil puede tener una URL de búsqueda ya filtrada por portal.
 profiles:
   - name: caba-apto-credito
     operation: compra
     type: departamento
     currency: USD
-    price: { min: 50000, max: 125000 }
+    price: { min: 60000, max: 150000 }
     rooms: { min: 3 }
     total_m2_min: 65             # se filtra por m² totales (el listado casi nunca informa los cubiertos)
     exclude_keywords: ["pozo", "sin escritura"]
@@ -13,8 +14,7 @@ profiles:
         # Una búsqueda por zona (robots.txt limita cada búsqueda a 5 páginas = 150 avisos).
         search_url_template: >-
           https://www.zonaprop.com.ar/departamentos-venta-{zone}-con-apto-credito-mas-de-2-habitaciones-mas-de-3-ambientes-{price_min}-{price_max}-dolar.html
-        # Almagro tiene ~221 resultados (> 150): se parte por precio. Los límites se solapan; los duplicados se descartan.
-        zones: [{zone: almagro, price_max: 110000}, {zone: almagro, price_min: 110000}, recoleta, barrio-norte, palermo, san-nicolas, villa-crespo, parque-patricios, boedo, san-cristobal]
+        zones: [palermo, recoleta, belgrano]
 
 # Cadencia prudente (por portal). Todos los valores en segundos salvo indicación.
 politeness:

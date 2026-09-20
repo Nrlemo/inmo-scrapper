@@ -256,3 +256,9 @@ def test_other_errors_use_same_page_without_gif(client):
     r = client.get("/no-existe")
     assert r.status_code == 404 and "Volver" in r.text and "dennis.gif" not in r.text
     assert "<script" not in client.get("/p/999").text                        # el detalle va escapado
+
+
+def test_estado_without_profiles_yaml_shows_hint(client, monkeypatch, tmp_path):
+    monkeypatch.setattr("app.config.CONFIG_PATH", str(tmp_path / "no-existe.yaml"))
+    r = client.get("/estado")
+    assert r.status_code == 200 and "profiles.example.yaml" in r.text and "Ejecutar ahora" not in r.text

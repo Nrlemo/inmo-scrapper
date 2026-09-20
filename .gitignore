@@ -9,6 +9,9 @@
 *.crt
 secrets/
 
+# Configuración personal de búsqueda (presupuesto, zonas): se versiona sólo profiles.example.yaml
+scrapper/config/profiles.yaml
+
 # Datos locales: base de datos, HTML crudo, logs de corridas
 **/data/
 *.sqlite

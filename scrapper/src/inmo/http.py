@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import random
 import re
 import time
@@ -12,7 +13,10 @@ from .errors import BlockedError
 
 log = logging.getLogger(__name__)
 
-UA = "inmo-scrapper/0.1 (uso personal, bajo volumen; contacto: nrlemo@gmail.com)"
+# Contacto para que el portal pueda avisarte si algo molesta (buena práctica de scraping responsable).
+# Se configura con INMO_CONTACT (email o URL); sin definir, el User-Agent no lleva ningún dato personal.
+CONTACT = os.environ.get("INMO_CONTACT", "").strip()
+UA = "inmo-scrapper/0.1 (uso personal, bajo volumen" + (f"; contacto: {CONTACT}" if CONTACT else "") + ")"
 CHALLENGE_TITLES = ("just a moment", "attention required", "un momento")
 
 

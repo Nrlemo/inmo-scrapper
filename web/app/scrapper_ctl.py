@@ -26,7 +26,11 @@ class Ocupado(Exception):
 def portales_y_zonas() -> dict[str, list[str]]:
     """{portal: [zonas únicas]} según los perfiles del YAML (portales sin zonas -> lista vacía)."""
     out: dict[str, list[str]] = {}
-    for p in load_config(config.CONFIG_PATH)["profiles"]:
+    try:
+        perfiles = load_config(config.CONFIG_PATH)["profiles"]
+    except (OSError, ValueError, KeyError):   # sin profiles.yaml (repo recién clonado) o mal formado
+        return out
+    for p in perfiles:
         for portal, pc in p.get("portals", {}).items():
             zs = out.setdefault(portal, [])
             for z in pc.get("zones") or []:

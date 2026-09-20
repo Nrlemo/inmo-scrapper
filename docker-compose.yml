@@ -23,6 +23,7 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-auto}       # auto = Secure cuando el pedido llega por https
       PROXY_SECRET: ${PROXY_SECRET:-}             # modo authentik: secreto que el proxy envía en X-Proxy-Secret
       RUN_ALLOWED_USERS: ${RUN_ALLOWED_USERS:-}   # usuarios que pueden lanzar el scrapper (vacío = todos)
+      INMO_CONTACT: ${INMO_CONTACT:-}             # contacto para el User-Agent del scrapper (dato personal, va en .env)
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}   # programador diario (se activa desde Estado)
     volumes:
       - ./scrapper/data:/data                     # SQLite (incluye usuarios y sesiones) + logs de corridas
