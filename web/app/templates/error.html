@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><meta name="robots" content="noindex,nofollow">
+<title>{{ titulo }} · Inmo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='19' font-size='19'%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E">
+<style>
+  html,body{height:100%;margin:0}
+  body{background:#fff;color:#191c1a;font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1.5rem;text-align:center}
+  img{max-width:min(90vw,498px);height:auto;border-radius:6px}
+  h1{font-size:1.4rem;margin:.25rem 0 0}
+  p{margin:0;color:#5b625d;max-width:34rem}
+  .btn{font:inherit;cursor:pointer;background:#1b6b58;color:#fff;border:0;border-radius:999px;padding:.6rem 1.4rem;min-height:44px}
+  .btn:hover{background:#155645}
+  a{color:#1b6b58}
+</style></head><body>
+{% if gif %}<img src="/static/dennis.gif" alt="" width="498" height="320">{% endif %}
+<h1>{{ titulo }}</h1>
+<p>{{ detalle }}</p>
+<div><button class="btn" type="button" onclick="history.length>1?history.back():location.href='/'">← Volver</button></div>
+<p><a href="/">Ir al inicio</a></p>
+</body></html>

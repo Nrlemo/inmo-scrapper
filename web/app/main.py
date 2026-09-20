@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -378,6 +379,14 @@ async def _must_change(request: Request, exc: PasswordChangeRequired):
     return RedirectResponse("/cuenta", status_code=303)
 
 
-@app.exception_handler(HTTPException)
-async def http_err(request: Request, exc: HTTPException):
-    return HTMLResponse(f"<h1>{exc.status_code}</h1><p>{exc.detail}</p>", status_code=exc.status_code)
+TITULOS = {401: "Acceso no autorizado", 403: "Acceso denegado", 404: "No encontrado", 405: "Método no permitido"}
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_err(request: Request, exc: StarletteHTTPException):
+    """Página de error simple. Los errores de autenticación/permisos (401/403) llevan el GIF."""
+    code = exc.status_code
+    return templates.TemplateResponse(
+        request, "error.html",
+        {"titulo": TITULOS.get(code, f"Error {code}"), "detalle": str(exc.detail), "gif": code in (401, 403)},
+        status_code=code, headers=getattr(exc, "headers", None))

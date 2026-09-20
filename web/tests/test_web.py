@@ -240,3 +240,19 @@ def test_programacion_permissions(client, monkeypatch):
     r = client.post("/scrapper/programacion", data={"activa": "1", "hora": "03:00"}, headers=HX)
     assert r.status_code == 403
     assert "no puede cambiar" in client.get("/estado").text
+
+
+# ---------- páginas de error ----------
+def test_auth_errors_show_gif_page_with_back_button(client):
+    r = client.get("/", headers={"X-authentik-username": ""})              # sin identidad -> 401
+    assert r.status_code == 401
+    assert "/static/dennis.gif" in r.text and "Volver" in r.text and "Acceso no autorizado" in r.text
+    r = client.post("/p/1/accion", data={"accion": "favorito"})            # sin HX-Request -> 403
+    assert r.status_code == 403 and "/static/dennis.gif" in r.text and "Acceso denegado" in r.text
+    assert client.get("/static/dennis.gif").status_code == 200
+
+
+def test_other_errors_use_same_page_without_gif(client):
+    r = client.get("/no-existe")
+    assert r.status_code == 404 and "Volver" in r.text and "dennis.gif" not in r.text
+    assert "<script" not in client.get("/p/999").text                        # el detalle va escapado
