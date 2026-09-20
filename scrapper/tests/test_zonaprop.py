@@ -316,3 +316,22 @@ def test_user_agent_has_no_contact_unless_configured(monkeypatch):
     assert "contacto: yo@example.com" in importlib.reload(h).UA
     monkeypatch.delenv("INMO_CONTACT")
     importlib.reload(h)
+
+
+def test_client_uses_http2_and_falls_back_without_h2(monkeypatch, caplog):
+    import httpx
+    from inmo import http as h
+    c = h._nuevo_cliente(5)
+    assert c._transport._pool._http2                      # HTTP/2 habilitado (h2 instalado)
+    c.close()
+    real = httpx.Client
+
+    def sin_h2(*a, http2=False, **kw):
+        if http2:
+            raise ImportError("h2")
+        return real(*a, **kw)
+    monkeypatch.setattr(h.httpx, "Client", sin_h2)
+    with caplog.at_level("WARNING"):
+        c = h._nuevo_cliente(5)
+    assert not c._transport._pool._http2 and "HTTP/1.1" in caplog.text     # sin h2: avisa y sigue
+    c.close()

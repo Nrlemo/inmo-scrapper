@@ -20,16 +20,24 @@ UA = "inmo-scrapper/0.1 (uso personal, bajo volumen" + (f"; contacto: {CONTACT}"
 CHALLENGE_TITLES = ("just a moment", "attention required", "un momento")
 
 
+def _nuevo_cliente(timeout: float) -> httpx.Client:
+    """Cliente con HTTP/2 (como cualquier navegador). Algunos portales rechazan (403) a los clientes HTTP/1.1 que
+    en cambio aceptan a HTTP/2. Si falta el paquete `h2`, se cae a HTTP/1.1 avisando en el log."""
+    kw = dict(headers={"User-Agent": UA, "Accept-Language": "es-AR,es;q=0.9"}, follow_redirects=True, timeout=timeout)
+    try:
+        return httpx.Client(http2=True, **kw)
+    except ImportError:
+        log.warning("Falta el paquete 'h2': se usa HTTP/1.1 (algunos portales lo bloquean). Instalar httpx[http2].")
+        return httpx.Client(**kw)
+
+
 class PoliteClient:
     def __init__(self, delay: tuple[float, float], retries: int = 1,
                  backoff: tuple[float, float] = (120, 600), timeout: float = 30,
                  sleep=time.sleep):
         self.delay, self.retries, self.backoff, self._sleep = delay, retries, backoff, sleep
         self._first = True
-        self._client = httpx.Client(
-            headers={"User-Agent": UA, "Accept-Language": "es-AR,es;q=0.9"},
-            follow_redirects=True, timeout=timeout,
-        )
+        self._client = _nuevo_cliente(timeout)
 
     def close(self) -> None:
         self._client.close()
