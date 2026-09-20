@@ -1,0 +1,33 @@
+# Secretos y entorno
+.env
+.env.*
+!.env.example
+.ml_secrets
+**/.ml_secrets
+*.pem
+*.key
+*.crt
+secrets/
+
+# Datos locales: base de datos, HTML crudo, logs de corridas
+**/data/
+*.sqlite
+*.sqlite-*
+*.db
+*.log
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Editores / herramientas locales
+**/.claude/settings.local.json
+.idea/
+.vscode/
+*.swp
+.*.kate-swp
+*~
+.DS_Store

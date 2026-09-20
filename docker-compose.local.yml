@@ -1,0 +1,6 @@
+# Sólo para probar en tu máquina: sin authentik, escucha en 127.0.0.1.
+services:
+  web:
+    ports: ["127.0.0.1:8000:8000"]
+    environment:
+      AUTH_DEV_USER: ${AUTH_DEV_USER:-local}

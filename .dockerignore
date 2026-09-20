@@ -1,0 +1,13 @@
+.git
+.env
+.claude
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/*.egg-info
+**/data
+**/.ml_secrets
+**/*.sqlite*
+scrapper/tests
+scrapper/scripts
+web/tests

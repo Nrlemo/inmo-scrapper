@@ -1,0 +1,22 @@
+# Producción detrás de Traefik con authentik (forward auth). Variables en .env (ver .env.example).
+services:
+  web:
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: ${TRAEFIK_NETWORK}
+      traefik.http.services.inmo.loadbalancer.server.port: "8000"
+      traefik.http.routers.inmo.rule: Host(`${INMO_DOMAIN}`)
+      traefik.http.routers.inmo.entrypoints: ${TRAEFIK_ENTRYPOINT:-websecure}
+      traefik.http.routers.inmo.tls.certresolver: ${TRAEFIK_CERTRESOLVER}
+      traefik.http.routers.inmo.middlewares: inmo-authentik,inmo-secret
+      # 1) authentik valida la sesión y devuelve la identidad en cabeceras
+      traefik.http.middlewares.inmo-authentik.forwardauth.address: ${AUTHENTIK_FORWARD_AUTH_URL:-http://authentik-server:9000/outpost.goauthentik.io/auth/traefik}
+      traefik.http.middlewares.inmo-authentik.forwardauth.trustForwardHeader: "true"
+      traefik.http.middlewares.inmo-authentik.forwardauth.authResponseHeaders: X-authentik-username,X-authentik-email,X-authentik-name,X-authentik-groups,X-authentik-uid
+      # 2) secreto compartido: la app rechaza pedidos que no pasaron por este Traefik
+      traefik.http.middlewares.inmo-secret.headers.customrequestheaders.X-Proxy-Secret: ${PROXY_SECRET}
+networks:
+  proxy:
+    external: true
+    name: ${TRAEFIK_NETWORK}

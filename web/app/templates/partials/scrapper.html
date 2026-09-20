@@ -1,0 +1,35 @@
+<section id="scrapper" class="card in" {% if activa %}hx-get="/scrapper/estado?run={{ ej.id }}" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+  {% if error %}<div class="up">{{ error }}</div>{% endif %}
+  {% if activa %}
+    <div class="row" style="justify-content:space-between"><b><i class="dot"></i> Scrapper corriendo · {{ ej.portal }}</b><span class="mut">{{ ej.minutos }} min</span></div>
+    {% if ej.pct is not none %}<progress max="100" value="{{ ej.pct }}"></progress>{% else %}<progress></progress>{% endif %}
+    <div class="mut" style="font-size:.9rem">
+      {% if ej.zona_actual %}Zona {{ ej.zona_idx }}/{{ ej.zonas_total }} · <b>{{ ej.zona_actual }}</b>{% if ej.paginas %} · página {{ ej.pagina }}/{{ ej.paginas }}{% endif %}{% else %}Iniciando…{% endif %}
+      · {{ ej.resultados }} avisos hallados
+      {% if ej.zonas %}· zonas elegidas: {{ ej.zonas|join(', ') }}{% endif %}</div>
+    <div class="mut" style="font-size:.85rem">El scrapper espera entre páginas a propósito (20–150 s) para no ser bloqueado: una corrida completa puede tardar 30 min o más. Los avisos se guardan al terminar.</div>
+    {% if puede %}<button class="bad" hx-post="/scrapper/cancelar" hx-target="#scrapper" hx-swap="outerHTML" hx-confirm="¿Cancelar la corrida? No se guardará ningún aviso de esta corrida.">Cancelar</button>{% endif %}
+  {% else %}
+    {% if ej %}<div><b>Última corrida:</b> {{ {'ok':'✅ completa','parcial':'⚠ parcial','bloqueada':'⛔ bloqueada por el portal','omitida':'⏭ omitida','error':'❌ con error','cancelada':'✋ cancelada','interrumpida':'⚠ interrumpida'}.get(ej.estado, ej.estado) }}
+      <span class="mut">· {{ ej.inicio|fecha }} {{ ej.inicio.strftime('%H:%M') }} · {{ ej.minutos }} min{% if ej.usuario %} · {{ ej.usuario }}{% endif %}</span></div>
+      {% if ej.mensaje %}<pre class="log">{{ ej.mensaje }}</pre>{% endif %}
+      {% if log and ej.estado in ('error', 'interrumpida') %}<details><summary class="mut">Log</summary><pre class="log">{{ log|join('\n') }}</pre></details>{% endif %}
+    {% endif %}
+    {% if puede %}
+    <form hx-post="/scrapper/iniciar" hx-target="#scrapper" hx-swap="outerHTML" style="display:flex;flex-direction:column;gap:.6rem;margin-top:.5rem">
+      <b>Ejecutar scrapper</b>
+      {% if zonas_por_portal|length > 1 %}<select name="portal">{% for p in zonas_por_portal %}<option>{{ p }}</option>{% endfor %}</select>
+      {% else %}{% for p in zonas_por_portal %}<input type="hidden" name="portal" value="{{ p }}"><span class="mut">Portal: {{ p }}</span>{% endfor %}{% endif %}
+      {% for p, zs in zonas_por_portal.items() %}{% if zs %}
+      <div><div class="row" style="margin-bottom:.3rem"><span class="mut">Zonas</span>
+        <a href="#" onclick="document.querySelectorAll('.zona').forEach(c=>c.checked=true);return false">todas</a>
+        <a href="#" onclick="document.querySelectorAll('.zona').forEach(c=>c.checked=false);return false">ninguna</a></div>
+        <div class="row">{% for z in zs %}<label class="chip"><input class="zona" type="checkbox" name="zonas" value="{{ z }}" checked> {{ z }}</label>{% endfor %}</div>
+        <div class="mut" style="font-size:.82rem;margin-top:.3rem">Con un subconjunto de zonas no se dan de baja los avisos de las demás.</div></div>
+      {% endif %}{% endfor %}
+      <label><input type="checkbox" name="skip_gap" value="1"> Ignorar el intervalo mínimo entre corridas (aumenta el riesgo de bloqueo)</label>
+      <div><button class="pri" type="submit">▶ Ejecutar ahora</button></div>
+    </form>
+    {% else %}<p class="mut">Tu usuario no tiene permiso para ejecutar el scrapper.</p>{% endif %}
+  {% endif %}
+</section>

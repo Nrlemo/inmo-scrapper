@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Comparar{% endblock %}
+{% block main %}
+<h1>Comparar {% if favoritas %}<small class="mut">(tus favoritas; elegí otras con «comparar» en la lista)</small>{% endif %}</h1>
+{% if props %}
+<div class="scroll"><table class="cmp-t">
+  <tr><th></th>{% for p in props %}<th><a href="/p/{{ p.id }}">{{ p.direccion or p.titulo }}</a><br><span class="mut">{{ p.barrio }}</span></th>{% endfor %}</tr>
+  {% set best = props|selectattr('usd_m2')|map(attribute='usd_m2')|list %}
+  {% for label, key in [('Precio', 'precio'), ('USD/m² cub.', 'usd_m2'), ('vs. mediana del barrio', 'rel'), ('Expensas', 'expensas'), ('m² cubiertos', 'm2_cubiertos'), ('m² totales', 'm2_totales'), ('Ambientes', 'ambientes'), ('Cocheras', 'cocheras'), ('Baños', 'banos')] %}
+  <tr><th>{{ label }}</th>{% for p in props %}<td>
+    {% if key == 'precio' %}{{ p.precio|money(p.moneda) }}
+    {% elif key == 'usd_m2' %}{% if p.usd_m2 %}<span class="{{ 'down' if p.usd_m2 == best|min }}">{{ '{:,.0f}'.format(p.usd_m2).replace(',', '.') }}</span>{% else %}–{% endif %}
+    {% elif key == 'rel' %}{% if p.usd_m2 and med.get(p.barrio) %}{% set d = (p.usd_m2 / med[p.barrio] - 1) * 100 %}<span class="{{ 'down' if d < 0 else 'up' }}">{{ '%+.0f'|format(d) }}%</span>{% else %}–{% endif %}
+    {% elif key == 'expensas' %}{{ p.expensas|money(p.moneda_expensas) }}
+    {% else %}{{ p[key] if p[key] is not none else '–' }}{% endif %}</td>{% endfor %}</tr>
+  {% endfor %}
+  <tr><th>Cambios de precio</th>{% for p in props %}<td>{% if p.variacion_pct %}<span class="{{ 'down' if p.variacion_pct < 0 else 'up' }}">{{ '%+.1f'|format(p.variacion_pct) }}%</span>{% else %}–{% endif %}</td>{% endfor %}</tr>
+  <tr><th>Historial</th>{% for p in props %}<td>{{ spark(p.hist) }}</td>{% endfor %}</tr>
+</table></div>
+{% else %}<p class="mut">Nada para comparar todavía: marcá favoritas o tildá «comparar» en <a href="/lista">la lista</a>.</p>{% endif %}
+<h2>USD/m² por barrio <small class="mut">(activas no descartadas, en USD)</small></h2>
+<div class="scroll"><table><tr><th>Barrio</th><th>Avisos</th><th>Mediana</th><th>Mín</th><th>Máx</th></tr>
+  {% for b in stats %}<tr><td><a href="/lista?barrio={{ b.barrio|urlencode }}&estado=activas&orden=usd_m2">{{ b.barrio }}</a></td><td>{{ b.n }}</td>
+    <td><b>{{ '{:,.0f}'.format(b.mediana).replace(',', '.') }}</b></td><td>{{ '{:,.0f}'.format(b.min).replace(',', '.') }}</td><td>{{ '{:,.0f}'.format(b.max).replace(',', '.') }}</td></tr>{% endfor %}</table></div>
+{% endblock %}

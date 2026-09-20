@@ -1,0 +1,13 @@
+{% from "_m.html" import acciones, datos, precio, badges %}
+<article class="item {{ 'desc' if p.descartada }}" id="p{{ p.id }}">
+  <a hx-get="/p/{{ p.id }}?panel=1" hx-target="#panel-body" href="/p/{{ p.id }}">
+    <img class="th" loading="lazy" referrerpolicy="no-referrer" src="{{ p.fotos[0] if p.fotos }}" alt=""></a>
+  <div class="b">
+    <div>{{ precio(p) }} {{ badges(p) }}</div>
+    <a class="addr" href="/p/{{ p.id }}">{{ p.direccion or p.titulo }}</a><div class="mut" style="font-size:.85rem">{{ p.barrio }}</div>
+    {{ datos(p) }}
+    <div class="mut" style="font-size:.8rem">visto {{ p.fecha_primera_vista|fecha }}
+      {% if p.notas %}· 📝 {{ p.notas[:70] }}{% endif %}</div>
+    <div class="foot">{{ acciones(p, 'fila') }}<label class="cmpl"><input type="checkbox" class="cmp" value="{{ p.id }}">comparar</label></div>
+  </div>
+</article>

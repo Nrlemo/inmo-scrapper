@@ -1,0 +1,11 @@
+<div class="row" style="justify-content:space-between;margin-bottom:.5rem">
+  <span class="mut">{{ total }} resultados</span>
+  <span><a href="/export.csv?{{ qs }}">⬇ CSV</a></span>
+</div>
+{% for p in rows %}{% include "partials/fila.html" %}{% else %}<div class="empty">Sin resultados con estos filtros.</div>{% endfor %}
+{% if paginas > 1 %}
+<div class="pager">
+  {% if f.pagina > 1 %}<a class="btn" hx-get="/lista?{{ qs }}&pagina={{ f.pagina - 1 }}" hx-target="#resultados" hx-push-url="/lista?{{ qs }}&pagina={{ f.pagina - 1 }}" href="/lista?{{ qs }}&pagina={{ f.pagina - 1 }}">← Anterior</a>{% endif %}
+  <span class="mut">{{ f.pagina }} / {{ paginas }}</span>
+  {% if f.pagina < paginas %}<a class="btn" hx-get="/lista?{{ qs }}&pagina={{ f.pagina + 1 }}" hx-target="#resultados" hx-push-url="/lista?{{ qs }}&pagina={{ f.pagina + 1 }}" href="/lista?{{ qs }}&pagina={{ f.pagina + 1 }}">Siguiente →</a>{% endif %}
+</div>{% endif %}

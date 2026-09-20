@@ -1,0 +1,28 @@
+{% from "_m.html" import acciones, datos, precio, badges, stars %}
+<div id="det" class="in" style="padding:.8rem">
+  {% if p.fotos %}<img class="hero" style="width:100%;max-height:360px;object-fit:cover;border-radius:8px" referrerpolicy="no-referrer" src="{{ p.fotos[0] }}" alt="">{% endif %}
+  <h1>{{ p.direccion or p.titulo }} <span class="mut">· {{ p.barrio }}</span></h1>
+  <div>{{ precio(p) }} {{ badges(p) }}</div>
+  {{ datos(p) }}
+  <p class="mut">{{ p.titulo }}</p>
+  {% if p.inmo_nombre %}<p>Inmobiliaria: <a href="/lista?inmo={{ p.inmobiliaria_id }}">{{ p.inmo_nombre }}</a>{% if p.corredor %} · {{ p.corredor }}{% endif %}</p>{% endif %}
+  {{ acciones(p, 'detalle') }}
+  {% if p.modificado_por %}<div class="mut" style="font-size:.85rem">Última modificación: {{ p.modificado_por }}{% if p.contactada and p.fecha_contacto %} · contactada {{ p.fecha_contacto|fecha }}{% endif %}</div>{% endif %}
+  <p>{{ stars(p) }}</p>
+  <p><input name="etiquetas" style="width:100%" placeholder="Etiquetas separadas por coma (patio, luminoso, ver…)" value="{{ p.etiquetas|join(', ') }}" hx-post="/p/{{ p.id }}/etiquetas" hx-trigger="change" hx-swap="none"></p>
+  <textarea name="notas" placeholder="Observaciones…" hx-post="/p/{{ p.id }}/notas" hx-trigger="keyup changed delay:700ms, change" hx-swap="none">{{ p.notas or '' }}</textarea>
+  <h2>Historial de precio</h2>
+  {{ spark(hist) }}
+  <table><tr><th>Fecha</th><th>Precio</th><th>Var.</th></tr>
+    {% for h in hist|reverse %}<tr><td>{{ h.fecha|fecha }}</td><td>{{ h.precio|money(h.moneda) }}</td>
+      <td>{% if h.variacion_pct %}<span class="{{ 'down' if h.variacion_pct < 0 else 'up' }}">{{ '%+.1f'|format(h.variacion_pct) }}%</span>{% endif %}</td></tr>{% endfor %}</table>
+  {% if hermanas %}<h2>También publicada en</h2>
+    {% for h in hermanas %}<div><a href="/p/{{ h.id }}">{{ h.portal }}</a> · {{ h.precio|money(h.moneda) }} · {{ h.inmo_nombre or '' }} · <a href="{{ h.url }}" target="_blank" rel="noopener noreferrer">aviso ↗</a></div>{% endfor %}{% endif %}
+  <h2>Descripción</h2><p style="white-space:pre-line">{{ p.descripcion or '—' }}</p>
+  <p><a class="btn" href="{{ p.url }}" target="_blank" rel="noopener noreferrer">Abrir aviso original ↗</a>
+     <button data-url="{{ p.url }}" onclick="loadFrame(this)">Ver aviso embebido</button></p>
+  <p class="mut" style="font-size:.85rem">Si el portal bloquea el embebido, se verá en blanco: usá «Abrir aviso original».</p>
+  <details><summary class="mut">Actividad</summary>
+    {% for e in eventos %}<div class="mut" style="font-size:.85rem">{{ e.fecha|fecha }} · {{ e.usuario }} · {{ e.tipo }} {{ e.detalle or '' if e.tipo != 'notas' }}</div>{% endfor %}</details>
+  <p class="mut" style="font-size:.8rem">Visto por primera vez {{ p.fecha_primera_vista|fecha }} · última vez {{ p.fecha_ultima_vista|fecha }}</p>
+</div>

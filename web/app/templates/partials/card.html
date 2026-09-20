@@ -1,0 +1,23 @@
+{% from "_m.html" import acciones, datos, precio, badges %}
+{% if not p %}
+  <div class="card empty"><div style="font-size:2.2rem">🎉</div><p>No quedan publicaciones sin revisar.</p><a class="btn pri" href="/lista">Ver todas</a></div>
+{% else %}
+<div class="mut" style="margin-bottom:.5rem;font-size:.9rem">{{ total }} sin revisar</div>
+<article class="card">
+  <img class="hero" referrerpolicy="no-referrer" src="{{ p.fotos[0] if p.fotos }}" alt="">
+  <div class="in">
+    <div>{{ precio(p) }} {{ badges(p) }}</div>
+    <div style="font-weight:650;font-size:1.05rem">{{ p.direccion or p.titulo }}</div><div class="mut">{{ p.barrio }}</div>
+    {{ datos(p) }}
+    {% if p.inmo_nombre %}<div class="mut" style="font-size:.85rem">{{ p.inmo_nombre }}</div>{% endif %}
+    <p class="desc-txt">{{ (p.descripcion or p.titulo or '')[:600] }}</p>
+    {{ acciones(p, 'card') }}
+    <div class="acts">
+      <button class="pri" data-key="n" hx-get="/?despues={{ p.id }}" hx-target="#card" hx-swap="innerHTML">Saltar →</button>
+      <button hx-get="/p/{{ p.id }}?panel=1" hx-target="#panel-body">Vista rápida</button>
+      <a class="btn" data-key="o" href="{{ p.url }}" target="_blank" rel="noopener noreferrer">Abrir aviso ↗</a>
+    </div>
+    <textarea placeholder="Observaciones…" name="notas" hx-post="/p/{{ p.id }}/notas" hx-trigger="keyup changed delay:700ms, change" hx-swap="none">{{ p.notas or '' }}</textarea>
+  </div>
+</article>
+{% endif %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Publicaciones{% endblock %}
+{% block main %}
+<h1>Publicaciones</h1>
+{% if guardadas %}<div class="row" style="margin-bottom:.5rem">
+  {% for g in guardadas %}<a class="chip" href="/lista?{{ g.querystring }}">{{ g.nombre }}</a>{% endfor %}</div>{% endif %}
+<form class="filters" hx-get="/lista" hx-target="#resultados" hx-push-url="true" hx-trigger="change, keyup changed delay:400ms from:input[type=search], submit">
+  <input type="search" name="q" placeholder="Buscar en título, dirección, descripción, notas…" value="{{ f.q }}">
+  <details id="fdet" {{ 'open' if f.barrio or f.portal or f.inmo or f.pmin or f.pmax or f.mmin or f.amb or f.cochera or f.baja or f.nuevas or f.inactivas }}><summary>Filtros y orden</summary><div class="grid">
+  <select name="estado">
+    {% for v, l in [('', 'Todas'), ('pendientes', 'Sin revisar'), ('activas', 'No descartadas'), ('favoritas', '★ Favoritas'), ('contactadas', 'Contactadas'), ('descartadas', 'Descartadas')] %}
+    <option value="{{ v }}" {{ 'selected' if f.estado == v }}>{{ l }}</option>{% endfor %}</select>
+  <select name="barrio"><option value="">Todos los barrios</option>
+    {% for b in barrios %}<option {{ 'selected' if f.barrio == b }}>{{ b }}</option>{% endfor %}</select>
+  <select name="portal"><option value="">Todos los portales</option>
+    {% for b in portales %}<option {{ 'selected' if f.portal == b }}>{{ b }}</option>{% endfor %}</select>
+  <select name="inmo"><option value="">Toda inmobiliaria</option>
+    {% for i in inmos %}<option value="{{ i.id }}" {{ 'selected' if f.inmo == i.id }}>{{ i.nombre }} ({{ i.n }})</option>{% endfor %}</select>
+  <input name="pmin" type="number" placeholder="Precio mín" value="{{ f.pmin|int if f.pmin is not none }}">
+  <input name="pmax" type="number" placeholder="Precio máx" value="{{ f.pmax|int if f.pmax is not none }}">
+  <input name="mmin" type="number" placeholder="m² cub. mín" value="{{ f.mmin|int if f.mmin is not none }}">
+  <select name="amb"><option value="">Ambientes</option>{% for n in range(1, 7) %}<option value="{{ n }}" {{ 'selected' if f.amb == n }}>{{ n }}+</option>{% endfor %}</select>
+  <select name="orden">
+    {% for v, l in [('nuevas', 'Más nuevas'), ('precio_asc', 'Precio ↑'), ('precio_desc', 'Precio ↓'), ('usd_m2', 'USD/m² ↑'), ('m2', 'Más m²'), ('baja', 'Mayor baja'), ('puntaje', 'Puntaje')] %}
+    <option value="{{ v }}" {{ 'selected' if f.orden == v }}>{{ l }}</option>{% endfor %}</select>
+  <label><input type="checkbox" name="baja" value="1" {{ 'checked' if f.baja }}> Bajó de precio</label>
+  <label class="wide"><input type="checkbox" name="nuevas" value="1" {{ 'checked' if f.nuevas }}> Nuevas desde mi última visita ({{ cont.nuevas }})</label>
+  <label><input type="checkbox" name="cochera" value="1" {{ 'checked' if f.cochera }}> Cochera</label>
+  <label><input type="checkbox" name="inactivas" value="1" {{ 'checked' if f.inactivas }}> Incluir dadas de baja</label>
+  </div></details>
+</form>
+<details class="filters"><summary>Guardar esta búsqueda</summary><form class="row" style="padding:.4rem" hx-post="/busquedas">
+  <input type="hidden" name="querystring" value="{{ qs }}"><input name="nombre" placeholder="Guardar esta búsqueda como…" required>
+  <button class="pri">Guardar</button></form></details>
+<div id="resultados">{% include "partials/resultados.html" %}</div>
+{% endblock %}

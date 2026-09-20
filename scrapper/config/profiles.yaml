@@ -1,0 +1,32 @@
+# Perfiles de búsqueda. Cada perfil puede tener una URL de búsqueda ya filtrada por portal.
+profiles:
+  - name: caba-apto-credito
+    operation: compra
+    type: departamento
+    currency: USD
+    price: { min: 50000, max: 125000 }
+    rooms: { min: 3 }
+    total_m2_min: 65             # se filtra por m² totales (el listado casi nunca informa los cubiertos)
+    exclude_keywords: ["pozo", "sin escritura"]
+    portals:
+      zonaprop:
+        # Una búsqueda por zona (robots.txt limita cada búsqueda a 5 páginas = 150 avisos).
+        search_url_template: >-
+          https://www.zonaprop.com.ar/departamentos-venta-{zone}-con-apto-credito-mas-de-2-habitaciones-mas-de-3-ambientes-{price_min}-{price_max}-dolar.html
+        # Almagro tiene ~221 resultados (> 150): se parte por precio. Los límites se solapan; los duplicados se descartan.
+        zones: [{zone: almagro, price_max: 110000}, {zone: almagro, price_min: 110000}, recoleta, barrio-norte, palermo, san-nicolas, villa-crespo, parque-patricios, boedo, san-cristobal]
+
+# Cadencia prudente (por portal). Todos los valores en segundos salvo indicación.
+politeness:
+  zonaprop:
+    max_pages: 5                 # tope por robots.txt
+    page_delay: [20, 45]         # pausa aleatoria entre páginas
+    zone_delay: [60, 150]        # pausa aleatoria al pasar de una zona a la siguiente
+    detail_delay: [30, 75]       # pausa aleatoria entre avisos de detalle
+    max_detail_per_run: 10       # detalles por corrida
+    runs_per_day: 1
+    run_window_hours: [8, 22]    # hora local; la hora exacta es aleatoria dentro de la ventana
+    min_hours_between_runs: 20
+    retries: 1
+    backoff: [120, 600]
+    cooldown_hours_on_block: 24  # ante 403/429/challenge: no volver a intentar por este tiempo

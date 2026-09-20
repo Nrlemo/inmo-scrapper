@@ -1,0 +1,44 @@
+{# Botones de acción; `vista` = card | fila | detalle #}
+{% macro acciones(p, vista) %}
+{% set tgt = {'card':'#card','fila':'#p'~p.id,'detalle':'#det'}[vista] %}
+{% set sw = 'innerHTML' if vista == 'card' else 'outerHTML' %}
+<div class="acts {{ 'main' if vista == 'card' }}" hx-target="{{ tgt }}" hx-swap="{{ sw }}">
+  <button class="fav {{ 'on' if p.favorito }}" title="Favorita (F)" data-key="{{ 'f' if vista != 'fila' }}" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"favorito","vista":"{{ vista }}"}'><span class="ic">{{ '★' if p.favorito else '☆' }}</span><span class="lbl">Favorita</span></button>
+  {% if p.descartada %}
+  <button title="Restaurar" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"restaurar","vista":"{{ vista }}"}'><span class="ic">↩</span><span class="lbl">Restaurar</span></button>
+  {% else %}
+  <button class="bad" title="Descartar (D)" data-key="{{ 'd' if vista != 'fila' }}" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"descartar","vista":"{{ vista }}"}'><span class="ic">✕</span><span class="lbl">Descartar</span></button>
+  {% endif %}
+  <button class="cont {{ 'on' if p.contactada }}" title="Contactada (C)" data-key="{{ 'c' if vista != 'fila' }}" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"contactada","vista":"{{ vista }}"}'><span class="ic">☎</span><span class="lbl">Contactada</span></button>
+</div>
+{% endmacro %}
+
+{% macro datos(p) %}
+<div class="row mut">
+  {% if p.m2_cubiertos %}<span>{{ '%g'|format(p.m2_cubiertos) }} m² cub.</span>{% endif %}
+  {% if p.m2_totales and p.m2_totales != p.m2_cubiertos %}<span>{{ '%g'|format(p.m2_totales) }} m² tot.</span>{% endif %}
+  {% if p.ambientes %}<span>{{ p.ambientes }} amb.</span>{% endif %}
+  {% if p.cocheras %}<span>{{ p.cocheras }} coch.</span>{% endif %}
+  {% if p.usd_m2 %}<span>USD {{ '{:,.0f}'.format(p.usd_m2).replace(',', '.') }}/m²</span>{% endif %}
+  {% if p.expensas %}<span>exp. {{ p.expensas|money(p.moneda_expensas) }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro stars(p) %}
+<span class="stars" hx-target="this" hx-swap="outerHTML">Puntaje:
+  {% for n in range(1, 6) %}<button class="{{ 'on' if (p.puntaje or 0) >= n }}" hx-post="/p/{{ p.id }}/puntaje" hx-vals='{"valor": {{ 0 if p.puntaje == n else n }}}'>★</button>{% endfor %}</span>
+{% endmacro %}
+
+{% macro precio(p) %}
+<span class="price">{{ p.precio|money(p.moneda) }}</span>
+{% if p.variacion_pct %}<span class="{{ 'down' if p.variacion_pct < 0 else 'up' }}" title="{{ p.cambio_fecha|fecha }}">{{ '↓' if p.variacion_pct < 0 else '↑' }} {{ '%.1f'|format(p.variacion_pct|abs) }}%</span>{% endif %}
+{% endmacro %}
+
+{% macro badges(p) %}
+<span class="badge">{{ p.portal }}</span>
+{% if p.grupo_id %}<span class="badge" title="Publicada en más de un portal/inmobiliaria">dup.</span>{% endif %}
+{% if not p.activa %}<span class="badge">dada de baja</span>{% endif %}
+{% if p.contactada %}<span class="badge n">contactada</span>{% endif %}
+{% if p.puntaje %}<span class="badge">{{ '★' * p.puntaje }}</span>{% endif %}
+{% for t in p.etiquetas %}<span class="badge">#{{ t }}</span>{% endfor %}
+{% endmacro %}

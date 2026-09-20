@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+sqlalchemy>=2
+# dependencias del scrapper (corre como subproceso desde la web)
+httpx
+selectolax
+pyyaml

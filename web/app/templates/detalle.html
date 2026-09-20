@@ -1,0 +1,3 @@
+{% extends "base.html" %}
+{% block title %}{{ p.direccion or 'Publicación' }}{% endblock %}
+{% block main %}<p><a href="javascript:history.back()">← Volver</a></p><div class="card">{% include "partials/detalle.html" %}</div>{% endblock %}

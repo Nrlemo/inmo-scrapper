@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Estado{% endblock %}
+{% block main %}
+<h1>Estado del scrapper</h1>
+<p class="mut">{{ tot[0] }} publicaciones · {{ tot[1] or 0 }} activas · {{ tot[2] or 0 }} con coordenadas (mapa)</p>
+{% include "partials/scrapper.html" %}
+<h2>Corridas</h2>
+<div class="scroll"><table><tr><th>Inicio</th><th>Estado</th><th>Zonas</th><th>Duración</th><th>Por</th><th>Detalle</th></tr>
+  {% for h in hist %}<tr><td>{{ h.inicio|fecha }} {{ h.inicio.strftime('%H:%M') }}</td><td>{{ h.estado }}</td>
+    <td>{{ h.zonas|join(', ') if h.zonas else 'todas' }}</td><td>{{ h.minutos }} min</td><td>{{ h.usuario or '' }}</td>
+    <td class="mut">{{ (h.mensaje or '')[:100] }}</td></tr>{% else %}<tr><td colspan="6" class="mut">Todavía no se lanzó ninguna corrida desde la web.</td></tr>{% endfor %}</table></div>
+<h2>Consultas por perfil y portal</h2>
+<div class="scroll"><table><tr><th>Fecha</th><th>Perfil</th><th>Portal</th><th>Resultados</th><th>Estado</th><th>Errores</th></tr>
+  {% for q in consultas %}<tr><td>{{ q.fecha|fecha }} {{ q.fecha.strftime('%H:%M') }}</td><td>{{ q.perfil }}</td><td>{{ q.portal }}</td><td>{{ q.cantidad_resultados }}</td>
+    <td>{{ '⛔ bloqueada' if q.bloqueada else ('✅ completa' if q.completa else '⚠ parcial') }}</td><td class="mut">{{ (q.errores or '')[:120] }}</td></tr>{% endfor %}</table></div>
+{% endblock %}
