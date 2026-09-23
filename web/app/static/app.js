@@ -32,7 +32,20 @@ document.addEventListener('keydown', e => {
     if (!eje && Math.hypot(mx, my) > 10) eje = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
     if (eje === 'x') { dx = mx; mover(dx, false); }
   }, { passive: true });
+  let ultimoToque = 0, xt = 0, yt = 0;
   document.addEventListener('touchend', () => {
+    if (art && !eje) {  // toque sin arrastrar: doble toque (como Instagram) = potencial
+      const ahora = Date.now(), b = document.querySelector('#card .card [data-key="p"]');
+      if (ahora - ultimoToque < 320 && Math.hypot(x0 - xt, y0 - yt) < 40 && b) {
+        ultimoToque = 0;
+        const pop = document.createElement('div');
+        pop.className = 'pop'; pop.textContent = '◆';
+        art.append(pop);
+        if (!b.classList.contains('on')) setTimeout(() => b.click(), 450);  // como el like: nunca desmarca
+      } else {
+        ultimoToque = ahora; xt = x0; yt = y0;
+      }
+    }
     if (!art || eje !== 'x') { art = null; return; }
     const dir = Math.sign(dx), b = boton(dir);
     if (Math.abs(dx) >= umbral() && b) {
