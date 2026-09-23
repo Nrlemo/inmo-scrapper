@@ -1,6 +1,6 @@
 // Service worker mínimo: cachea el shell estático y da una página de reserva cuando no hay red.
 // No cachea HTML dinámico (listados, detalle) porque cambia todo el tiempo y es por-usuario.
-const CACHE = 'inmo-shell-v2';
+const CACHE = 'inmo-shell-v3';
 const SHELL = [
   '/static/app.css', '/static/app.js', '/static/htmx.min.js',
   '/static/offline.html', '/static/manifest.json',
@@ -30,12 +30,15 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (url.pathname.startsWith('/static/')) {
-    e.respondWith(
-      caches.match(request).then((cached) => cached || fetch(request).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(request, copy));
+    // Stale-while-revalidate: responde con la copia en caché (rápido, sirve sin red) y la actualiza en segundo
+    // plano, así los cambios de CSS/JS llegan en la visita siguiente sin tener que cambiar el nombre del caché.
+    e.respondWith(caches.open(CACHE).then((c) => c.match(request).then((cached) => {
+      const red = fetch(request).then((res) => {
+        if (res.ok) c.put(request, res.clone());
         return res;
-      }))
-    );
+      });
+      if (cached) { e.waitUntil(red.catch(() => {})); return cached; }
+      return red;
+    })));
   }
 });

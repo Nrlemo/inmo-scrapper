@@ -336,3 +336,17 @@ def test_client_ip_and_scheme_from_trusted_hops(admin, monkeypatch):
     assert auth.client_ip(Req({})) == "172.18.0.5"
     monkeypatch.setattr("app.config.TRUSTED_PROXY_HOPS", 0)
     assert auth.client_ip(Req({"x-forwarded-for": "6.6.6.6"})) == "172.18.0.5"      # sin proxy: se ignora la cabecera
+
+
+# ---------------- login JSON de la app Android ----------------
+def test_api_login_gives_working_session_cookie(admin):
+    r = admin.post("/api/login", json={"usuario": "Admin", "clave": "mal"})
+    assert r.status_code == 401
+    r = admin.post("/api/login", json={"usuario": "Admin", "clave": PW})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["usuario"] == "admin" and d["rol"] == "admin" and d["cookie_value"]
+    app_client = new_client()      # la app pone la cookie devuelta en su WebView
+    app_client.cookies.set(d["cookie_name"], d["cookie_value"])
+    assert app_client.get("/ranking").status_code == 200
+    assert app_client.get("/sw.js").headers["service-worker-allowed"] == "/"
