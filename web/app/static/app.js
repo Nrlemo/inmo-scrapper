@@ -10,6 +10,46 @@ document.addEventListener('keydown', e => {
   const el = document.querySelector('[data-key="' + k + '"]');
   if (el) { e.preventDefault(); el.click(); }
 });
+// Revisión en pantallas táctiles: deslizar la tarjeta ← descarta, → pasa a la siguiente (como el botón Saltar).
+// El scroll vertical queda para el navegador (touch-action:pan-y en CSS); acá sólo se sigue el movimiento horizontal.
+(() => {
+  let art = null, x0 = 0, y0 = 0, dx = 0, eje = null;
+  const umbral = () => Math.min(120, innerWidth * 0.28);
+  const boton = dir => document.querySelector(dir < 0 ? '#card .card [data-key="d"]' : '#card .card [data-key="n"]');
+  const mover = (d, anim) => {
+    art.style.transition = anim ? 'transform .2s ease-out' : 'none';
+    art.style.transform = d ? `translateX(${d}px) rotate(${d / 25}deg)` : '';
+    art.dataset.swipe = d <= -umbral() ? 'izq' : d >= umbral() ? 'der' : '';
+  };
+  document.addEventListener('touchstart', e => {
+    art = e.touches.length === 1 && !e.target.closest('textarea,button,a,input') && e.target.closest('#card article.card');
+    if (!art) return;
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; eje = null;
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!art) return;
+    const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+    if (!eje && Math.hypot(mx, my) > 10) eje = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
+    if (eje === 'x') { dx = mx; mover(dx, false); }
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    if (!art || eje !== 'x') { art = null; return; }
+    const dir = Math.sign(dx), b = boton(dir);
+    if (Math.abs(dx) >= umbral() && b) {
+      mover(dir * innerWidth * 1.2, true);
+      setTimeout(() => b.click(), 180);  // htmx reemplaza la tarjeta por la siguiente
+    } else {
+      mover(0, true);
+    }
+    art = null;
+  });
+  document.addEventListener('touchcancel', () => { if (art) mover(0, true); art = null; });
+  // Si el pedido falla, la tarjeta no se reemplaza: volverla a su lugar
+  document.addEventListener('htmx:afterRequest', e => {
+    const a = document.querySelector('#card article.card');
+    if (!e.detail.successful && a) { a.style.transform = ''; a.dataset.swipe = ''; }
+  });
+})();
 // Abrir el panel de vista rápida cuando llega su contenido
 document.addEventListener('htmx:afterSwap', e => {
   if (e.detail.target.id === 'panel-body') document.getElementById('panel').showModal();

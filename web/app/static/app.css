@@ -81,7 +81,7 @@ label{display:flex;align-items:center;gap:.45rem;font-size:.92rem}
 .acts.main{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem}
 .acts.main button{min-height:50px;border-radius:14px;font-weight:600;flex-direction:column;gap:0;font-size:.85rem}
 .acts.main .ic{font-size:1.25rem;line-height:1}
-.fab{display:none}
+.fab,.swipe-hint{display:none}
 .desc-txt{max-height:9em;overflow:auto;margin:.2rem 0;color:var(--mut);font-size:.95rem}
 .stars{display:flex;flex-wrap:wrap;gap:.2rem;align-items:center;margin:.3rem 0}.stars .prom{margin-left:.4rem;font-size:.85rem}.stars button{min-height:36px;width:36px;padding:0}.stars button.on{background:var(--fav);border-color:var(--fav);color:#241a00}
 .pager{display:flex;gap:1rem;justify-content:center;align-items:center;margin:1.1rem 0}
@@ -119,6 +119,12 @@ iframe.emb{width:100%;height:70vh;border:1px solid var(--line);border-radius:12p
   /* Revisión: en vez de la fila de acciones (no entraba a lo ancho), botones flotantes a la derecha y a media altura */
   #card .card .acts.main{display:none}
   #card .card .in{padding-right:4.6rem}
+  /* Gestos (app.js): ← descartar, → siguiente; cartel mientras se arrastra más allá del umbral */
+  #card .card{position:relative;touch-action:pan-y}
+  #card .card::before{position:absolute;top:1rem;z-index:2;padding:.3rem .8rem;border:3px solid;border-radius:10px;background:#000b;font-weight:800;letter-spacing:.03em}
+  #card .card[data-swipe=izq]::before{content:"✕ DESCARTAR";right:1rem;color:var(--bad)}
+  #card .card[data-swipe=der]::before{content:"SIGUIENTE →";left:1rem;color:var(--acc)}
+  .swipe-hint{display:block;font-size:.8rem}
   .fab{display:block;position:fixed;right:.6rem;top:50%;transform:translateY(-50%);z-index:15}
   .fab .acts{display:flex;flex-direction:column;flex-wrap:nowrap;gap:.65rem}
   .fab .acts button,.fab .acts button:hover,.fab .acts button.on{flex-direction:column;gap:.15rem;min-height:0;padding:0;border:0;border-radius:0;background:none;color:var(--fg);font-size:.68rem;font-weight:650;text-shadow:0 1px 3px var(--bg)}
