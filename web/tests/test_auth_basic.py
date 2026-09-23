@@ -341,7 +341,7 @@ def test_client_ip_and_scheme_from_trusted_hops(admin, monkeypatch):
 # ---------------- login JSON de la app Android ----------------
 def test_api_login_gives_working_session_cookie(admin):
     r = admin.post("/api/login", json={"usuario": "Admin", "clave": "mal"})
-    assert r.status_code == 401
+    assert r.status_code == 401 and "incorrectos" in r.json()["detail"]   # la app muestra este mensaje
     r = admin.post("/api/login", json={"usuario": "Admin", "clave": PW})
     assert r.status_code == 200
     d = r.json()

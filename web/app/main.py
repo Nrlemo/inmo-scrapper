@@ -421,6 +421,8 @@ TITULOS = {401: "Acceso no autorizado", 403: "Acceso denegado", 404: "No encontr
 async def http_err(request: Request, exc: StarletteHTTPException):
     """Página de error simple. Los errores de autenticación/permisos (401/403) llevan el GIF."""
     code = exc.status_code
+    if request.url.path.startswith("/api/"):   # la app Android (y /api/mapa) esperan JSON, no la página de error
+        return JSONResponse({"detail": str(exc.detail)}, status_code=code, headers=getattr(exc, "headers", None))
     return templates.TemplateResponse(
         request, "error.html",
         {"titulo": TITULOS.get(code, f"Error {code}"), "detalle": str(exc.detail), "gif": code in (401, 403)},
