@@ -14,6 +14,7 @@ from . import config, security
 from .models_web import Cuenta, Sesion
 
 log = logging.getLogger("inmo.auth")
+MAX_FALLOS = 5
 
 
 class LoginRequired(Exception):
@@ -125,6 +126,29 @@ def crear_sesion(s: Session, cuenta: Cuenta, request: Request) -> str:
     cuenta.ultimo_login = now
     s.commit()
     return token
+
+
+def verificar_credenciales(s: Session, usuario: str, clave: str) -> tuple[Cuenta | None, str | None]:
+    """Valida usuario/clave con el mismo costo exista o no la cuenta. (cuenta, None) si es válida,
+    o (None, motivo) para el log si no (usuario/contraseña no se distinguen en la respuesta al cliente)."""
+    now = datetime.now()
+    cuenta = s.scalar(select(Cuenta).where(Cuenta.username == usuario)) if usuario else None
+    bloqueada = bool(cuenta and cuenta.bloqueado_hasta and cuenta.bloqueado_hasta > now)
+    if cuenta is None or not cuenta.activo or bloqueada:
+        security.verificar_falso(clave)
+        return None, "bloqueada" if bloqueada else "inexistente/inactiva"
+    if not security.verificar_clave(cuenta.password_hash, clave):
+        cuenta.fallos += 1
+        if cuenta.fallos % MAX_FALLOS == 0:      # 5, 10, 15… fallos: bloqueo creciente (15 min, 30, 60… máx. 24 h)
+            minutos = min(15 * 2 ** (cuenta.fallos // MAX_FALLOS - 1), 1440)
+            cuenta.bloqueado_hasta = now + timedelta(minutes=minutos)
+            log.warning("cuenta %r bloqueada %d min tras %d fallos", cuenta.username, minutos, cuenta.fallos)
+        s.commit()
+        return None, "clave incorrecta"
+    if security.necesita_rehash(cuenta.password_hash):
+        cuenta.password_hash = security.hash_clave(clave)
+    cuenta.fallos, cuenta.bloqueado_hasta = 0, None
+    return cuenta, None
 
 
 def cerrar_sesiones(s: Session, cuenta_id: int, excepto: str | None = None) -> None:

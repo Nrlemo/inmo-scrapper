@@ -10,7 +10,7 @@ from urllib.parse import quote
 from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import select, text
@@ -99,6 +99,13 @@ ACCIONES = {"favorito", "potencial", "descartar", "contactada", "restaurar"}
 def healthz():
     """Sin autenticación (lo usa el healthcheck de Docker); no expone datos."""
     return Response("ok", media_type="text/plain")
+
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    """Se sirve desde la raíz (no /static/) para poder controlar todo el sitio (scope /)."""
+    return FileResponse(config.ROOT / "app" / "static" / "sw.js", media_type="text/javascript",
+                        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"})
 
 
 @app.get("/", response_class=HTMLResponse)
