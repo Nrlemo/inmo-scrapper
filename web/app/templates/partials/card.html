@@ -20,4 +20,7 @@
     <textarea placeholder="Observaciones…" name="notas" hx-post="/p/{{ p.id }}/notas" hx-trigger="keyup changed delay:700ms, change" hx-swap="none">{{ p.notas or '' }}</textarea>
   </div>
 </article>
+{# En el celular: las mismas acciones como botones flotantes a media altura, al alcance del pulgar (estilo TikTok).
+   Van fuera del <article> porque su animación de entrada rompería el position:fixed. #}
+<div class="fab">{{ acciones(p, 'card') }}</div>
 {% endif %}
