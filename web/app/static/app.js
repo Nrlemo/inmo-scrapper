@@ -3,7 +3,7 @@ document.addEventListener('htmx:configRequest', e => {
   const m = document.querySelector('meta[name=csrf-token]');
   if (m) e.detail.headers['X-CSRF-Token'] = m.content;
 });
-// Atajos de teclado (revisión): f favorita, d descartar, c contactada, → / n siguiente, o abrir aviso
+// Atajos de teclado (revisión): f favorita, p potencial, d descartar, c contactada, → / n siguiente, o abrir aviso
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
   const k = e.key === 'ArrowRight' ? 'n' : e.key.toLowerCase();

@@ -8,14 +8,16 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 BASE = """
-SELECT p.*, COALESCE(r.favorito,0) favorito, COALESCE(r.descartada,0) descartada,
+SELECT p.*, COALESCE(r.favorito,0) favorito, COALESCE(r.potencial,0) potencial, COALESCE(r.descartada,0) descartada,
   COALESCE(r.contactada,0) contactada, COALESCE(r.revisada,0) revisada, r.notas, r.modificado_por,
-  r.fecha_contacto, c.puntaje, c.etiquetas,
+  r.fecha_contacto, pu.promedio puntaje, COALESCE(pu.votos,0) votos, c.etiquetas,
   CASE WHEN COALESCE(p.m2_cubiertos, p.m2_totales) > 0 AND p.moneda = 'USD' THEN p.precio / COALESCE(p.m2_cubiertos, p.m2_totales) END usd_m2,
   ch.variacion_pct, ch.fecha cambio_fecha, i.nombre inmo_nombre
 FROM publicaciones p
 LEFT JOIN web_revision r ON r.publicacion_id = p.id
 LEFT JOIN categorizacion c ON c.publicacion_id = p.id
+LEFT JOIN (SELECT publicacion_id, AVG(puntaje) promedio, COUNT(*) votos FROM web_puntajes GROUP BY publicacion_id) pu
+  ON pu.publicacion_id = p.id
 LEFT JOIN historial_precios ch ON ch.id = (
   SELECT h.id FROM historial_precios h WHERE h.publicacion_id = p.id AND h.variacion_pct IS NOT NULL
   ORDER BY h.fecha DESC, h.id DESC LIMIT 1)
@@ -26,7 +28,7 @@ ORDENES = {
     "nuevas": "p.fecha_primera_vista DESC, p.id DESC",
     "precio_asc": "p.precio ASC", "precio_desc": "p.precio DESC",
     "usd_m2": "usd_m2 ASC", "m2": "COALESCE(p.m2_cubiertos, p.m2_totales) DESC",
-    "baja": "ch.variacion_pct ASC", "puntaje": "c.puntaje DESC",
+    "baja": "ch.variacion_pct ASC", "puntaje": "puntaje DESC NULLS LAST, votos DESC",
 }
 
 
@@ -41,7 +43,7 @@ class Filtros:
     mmin: float | None = None
     amb: int | None = None
     cochera: bool = False
-    estado: str = ""       # pendientes | favoritas | contactadas | descartadas | activas (=no descartadas)
+    estado: str = ""       # pendientes | favoritas | potencial | contactadas | descartadas | activas (=no descartadas)
     baja: bool = False     # bajó de precio
     nuevas: bool = False   # desde tu última visita
     inactivas: bool = False
@@ -72,7 +74,7 @@ class Filtros:
             w.append("p.cocheras > 0")
         estados = {
             "pendientes": "COALESCE(r.revisada,0) = 0 AND COALESCE(r.descartada,0) = 0",
-            "favoritas": "r.favorito = 1", "contactadas": "r.contactada = 1",
+            "favoritas": "r.favorito = 1", "potencial": "r.potencial = 1", "contactadas": "r.contactada = 1",
             "descartadas": "r.descartada = 1", "activas": "COALESCE(r.descartada,0) = 0",
         }
         if self.estado in estados:
@@ -214,7 +216,7 @@ def mapa(c: Connection, f: Filtros) -> list[dict]:
         d = _row(r)
         out.append({"id": d["id"], "lat": d["lat"], "lng": d["lng"], "precio": d["precio"], "moneda": d["moneda"],
                     "m2": d["m2_cubiertos"], "amb": d["ambientes"], "dir": d["direccion"], "barrio": d["barrio"],
-                    "foto": (d["fotos"] or [None])[0], "fav": bool(d["favorito"]), "desc": bool(d["descartada"]),
+                    "foto": (d["fotos"] or [None])[0], "fav": bool(d["favorito"]), "pot": bool(d["potencial"]), "desc": bool(d["descartada"]),
                     "cont": bool(d["contactada"]), "baja": (d["variacion_pct"] or 0) < 0})
     return out
 
@@ -237,6 +239,42 @@ def contadores(c: Connection, desde: datetime | None) -> dict:
         "pendientes": q("SELECT COUNT(*) FROM publicaciones p LEFT JOIN web_revision r ON r.publicacion_id=p.id "
                         "WHERE p.activa=1 AND COALESCE(r.revisada,0)=0 AND COALESCE(r.descartada,0)=0"),
         "favoritas": q("SELECT COUNT(*) FROM web_revision WHERE favorito=1 AND descartada=0"),
+        "potencial": q("SELECT COUNT(*) FROM web_revision WHERE potencial=1 AND descartada=0"),
         "corriendo": q("SELECT COUNT(*) FROM ejecuciones WHERE estado='corriendo'"),
         "nuevas": q("SELECT COUNT(*) FROM publicaciones WHERE activa=1 AND fecha_primera_vista > :d", {"d": desde}) if desde else 0,
     }
+
+
+def mi_puntaje(c: Connection, pid: int, usuario: str) -> int | None:
+    return c.execute(text("SELECT puntaje FROM web_puntajes WHERE publicacion_id=:i AND usuario=:u"),
+                     {"i": pid, "u": usuario}).scalar()
+
+
+def puntajes(c: Connection, pid: int) -> list[dict]:
+    """Puntaje de cada usuario para una publicación."""
+    return [dict(r) for r in c.execute(text("SELECT usuario, puntaje FROM web_puntajes WHERE publicacion_id=:i "
+                                            "ORDER BY puntaje DESC, usuario"), {"i": pid}).mappings()]
+
+
+def ranking(c: Connection, usuario: str = "", inactivas: bool = False, descartadas: bool = False) -> tuple[list[dict], list[str]]:
+    """Publicaciones puntuadas, de mayor a menor promedio. Con `usuario`, ordena por el puntaje de esa persona.
+    Devuelve las filas (cada una con `por_usuario`: {usuario: puntaje}) y los usuarios que puntuaron."""
+    w = ["pu.votos > 0"]
+    if not inactivas:
+        w.append("p.activa = 1")
+    if not descartadas:
+        w.append("COALESCE(r.descartada,0) = 0")
+    args: dict = {}
+    order = "puntaje DESC, votos DESC, p.id DESC"
+    if usuario:
+        w.append("EXISTS (SELECT 1 FROM web_puntajes x WHERE x.publicacion_id = p.id AND x.usuario = :u)")
+        order = "(SELECT x.puntaje FROM web_puntajes x WHERE x.publicacion_id = p.id AND x.usuario = :u) DESC, " + order
+        args["u"] = usuario
+    rows = [_row(r) for r in c.execute(text(f"{BASE} WHERE {' AND '.join(w)} ORDER BY {order} LIMIT 500"), args).mappings()]
+    por: dict[int, dict[str, int]] = {}
+    for pid, u, v in c.execute(text("SELECT publicacion_id, usuario, puntaje FROM web_puntajes")):
+        por.setdefault(pid, {})[u] = v
+    for r in rows:
+        r["por_usuario"] = por.get(r["id"], {})
+    usuarios = [x[0] for x in c.execute(text("SELECT usuario FROM web_puntajes GROUP BY usuario ORDER BY COUNT(*) DESC, usuario"))]
+    return rows, usuarios

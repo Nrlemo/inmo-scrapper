@@ -22,12 +22,22 @@ class Revision(WebBase):
     __tablename__ = "web_revision"
     publicacion_id: Mapped[int] = mapped_column(Integer, primary_key=True)  # FK lógica a publicaciones.id
     favorito: Mapped[bool] = mapped_column(Boolean, default=False)
+    potencial: Mapped[bool] = mapped_column(Boolean, default=False)
     descartada: Mapped[bool] = mapped_column(Boolean, default=False)
     contactada: Mapped[bool] = mapped_column(Boolean, default=False)
     revisada: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     fecha_contacto: Mapped[datetime | None] = mapped_column(DateTime)
     notas: Mapped[str | None] = mapped_column(Text)
     modificado_por: Mapped[str | None] = mapped_column(String(128))
+    fecha: Mapped[datetime] = mapped_column(DateTime)
+
+
+class Puntaje(WebBase):
+    """Puntaje 1–5 que cada usuario le da a una publicación (el de `categorizacion` es el promedio redondeado)."""
+    __tablename__ = "web_puntajes"
+    publicacion_id: Mapped[int] = mapped_column(Integer, primary_key=True)  # FK lógica a publicaciones.id
+    usuario: Mapped[str] = mapped_column(String(128), primary_key=True)
+    puntaje: Mapped[int] = mapped_column(Integer)
     fecha: Mapped[datetime] = mapped_column(DateTime)
 
 

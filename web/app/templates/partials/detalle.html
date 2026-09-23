@@ -8,7 +8,7 @@
   {% if p.inmo_nombre %}<p>Inmobiliaria: <a href="/lista?inmo={{ p.inmobiliaria_id }}">{{ p.inmo_nombre }}</a>{% if p.corredor %} · {{ p.corredor }}{% endif %}</p>{% endif %}
   {{ acciones(p, 'detalle') }}
   {% if p.modificado_por %}<div class="mut" style="font-size:.85rem">Última modificación: {{ p.modificado_por }}{% if p.contactada and p.fecha_contacto %} · contactada {{ p.fecha_contacto|fecha }}{% endif %}</div>{% endif %}
-  <p>{{ stars(p) }}</p>
+  {{ stars(p, mio, puntajes) }}
   <p><input name="etiquetas" style="width:100%" placeholder="Etiquetas separadas por coma (patio, luminoso, ver…)" value="{{ p.etiquetas|join(', ') }}" hx-post="/p/{{ p.id }}/etiquetas" hx-trigger="change" hx-swap="none"></p>
   <textarea name="notas" placeholder="Observaciones…" hx-post="/p/{{ p.id }}/notas" hx-trigger="keyup changed delay:700ms, change" hx-swap="none">{{ p.notas or '' }}</textarea>
   <h2>Historial de precio</h2>

@@ -22,7 +22,7 @@ from .auth import LoginRequired, PasswordChangeRequired, SetupRequired
 from .auth_routes import router as auth_router
 from .core import ctx, headers, render, templates
 from .db import init_engine, sembrar_config
-from .models_web import BusquedaGuardada, Evento, Revision, Usuario
+from .models_web import BusquedaGuardada, Evento, Puntaje, Revision, Usuario
 from .queries import Filtros
 
 ENGINE = None
@@ -66,7 +66,7 @@ def _filtros(request: Request, desde) -> Filtros:
 
 
 # ---------- acciones ----------
-ESTADO_CAT = (("descartada", "descartado"), ("contactada", "contactado"), ("favorito", "interesante"))
+ESTADO_CAT = (("descartada", "descartado"), ("contactada", "contactado"), ("favorito", "interesante"), ("potencial", "interesante"))
 
 
 def _rev(s: Session, pid: int, user: str) -> Revision:
@@ -74,8 +74,8 @@ def _rev(s: Session, pid: int, user: str) -> Revision:
         raise HTTPException(404)
     r = s.get(Revision, pid)
     if r is None:
-        r = Revision(publicacion_id=pid, favorito=False, descartada=False, contactada=False, revisada=False,
-                     fecha=datetime.now())
+        r = Revision(publicacion_id=pid, favorito=False, potencial=False, descartada=False, contactada=False,
+                     revisada=False, fecha=datetime.now())
         s.add(r)
     r.modificado_por, r.fecha = user, datetime.now()
     return r
@@ -91,7 +91,7 @@ def _sync_estado(s: Session, r: Revision):
               {"e": est, "f": datetime.now(), "i": r.publicacion_id})
 
 
-ACCIONES = {"favorito", "descartar", "contactada", "restaurar"}
+ACCIONES = {"favorito", "potencial", "descartar", "contactada", "restaurar"}
 
 
 # ---------- pantallas ----------
@@ -118,8 +118,12 @@ def accion(request: Request, pid: int, accion: str = Form(...), vista: str = For
         r.favorito = not r.favorito
         if r.favorito:
             r.descartada = False
+    elif accion == "potencial":
+        r.potencial = not r.potencial
+        if r.potencial:
+            r.descartada = False
     elif accion == "descartar":
-        r.descartada, r.favorito = True, False
+        r.descartada, r.favorito, r.potencial = True, False, False
     elif accion == "contactada":
         r.contactada = not r.contactada
         r.fecha_contacto = datetime.now() if r.contactada else None
@@ -137,15 +141,19 @@ def accion(request: Request, pid: int, accion: str = Form(...), vista: str = For
         return render(request, "partials/card.html", c, p=p, total=total)
     p = queries.uno(s.connection(), pid)
     return render(request, "partials/detalle.html" if vista == "detalle" else "partials/fila.html", c,
-                  p=p, **_detalle_extra(s, p, vista))
+                  p=p, **_detalle_extra(s, p, vista, user))
 
 
-def _detalle_extra(s, p, vista):
+def _detalle_extra(s, p, vista, user: str):
     if vista != "detalle":
         return {}
     conn = s.connection()
     return {"hist": queries.historial(conn, p["id"]), "hermanas": queries.hermanas(conn, p),
-            "eventos": queries.eventos(conn, p["id"])}
+            "eventos": queries.eventos(conn, p["id"]), **_puntajes_ctx(conn, p["id"], user)}
+
+
+def _puntajes_ctx(conn, pid: int, user: str) -> dict:
+    return {"mio": queries.mi_puntaje(conn, pid, user), "puntajes": queries.puntajes(conn, pid)}
 
 
 @app.post("/p/{pid}/notas")
@@ -164,11 +172,22 @@ def puntaje(request: Request, pid: int, valor: int = Form(...), c=Depends(ctx)):
         raise HTTPException(400)
     s, user = c["s"], c["user"].username
     _rev(s, pid, user)
-    s.execute(text("UPDATE categorizacion SET puntaje=:v, fecha_modificacion=:f WHERE publicacion_id=:i"),
-              {"v": valor or None, "f": datetime.now(), "i": pid})
+    mio = s.get(Puntaje, (pid, user))
+    if valor:
+        if mio is None:
+            mio = Puntaje(publicacion_id=pid, usuario=user)
+            s.add(mio)
+        mio.puntaje, mio.fecha = valor, datetime.now()
+    elif mio is not None:
+        s.delete(mio)
+    s.flush()
+    # categorizacion.puntaje queda como el promedio redondeado de todos los usuarios
+    s.execute(text("UPDATE categorizacion SET puntaje=(SELECT ROUND(AVG(puntaje)) FROM web_puntajes WHERE publicacion_id=:i), "
+                   "fecha_modificacion=:f WHERE publicacion_id=:i"), {"f": datetime.now(), "i": pid})
     _log(s, pid, user, "puntaje", str(valor))
     s.commit()
-    return render(request, "partials/stars.html", c, p=queries.uno(s.connection(), pid))
+    conn = s.connection()
+    return render(request, "partials/stars.html", c, p=queries.uno(conn, pid), **_puntajes_ctx(conn, pid, user))
 
 
 @app.post("/p/{pid}/etiquetas")
@@ -188,7 +207,7 @@ def detalle(request: Request, pid: int, panel: int = 0, c=Depends(ctx)):
     p = queries.uno(c["s"].connection(), pid)
     if not p:
         raise HTTPException(404)
-    extra = _detalle_extra(c["s"], p, "detalle")
+    extra = _detalle_extra(c["s"], p, "detalle", c["user"].username)
     return render(request, "partials/detalle.html" if panel else "detalle.html", c, p=p, vista="detalle", **extra)
 
 
@@ -224,6 +243,13 @@ def borrar_busqueda(bid: int, c=Depends(ctx)):
     c["s"].execute(text("DELETE FROM web_busquedas WHERE id=:i"), {"i": bid})
     c["s"].commit()
     return Response(headers={"HX-Redirect": "/lista"})
+
+
+@app.get("/ranking", response_class=HTMLResponse)
+def ranking(request: Request, usuario: str = "", inactivas: int = 0, descartadas: int = 0, c=Depends(ctx)):
+    rows, usuarios = queries.ranking(c["s"].connection(), usuario, bool(inactivas), bool(descartadas))
+    return render(request, "ranking.html", c, rows=rows, usuarios=usuarios, sel=usuario,
+                  inactivas=inactivas, descartadas=descartadas)
 
 
 @app.get("/cambios", response_class=HTMLResponse)
@@ -340,13 +366,14 @@ def export(request: Request, c=Depends(ctx)):
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(["id", "portal", "url", "barrio", "direccion", "precio", "moneda", "m2_cub", "ambientes", "usd_m2",
-                "favorito", "descartada", "contactada", "puntaje", "notas"])
+                "favorito", "potencial", "descartada", "contactada", "puntaje_promedio", "votos", "notas"])
     for p in rows:
         def safe(v):  # evita inyección de fórmulas al abrir en planilla
             return "'" + v if isinstance(v, str) and v[:1] in "=+-@" else v
         w.writerow([p["id"], p["portal"], p["url"], safe(p["barrio"]), safe(p["direccion"]), p["precio"], p["moneda"],
-                    p["m2_cubiertos"], p["ambientes"], round(p["usd_m2"] or 0) or "", p["favorito"], p["descartada"],
-                    p["contactada"], p["puntaje"], safe(p["notas"])])
+                    p["m2_cubiertos"], p["ambientes"], round(p["usd_m2"] or 0) or "", p["favorito"], p["potencial"],
+                    p["descartada"], p["contactada"], round(p["puntaje"], 2) if p["puntaje"] else "", p["votos"],
+                    safe(p["notas"])])
     return Response(out.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": "attachment; filename=propiedades.csv"})
 

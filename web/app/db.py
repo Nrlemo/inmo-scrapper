@@ -53,7 +53,29 @@ def sembrar_config() -> bool:
 def init_engine() -> Engine:
     verificar_datos(config.DB_PATH)
     engine = make_engine(config.DB_PATH)  # crea/migra el esquema del scrapper (incluye lat/lng)
+    with engine.connect() as c:
+        habia_puntajes = c.execute(text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='web_puntajes'")).first()
     WebBase.metadata.create_all(engine)
     with engine.begin() as c:
         c.execute(text("PRAGMA busy_timeout=5000"))
+        _migrar(c, primera_vez_puntajes=habia_puntajes is None)
     return engine
+
+
+def _migrar(c, primera_vez_puntajes: bool) -> None:
+    """create_all no altera tablas existentes: agrega columnas nuevas y pasa datos al esquema nuevo."""
+    rev = {r[1] for r in c.execute(text("PRAGMA table_info(web_revision)"))}
+    if "potencial" not in rev:
+        c.execute(text("ALTER TABLE web_revision ADD COLUMN potencial BOOLEAN NOT NULL DEFAULT 0"))
+    if primera_vez_puntajes:
+        # Antes el puntaje era uno solo por publicación: se le atribuye a quien lo puso por última vez
+        # (según el registro de actividad) o, si no hay registro, a quien modificó la publicación.
+        c.execute(text("""
+            INSERT INTO web_puntajes (publicacion_id, usuario, puntaje, fecha)
+            SELECT c.publicacion_id,
+                   COALESCE((SELECT e.usuario FROM web_eventos e WHERE e.publicacion_id = c.publicacion_id
+                             AND e.tipo = 'puntaje' ORDER BY e.id DESC LIMIT 1),
+                            (SELECT r.modificado_por FROM web_revision r WHERE r.publicacion_id = c.publicacion_id),
+                            'anterior'),
+                   c.puntaje, c.fecha_modificacion
+            FROM categorizacion c WHERE c.puntaje BETWEEN 1 AND 5"""))

@@ -11,7 +11,7 @@ def test_post_requires_htmx_header(client):
 
 
 def test_all_pages_render(client):
-    for url in ["/", "/lista", "/cambios", "/comparar", "/mapa", "/estado", "/p/1", "/lista?q=Calle&baja=1&nuevas=1&orden=usd_m2"]:
+    for url in ["/", "/lista", "/lista?estado=potencial", "/ranking", "/cambios", "/comparar", "/mapa", "/estado", "/p/1", "/lista?q=Calle&baja=1&nuevas=1&orden=usd_m2"]:
         r = client.get(url)
         assert r.status_code == 200, url
     assert "&lt;b&gt;" in client.get("/p/1").text          # escapado de contenido scrapeado
@@ -42,6 +42,65 @@ def test_favorite_notes_contacted_multiuser(client):
     assert "1 resultados" in client.get("/lista?estado=contactadas").text
     r = client.post("/p/1/puntaje", data={"valor": 2}, headers=HX)
     assert r.status_code == 200 and r.text.count('class="on"') == 2
+
+
+def test_potencial(client):
+    r = client.post("/p/2/accion", data={"accion": "potencial", "vista": "fila"}, headers=HX)
+    assert "◆ potencial" in r.text
+    r = client.get("/lista?estado=potencial", headers={"X-authentik-username": "beto"})   # compartido
+    assert "1 resultados" in r.text and "Calle 2" in r.text
+    assert [d["pot"] for d in client.get("/api/mapa?estado=potencial").json()] == [True]
+    client.post("/p/2/accion", data={"accion": "descartar", "vista": "fila"}, headers=HX)  # descartar la saca
+    assert "0 resultados" in client.get("/lista?estado=potencial").text
+    client.post("/p/2/accion", data={"accion": "potencial", "vista": "card"}, headers=HX)  # y marcarla la restaura
+    assert "1 resultados" in client.get("/lista?estado=potencial").text
+    assert "0 resultados" in client.get("/lista?estado=descartadas").text
+
+
+def test_puntaje_por_usuario_y_ranking(client):
+    BETO = {**HX, "X-authentik-username": "beto"}
+    client.post("/p/1/puntaje", data={"valor": 5}, headers=HX)
+    r = client.post("/p/1/puntaje", data={"valor": 2}, headers=BETO)
+    assert r.text.count('class="on"') == 2 and "Promedio <b>3.5</b>" in r.text   # beto ve el suyo, no el de ana
+    assert client.get("/p/1").text.count('class="on"') >= 5                       # ana sigue viendo 5
+    client.post("/p/2/puntaje", data={"valor": 4}, headers=HX)
+    r = client.get("/ranking")
+    assert r.text.index("Calle 2") < r.text.index("Calle 1")                       # promedio 4 > 3.5
+    r = client.get("/ranking?usuario=ana")
+    assert r.text.index("Calle 1") < r.text.index("Calle 2")                       # ana: 5 > 4
+    assert "Calle 2" not in client.get("/ranking?usuario=beto").text
+    assert "Calle 3" not in client.get("/ranking").text                            # sin puntaje
+    r = client.get("/lista?orden=puntaje")
+    assert r.text.index("Calle 2") < r.text.index("Calle 1") < r.text.index("Calle 3")
+    client.post("/p/1/puntaje", data={"valor": 0}, headers=HX)                     # ana borra el suyo
+    assert "★ 2.0" in client.get("/lista").text
+    from sqlalchemy import text
+    with client.app.state.engine.connect() as c:
+        assert c.execute(text("SELECT puntaje FROM categorizacion WHERE publicacion_id=1")).scalar() == 2
+
+
+def test_migra_puntajes_viejos(tmp_path, monkeypatch):
+    """Una base con puntajes por publicación (esquema anterior) los pasa a quien los puso."""
+    import sqlite3
+    from conftest import _build
+    gen = _build(tmp_path, monkeypatch, "authentik", {"X-authentik-username": "ana"})
+    client = next(gen)
+    gen.close()
+    db = tmp_path / "t.sqlite"
+    con = sqlite3.connect(db)
+    con.executescript("""DROP TABLE web_puntajes; ALTER TABLE web_revision DROP COLUMN potencial;
+        UPDATE categorizacion SET puntaje=4 WHERE publicacion_id=1;
+        UPDATE categorizacion SET puntaje=3 WHERE publicacion_id=2;
+        INSERT INTO web_eventos (publicacion_id, usuario, tipo, detalle, fecha) VALUES (1, 'carla', 'puntaje', '4', '2026-01-01');""")
+    con.commit(); con.close()
+    for m in [m for m in list(__import__("sys").modules) if m == "app" or m.startswith("app.")]:
+        del __import__("sys").modules[m]
+    from fastapi.testclient import TestClient
+    from app.main import app
+    with TestClient(app, headers={"X-authentik-username": "ana"}) as c:
+        r = c.get("/ranking")
+        assert "carla" in r.text and "anterior" in r.text and "Calle 1" in r.text and "Calle 2" in r.text
+        assert c.post("/p/1/accion", data={"accion": "potencial"}, headers=HX).status_code == 200
 
 
 def test_filters_price_drop_map_export(client):

@@ -4,6 +4,7 @@
 {% set sw = 'innerHTML' if vista == 'card' else 'outerHTML' %}
 <div class="acts {{ 'main' if vista == 'card' }}" hx-target="{{ tgt }}" hx-swap="{{ sw }}">
   <button class="fav {{ 'on' if p.favorito }}" title="Favorita (F)" data-key="{{ 'f' if vista != 'fila' }}" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"favorito","vista":"{{ vista }}"}'><span class="ic">{{ '★' if p.favorito else '☆' }}</span><span class="lbl">Favorita</span></button>
+  <button class="pot {{ 'on' if p.potencial }}" title="Tiene potencial (P)" data-key="{{ 'p' if vista != 'fila' }}" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"potencial","vista":"{{ vista }}"}'><span class="ic">{{ '◆' if p.potencial else '◇' }}</span><span class="lbl">Potencial</span></button>
   {% if p.descartada %}
   <button title="Restaurar" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"restaurar","vista":"{{ vista }}"}'><span class="ic">↩</span><span class="lbl">Restaurar</span></button>
   {% else %}
@@ -24,9 +25,13 @@
 </div>
 {% endmacro %}
 
-{% macro stars(p) %}
-<span class="stars" hx-target="this" hx-swap="outerHTML">Puntaje:
-  {% for n in range(1, 6) %}<button class="{{ 'on' if (p.puntaje or 0) >= n }}" hx-post="/p/{{ p.id }}/puntaje" hx-vals='{"valor": {{ 0 if p.puntaje == n else n }}}'>★</button>{% endfor %}</span>
+{# Puntaje propio (cada usuario puntúa por su cuenta) + promedio y detalle de los demás #}
+{% macro stars(p, mio, puntajes) %}
+<div class="stars" hx-target="this" hx-swap="outerHTML">
+  <span>Mi puntaje:</span>
+  {% for n in range(1, 6) %}<button class="{{ 'on' if (mio or 0) >= n }}" hx-post="/p/{{ p.id }}/puntaje" hx-vals='{"valor": {{ 0 if mio == n else n }}}' aria-label="{{ n }} de 5">★</button>{% endfor %}
+  {% if p.votos %}<span class="mut prom">Promedio <b>{{ '%.1f'|format(p.puntaje) }}</b> · {% for x in puntajes %}{{ x.usuario }} {{ x.puntaje }}★{{ ', ' if not loop.last }}{% endfor %} · <a href="/ranking">ranking</a></span>{% endif %}
+</div>
 {% endmacro %}
 
 {% macro precio(p) %}
@@ -39,6 +44,7 @@
 {% if p.grupo_id %}<span class="badge" title="Publicada en más de un portal/inmobiliaria">dup.</span>{% endif %}
 {% if not p.activa %}<span class="badge">dada de baja</span>{% endif %}
 {% if p.contactada %}<span class="badge n">contactada</span>{% endif %}
-{% if p.puntaje %}<span class="badge">{{ '★' * p.puntaje }}</span>{% endif %}
+{% if p.potencial %}<span class="badge pot">◆ potencial</span>{% endif %}
+{% if p.votos %}<span class="badge" title="Promedio de {{ p.votos }} puntaje{{ 's' if p.votos > 1 }}">★ {{ '%.1f'|format(p.puntaje) }}{% if p.votos > 1 %} ({{ p.votos }}){% endif %}</span>{% endif %}
 {% for t in p.etiquetas %}<span class="badge">#{{ t }}</span>{% endfor %}
 {% endmacro %}

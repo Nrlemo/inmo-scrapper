@@ -12,6 +12,7 @@
   <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 3h6l1-3h5"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r=".8"/><circle cx="4" cy="12" r=".8"/><circle cx="4" cy="18" r=".8"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.9 6.6 19.8l1.1-6.1L3.2 9.4l6.1-.8z"/></symbol>
+  <symbol id="i-gem" viewBox="0 0 24 24"><path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18M9 4l3 16 3-16"/></symbol>
   <symbol id="i-trend" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
   <symbol id="i-map" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
 </defs></svg>
@@ -21,12 +22,14 @@
   <a class="brand" href="/">🏠 Inmo</a>
   <nav class="tabs" aria-label="Principal">
     {{ tab('/', path == '/', 'inbox', 'Revisión', cont.pendientes) }}
-    {{ tab('/lista', path == '/lista' and request.query_params.get('estado') != 'favoritas', 'list', 'Todas') }}
-    {{ tab('/lista?estado=favoritas', request.query_params.get('estado') == 'favoritas', 'star', 'Favoritas', cont.favoritas) }}
+    {% set est = request.query_params.get('estado') if path == '/lista' %}
+    {{ tab('/lista', path == '/lista' and est not in ('favoritas', 'potencial'), 'list', 'Todas') }}
+    {{ tab('/lista?estado=favoritas', est == 'favoritas', 'star', 'Favoritas', cont.favoritas) }}
+    {{ tab('/lista?estado=potencial', est == 'potencial', 'gem', 'Potencial', cont.potencial) }}
     {{ tab('/cambios', path == '/cambios', 'trend', 'Precios') }}
     {{ tab('/mapa', path == '/mapa', 'map', 'Mapa') }}
   </nav>
-  <div class="sec">{% if cont.corriendo %}<a href="/estado" class="on runlink" title="Scrapper corriendo"><i class="dot"></i>corriendo</a>{% endif %}<a href="/comparar" class="{{ 'on' if path == '/comparar' }}">Comparar</a><a href="/estado" class="{{ 'on' if path == '/estado' }}">Estado</a>{% if auth_mode == 'basic' %}{% if user.es_admin %}<a href="/usuarios" class="desk {{ 'on' if path == '/usuarios' }}">Usuarios</a>{% endif %}<a href="/cuenta" class="{{ 'on' if path == '/cuenta' }}">Cuenta</a>{% else %}<span class="mut user">{{ user.username }}</span>{% endif %}</div>
+  <div class="sec">{% if cont.corriendo %}<a href="/estado" class="on runlink" title="Scrapper corriendo"><i class="dot"></i>corriendo</a>{% endif %}<a href="/ranking" class="{{ 'on' if path == '/ranking' }}">Ranking</a><a href="/comparar" class="{{ 'on' if path == '/comparar' }}">Comparar</a><a href="/estado" class="{{ 'on' if path == '/estado' }}">Estado</a>{% if auth_mode == 'basic' %}{% if user.es_admin %}<a href="/usuarios" class="desk {{ 'on' if path == '/usuarios' }}">Usuarios</a>{% endif %}<a href="/cuenta" class="{{ 'on' if path == '/cuenta' }}">Cuenta</a>{% else %}<span class="mut user">{{ user.username }}</span>{% endif %}</div>
 </header>
 <main>{% block main %}{% endblock %}</main>
 <dialog id="panel"><button class="x" aria-label="Cerrar" onclick="this.closest('dialog').close()">✕</button><div id="panel-body"></div></dialog>
