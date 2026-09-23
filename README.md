@@ -264,20 +264,6 @@ AUTH_MODE=none .venv/bin/uvicorn app.main:app --reload
 .venv/bin/pytest
 ```
 
-## 🔒 Datos personales
-
-Nada personal se versiona ni entra en la imagen de Docker. Lo que es tuyo vive en archivos ignorados por git o en variables de entorno:
-
-| Dato | Dónde va | Se versiona |
-|---|---|---|
-| Presupuesto y zonas de búsqueda | `scrapper/config/profiles.yaml` (se crea sola desde `profiles.example.yaml`) | ❌ ignorado |
-| Contacto del User-Agent del scrapper | variable `INMO_CONTACT` (en `.env`) | ❌ |
-| Credenciales, `SETUP_TOKEN`, `PROXY_SECRET` | `.env` | ❌ ignorado (solo `.env.example`) |
-| Claves de portales (`.ml_secrets`) | archivo local | ❌ ignorado |
-| Base de datos (favoritas, notas, usuarios, sesiones) y logs | `scrapper/data/` | ❌ ignorado |
-
-Antes de publicar el repo, recordá que el historial de git conserva los commits anteriores (incluido el nombre y email del autor del commit).
-
 ## 📝 Notas
 
 - El **mapa** necesita coordenadas: se completan cuando cada aviso se vuelve a ver en una corrida.
