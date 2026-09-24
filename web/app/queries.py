@@ -294,7 +294,8 @@ def puntajes(c: Connection, pid: int) -> list[dict]:
                                             "ORDER BY puntaje DESC, usuario"), {"i": pid}).mappings()]
 
 
-def ranking(c: Connection, usuario: str = "", inactivas: bool = False, descartadas: bool = False) -> tuple[list[dict], list[str]]:
+def ranking(c: Connection, usuario: str = "", inactivas: bool = False, descartadas: bool = False,
+            solo_cuentas: bool = False) -> tuple[list[dict], list[str]]:
     """Publicaciones puntuadas, de mayor a menor promedio. Con `usuario`, ordena por el puntaje de esa persona.
     Devuelve las filas (cada una con `por_usuario`: {usuario: puntaje}) y los usuarios que puntuaron."""
     w = ["pu.votos > 0"]
@@ -314,5 +315,9 @@ def ranking(c: Connection, usuario: str = "", inactivas: bool = False, descartad
         por.setdefault(pid, {})[u] = v
     for r in rows:
         r["por_usuario"] = por.get(r["id"], {})
-    usuarios = [x[0] for x in c.execute(text("SELECT usuario FROM web_puntajes GROUP BY usuario ORDER BY COUNT(*) DESC, usuario"))]
+    # Con login propio, una columna por cuenta: puntajes de identidades sin cuenta (p. ej. de antes de que existieran
+    # las cuentas) siguen en el promedio, pero no generan columna.
+    cuentas = " WHERE usuario IN (SELECT username FROM web_cuentas)" if solo_cuentas else ""
+    usuarios = [x[0] for x in c.execute(text(f"SELECT usuario FROM web_puntajes{cuentas} GROUP BY usuario "
+                                             "ORDER BY COUNT(*) DESC, usuario"))]
     return rows, usuarios
