@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from .connectors.base import Listing
 from .connectors.common import matches_profile
-from .connectors import PROXIMOS, REGISTRO, etiqueta
+from .connectors import PORTAL_HISTORICO, PROXIMOS, REGISTRO, etiqueta
 from .models import Publicacion
 
 
@@ -49,7 +49,8 @@ COMUNES_VACIOS: dict[str, Any] = {"operacion": "compra", "tipo": "departamento",
 
 def nueva_busqueda(nombre: str = "busqueda") -> dict[str, Any]:
     return {"nombre": nombre, "comunes": copy.deepcopy(COMUNES_VACIOS),
-            "portales": {p: {"activo": p in disponibles(), "zonas": [], "ajustes": {}, "plantilla": None} for p in portales()}}
+            # sólo el portal original arranca activo: los demás se prenden a mano, cuando se cargan sus zonas
+            "portales": {p: {"activo": p == PORTAL_HISTORICO, "zonas": [], "ajustes": {}, "plantilla": None} for p in portales()}}
 
 
 # ---------- importación desde profiles.yaml ----------
