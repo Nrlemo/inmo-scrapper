@@ -25,12 +25,20 @@ from sqlalchemy.orm import Session
 
 from .connectors.base import Listing
 from .connectors.common import matches_profile
-from .connectors.zonaprop import armar_plantilla, leer_plantilla
+from .connectors import PROXIMOS, REGISTRO, etiqueta
 from .models import Publicacion
 
-# Portales que la ronda por navegador ya sabe recorrer; los demás se muestran en la web como «etapa 2».
-PORTALES = {"zonaprop": "Zonaprop", "argenprop": "Argenprop", "mercadolibre": "MercadoLibre"}
-DISPONIBLES = {"zonaprop"}
+
+
+def portales() -> dict[str, str]:
+    """{nombre: etiqueta} de los portales que la ronda recorre y de los que se van a sumar (en ese orden)."""
+    return {**{n: p.etiqueta for n, p in REGISTRO.items()}, **{n: e for n, e in PROXIMOS.items() if n not in REGISTRO}}
+
+
+def disponibles() -> set[str]:
+    """Portales que la ronda por navegador ya sabe recorrer; los demás se muestran en la web como «etapa 2»."""
+    return set(REGISTRO)
+
 NUMERICOS = ("precio_min", "precio_max", "amb_min", "amb_max", "dorm_min", "dorm_max", "m2_tot_min", "m2_tot_max",
              "m2_cub_min", "m2_cub_max")
 AJUSTABLES = ("precio_min", "precio_max", "amb_min", "amb_max", "dorm_max", "m2_tot_min", "m2_tot_max")   # los que un portal puede pisar
@@ -41,7 +49,7 @@ COMUNES_VACIOS: dict[str, Any] = {"operacion": "compra", "tipo": "departamento",
 
 def nueva_busqueda(nombre: str = "busqueda") -> dict[str, Any]:
     return {"nombre": nombre, "comunes": copy.deepcopy(COMUNES_VACIOS),
-            "portales": {p: {"activo": p in DISPONIBLES, "zonas": [], "ajustes": {}, "plantilla": None} for p in PORTALES}}
+            "portales": {p: {"activo": p in disponibles(), "zonas": [], "ajustes": {}, "plantilla": None} for p in portales()}}
 
 
 # ---------- importación desde profiles.yaml ----------
@@ -67,7 +75,7 @@ def desde_yaml(profiles: list[dict[str, Any]], estricto: bool = True) -> dict[st
             if pc.get("search_urls") or pc.get("search_url"):
                 dest["urls"] = list(pc.get("search_urls") or [pc["search_url"]])
             tpl = pc.get("search_url_template")
-            if tpl and portal == "zonaprop" and (f := leer_plantilla(tpl)):
+            if tpl and portal in REGISTRO and (f := REGISTRO[portal].leer_plantilla(tpl)):
                 c["apto_credito"] = f["apto_credito"]
                 c["dorm_min"] = c["dorm_min"] or f["dorm_min"]
                 c["amb_min"] = max(x for x in (c["amb_min"], f["amb_min"], 0) if x is not None) or None
@@ -145,16 +153,16 @@ def validar(doc: dict[str, Any]) -> dict[str, Any]:
             pc["ajustes"] = {k: _numero(v, k) for k, v in (pc.get("ajustes") or {}).items() if k in AJUSTABLES and v not in (None, "")}
             pc["plantilla"] = (pc.get("plantilla") or "").strip() or None
             if pc["plantilla"] and "{zone}" not in pc["plantilla"]:
-                raise ValueError(f"{PORTALES.get(portal, portal)}: la plantilla tiene que incluir {{zone}}")
+                raise ValueError(f"{etiqueta(portal)}: la plantilla tiene que incluir {{zone}}")
             efectivos = {**c, **pc["ajustes"]}
-            _rangos(efectivos, f"«{b['nombre']}» en {PORTALES.get(portal, portal)}")
-            if pc.get("activo") and portal in DISPONIBLES and not pc.get("urls"):
+            _rangos(efectivos, f"«{b['nombre']}» en {etiqueta(portal)}")
+            if pc.get("activo") and portal in REGISTRO and not pc.get("urls"):
                 if not pc["zonas"]:
-                    raise ValueError(f"{PORTALES.get(portal, portal)} está activo pero no tiene zonas")
+                    raise ValueError(f"{etiqueta(portal)} está activo pero no tiene zonas")
                 if not pc["plantilla"]:
-                    armar_plantilla(efectivos)          # tipo/operación/moneda verificados (ValueError si no)
+                    REGISTRO[portal].armar_plantilla(efectivos)   # combinación verificada (ValueError si no)
                     if efectivos["precio_min"] is None or efectivos["precio_max"] is None:
-                        raise ValueError(f"{PORTALES.get(portal, portal)} necesita precio mínimo y máximo (van en la URL)")
+                        raise ValueError(f"{etiqueta(portal)} necesita precio mínimo y máximo (van en la URL)")
             b.setdefault("portales", {})[portal] = pc
     return doc
 
@@ -186,14 +194,14 @@ def perfiles(doc: dict[str, Any]) -> list[dict[str, Any]]:
     out = []
     for b in doc.get("busquedas", []):
         for portal, pc in b["portales"].items():
-            if not pc.get("activo") or portal not in DISPONIBLES:
+            if not pc.get("activo") or portal not in REGISTRO:
                 continue
             f = {**COMUNES_VACIOS, **b["comunes"], **pc.get("ajustes", {})}   # docs guardados antes de sumar campos
             conf: dict[str, Any] = {}
             if pc.get("urls"):
                 conf["search_urls"] = list(pc["urls"])
             else:
-                conf["search_url_template"] = pc.get("plantilla") or armar_plantilla(f)
+                conf["search_url_template"] = pc.get("plantilla") or REGISTRO[portal].armar_plantilla(f)
                 conf["zones"] = [{"zone": z["zona"], **({"price_min": z["precio_min"]} if z.get("precio_min") is not None else {}),
                                   **({"price_max": z["precio_max"]} if z.get("precio_max") is not None else {})}
                                  if z.get("precio_min") is not None or z.get("precio_max") is not None else z["zona"]

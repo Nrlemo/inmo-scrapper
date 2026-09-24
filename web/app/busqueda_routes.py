@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from inmo import filtros
-from inmo.connectors.zonaprop import search_urls
+from inmo.connectors import REGISTRO
 
 from . import busqueda
 from .core import ctx, puede_administrar as puede_editar, render
@@ -23,12 +23,12 @@ def panel_ctx(s, user, sel: int = 0, doc: dict | None = None, **extra) -> dict:
     for p in filtros.perfiles({"busquedas": [b]}):
         portal = next(iter(p["portals"]))
         try:
-            urls[portal] = search_urls(p)
+            urls[portal] = REGISTRO[portal].search_urls(p)
         except (KeyError, ValueError, IndexError):   # plantilla con placeholders desconocidos
             urls[portal] = []
     fila = busqueda.info(s)
     return {"bdoc": doc, "bsel": sel, "b": b, "burls": urls, "bpuede": puede_editar(user), "bfila": fila,
-            "PORTALES": filtros.PORTALES, "DISPONIBLES": filtros.DISPONIBLES, "zonas_a_texto": filtros.zonas_a_texto,
+            "PORTALES": filtros.portales(), "DISPONIBLES": filtros.disponibles(), "zonas_a_texto": filtros.zonas_a_texto,
             **extra}
 
 
@@ -56,7 +56,7 @@ def _desde_form(b: dict, form) -> dict:
         com[k] = g(k) or None
     com["apto_credito"] = form.get("apto_credito") == "1"
     com["excluir"] = [x.strip() for x in re.split(r"[,\n]", form.get("excluir") or "") if x.strip()]
-    for portal in filtros.DISPONIBLES:
+    for portal in filtros.disponibles():
         if f"{portal}_zonas" not in form:
             continue
         pc = b["portales"].setdefault(portal, {"zonas": [], "ajustes": {}, "plantilla": None})

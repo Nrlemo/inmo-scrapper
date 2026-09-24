@@ -6,10 +6,13 @@ extensión ([Nrlemo/inmo-extension](https://github.com/Nrlemo/inmo-extension)) l
 y las manda a la web (`/api/navegador/*`). Las reglas generales del proyecto están en el `CLAUDE.md` de la raíz.
 
 ## Módulos (`src/inmo/`)
-- `navegador.py`: conduce la ronda página a página (qué sigue, pausas, tope de `robots.txt`, bloqueo y cooldown,
-  bajas sólo tras una ronda completa y no truncada). El estado vive en la base (`RondaNavegador` + `Ejecucion`).
-- `connectors/`: un módulo por portal con sus parsers (`zonaprop.py`); `common.py` tiene el parseo de montos, los
-  filtros del perfil (`matches_profile`) y la detección del desafío anti-bot (`es_desafio`); `base.py` define `Listing`.
+- `navegador.py`: conduce la ronda página a página por todos los portales del registro (qué sigue, pausas, tope de
+  `robots.txt`); cooldown, intervalo mínimo, consultas y bajas **por portal**; si uno bloquea se saltean sus zonas y se
+  sigue con los demás. El estado vive en la base (`RondaNavegador` + `Ejecucion`).
+- `connectors/`: `base.py` define `Listing` y la interfaz `Portal`; un módulo por portal (`zonaprop.py`) con una subclase
+  registrada en `__init__.py` (`REGISTRO`, `PROXIMOS`, `miniatura`). `common.py`: parseo de montos, filtros del perfil
+  (`matches_profile`) y desafío anti-bot (`es_desafio`). **Fuera de `connectors/` nadie nombra un portal** (lo
+  verifica `tests/test_multiportal.py`).
 - `repo.py`: upsert con historial de precios, bajas (`mark_missing`) y vínculo entre portales (`link_duplicates`).
 - `models.py`: esquema SQLAlchemy y migraciones livianas (`_migrate`: agrega columnas a bases existentes).
 - `filtros.py`: filtros de búsqueda editables desde la web (documento JSON guardado por la web): importación desde

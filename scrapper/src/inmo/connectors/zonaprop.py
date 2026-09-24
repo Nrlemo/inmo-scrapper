@@ -13,7 +13,7 @@ from urllib.parse import urljoin
 from selectolax.parser import HTMLParser, Node
 
 from .common import _clean, _money, _num
-from .base import Listing
+from .base import Listing, Portal
 
 BASE = "https://www.zonaprop.com.ar"
 PAGE_SIZE = 30
@@ -206,24 +206,31 @@ def leer_plantilla(tpl: str) -> dict[str, Any] | None:
             "amb_max": int(m.group(4)) if m.group(4) else None}
 
 
-def search_urls(profile: dict[str, Any]) -> list[tuple[str, str]]:
-    """[(etiqueta, url)]. Config: `search_urls` (lista explícita) o `zones` + `search_url_template`.
+class Zonaprop(Portal):
+    nombre, etiqueta = "zonaprop", "Zonaprop"
+    host = BASE + "/"
+    page_size, max_pages = PAGE_SIZE, ROBOTS_MAX_PAGES
 
-    Cada zona es un string ("almagro") o un dict con overrides ({zone: almagro, price_min: 50000, price_max: 110000}),
-    para partir una zona con más de 150 resultados. Placeholders de la plantilla: {zone}, {price_min}, {price_max}
-    (por defecto, el rango de precio del perfil).
-    """
-    cfg = profile["portals"]["zonaprop"]
-    if cfg.get("zones"):
-        tpl = cfg["search_url_template"]
-        price = profile.get("price", {})
-        out = []
-        for z in cfg["zones"]:
-            params = {"price_min": price.get("min"), "price_max": price.get("max")}
-            params.update(z if isinstance(z, dict) else {"zone": z})
-            label = params["zone"] if not isinstance(z, dict) or len(z) == 1 else \
-                f"{params['zone']} {params['price_min']}-{params['price_max']}"
-            out.append((label, tpl.format(**params)))
-        return out
-    urls = cfg.get("search_urls") or [cfg["search_url"]]
-    return [(re.sub(r"^.*/|\.html$", "", u)[:40], u) for u in urls]
+    def armar_plantilla(self, filtros: dict[str, Any]) -> str:
+        return armar_plantilla(filtros)
+
+    def leer_plantilla(self, plantilla: str) -> dict[str, Any] | None:
+        return leer_plantilla(plantilla)
+
+    def page_url(self, url: str, n: int) -> str:
+        return page_url(url, n)
+
+    def parse_page(self, html: str) -> tuple[list[Listing], int | None]:
+        return parse_listing_page(html)
+
+    def miniatura(self, foto: str) -> str:
+        """Las fotos se guardan en 720x532 (galería); para listados alcanza la de 360x266 del mismo CDN."""
+        return foto.replace("/720x532/", "/360x266/") if "zonapropcdn.com/" in foto else foto
+
+
+PORTAL = Zonaprop()
+
+
+def search_urls(profile: dict[str, Any]) -> list[tuple[str, str]]:
+    """[(etiqueta, url)] del perfil para Zonaprop (ver Portal.search_urls)."""
+    return PORTAL.search_urls(profile)

@@ -95,7 +95,8 @@ def test_error_de_carga_pagina_desfasada_y_cancelada(tmp_path):
     eng, cfg = make_engine(str(tmp_path / "t.sqlite")), _cfg((URL1, URL2))
     with Session(eng) as s:
         rid = navegador.iniciar(s, cfg, "ana", T0)["ronda"]
-        assert navegador.pagina(s, cfg, rid, URL2, HTML, T0) == {"siguiente": URL1, "pausa": 30}   # no era la esperada
+        assert navegador.pagina(s, cfg, rid, URL2, HTML, T0) == {"siguiente": URL1, "pausa": 30, "portal": "zonaprop",
+                                                                 "host": "https://www.zonaprop.com.ar/"}   # no era la esperada
         r = navegador.error(s, cfg, rid, URL1, "tiempo de espera agotado", T0)
         assert r["siguiente"] == URL2
         s.get(Ejecucion, rid).estado = "cancelada"
