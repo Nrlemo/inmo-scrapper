@@ -70,6 +70,16 @@ class Programacion(WebBase):
     modificado_por: Mapped[str | None] = mapped_column(String(128))
 
 
+class TokenApi(WebBase):
+    """Token de la extensión del navegador (ronda por navegador). Uno por usuario; se guarda sólo el hash."""
+    __tablename__ = "web_tokens"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario: Mapped[str] = mapped_column(String(128), unique=True)
+    hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    creado: Mapped[datetime] = mapped_column(DateTime)
+    ultimo_uso: Mapped[datetime | None] = mapped_column(DateTime)
+
+
 class Cuenta(WebBase):
     """Cuenta de usuario del modo de autenticación `basic`."""
     __tablename__ = "web_cuentas"

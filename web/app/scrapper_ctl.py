@@ -110,7 +110,9 @@ def cancelar(engine, run_id: int) -> None:
     with Session(engine) as s:
         e = s.get(Ejecucion, run_id)
         if e and e.estado == "corriendo":
-            e.estado, e.fin, e.mensaje = "cancelada", datetime.now(), "Cancelada manualmente (no se guardó ningún aviso de esta corrida)."
+            e.estado, e.fin = "cancelada", datetime.now()
+            e.mensaje = ("Cancelada manualmente (no se guardó ningún aviso de esta corrida)." if e.pid else
+                         "Cancelada manualmente: se guardaron las páginas ya recibidas; no se dio de baja ningún aviso.")
             s.commit()
     proc = _procs.get(run_id)
     if proc and proc.poll() is None:

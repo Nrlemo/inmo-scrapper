@@ -20,6 +20,7 @@ from . import config, queries, scheduler, scrapper_ctl
 from . import auth
 from .auth import LoginRequired, PasswordChangeRequired, SetupRequired
 from .auth_routes import router as auth_router
+from .navegador_routes import router as navegador_router, token_de
 from .core import ctx, headers, render, templates
 from .db import init_engine, sembrar_config
 from .models_web import BusquedaGuardada, Evento, Puntaje, Revision, Usuario
@@ -49,6 +50,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 app.middleware("http")(headers)
 app.include_router(auth_router)
+app.include_router(navegador_router)
 app.mount("/static", StaticFiles(directory=config.ROOT / "app" / "static"), name="static")
 def _filtros(request: Request, desde) -> Filtros:
     g = request.query_params.get
@@ -314,7 +316,7 @@ def estado(request: Request, c=Depends(ctx)):
     tot = conn.execute(text("SELECT COUNT(*), SUM(activa), SUM(lat IS NOT NULL) FROM publicaciones")).one()
     hist = [scrapper_ctl.vista(e) for e in c["s"].scalars(select(Ejecucion).order_by(Ejecucion.id.desc()).limit(10))]
     return render(request, "estado.html", c, consultas=queries.scrapper_estado(conn), tot=tot, hist=hist,
-                  **_panel_scrapper(c))
+                  tok=token_de(c["s"], c["user"].username), **_panel_scrapper(c))
 
 
 @app.get("/scrapper/estado", response_class=HTMLResponse)

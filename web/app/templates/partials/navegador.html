@@ -1,0 +1,18 @@
+<section id="navegador" class="card in" style="margin-bottom:1rem">
+  <div class="row" style="justify-content:space-between"><b>🧭 Ronda por navegador</b>
+    <span class="mut" style="font-size:.85rem">{% if tok %}token activo{% if tok.ultimo_uso %} · último uso {{ tok.ultimo_uso.strftime('%d/%m %H:%M') }}{% endif %}{% else %}sin token{% endif %}</span></div>
+  <div class="mut" style="font-size:.9rem">La extensión «Inmo» para Vivaldi/Chrome abre tus búsquedas de Zonaprop una vez por día en tu propio
+    navegador y las carga acá, con las mismas zonas, topes y pausas que el scrapper. Instalación: <code>extension/README.md</code> del repo.</div>
+  {% if nuevo %}
+  <div style="border:1px solid var(--acc);border-radius:12px;padding:.6rem .8rem;background:var(--acc-soft)">
+    <div style="font-size:.9rem">Copiá este token en la extensión (<b>se muestra una sola vez</b>):</div>
+    <code style="display:block;word-break:break-all;margin-top:.3rem;font-size:.95rem" id="tok-nuevo">{{ nuevo }}</code>
+    <div class="mut" style="font-size:.82rem;margin-top:.3rem">Como servidor, poné la misma dirección con la que abrís Inmo (por ejemplo <code>https://inmo.midominio.com</code>).</div>
+  </div>
+  {% endif %}
+  <div class="row">
+    <button hx-post="/navegador/token" hx-target="#navegador" hx-swap="outerHTML"
+            {% if tok %}hx-confirm="El token actual deja de funcionar. ¿Generar uno nuevo?"{% endif %}>{{ 'Generar otro token' if tok else 'Generar token' }}</button>
+    {% if tok %}<button class="bad" hx-post="/navegador/token/borrar" hx-target="#navegador" hx-swap="outerHTML" hx-confirm="¿Revocar el token? La extensión deja de funcionar.">Revocar</button>{% endif %}
+  </div>
+</section>

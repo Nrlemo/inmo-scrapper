@@ -395,3 +395,24 @@ def test_galeria_en_revision_y_miniaturas_chicas(client):
     assert "https://img/avisos/1/720x532/0.jpg" in html                    # la tarjeta usa la foto grande
     lista = client.get("/lista").text
     assert "/360x266/0.jpg" in lista and "/720x532/" not in lista            # el listado, la miniatura
+
+
+def test_api_ronda_por_navegador_con_token(client):
+    import re
+    from pathlib import Path
+    html = (Path(__file__).parents[2] / "scrapper" / "tests" / "fixtures" / "zonaprop_listado.html").read_text(encoding="utf-8")
+    html = html.replace("2.864", "25").replace("2864", "25")
+    assert client.get("/api/navegador/ping").status_code == 401
+    assert client.get("/api/navegador/ping", headers={"Authorization": "Bearer inventado"}).status_code == 401
+    r = client.post("/navegador/token", headers={"HX-Request": "true"})
+    token = re.search(r'id="tok-nuevo">([^<]+)<', r.text).group(1)
+    auth = {"Authorization": f"Bearer {token}"}
+    assert client.get("/api/navegador/ping", headers=auth).json() == {"ok": True, "usuario": "ana"}
+    r = client.post("/api/navegador/ronda", headers=auth).json()
+    assert r["url"] == "x" and r["ronda"]
+    r = client.post("/api/navegador/pagina", headers=auth, json={"ronda": r["ronda"], "url": "x", "html": html}).json()
+    assert r["siguiente"] == "x" and r["pausa"] >= 30          # próxima zona (el YAML de prueba usa la plantilla "x")
+    estado = client.get("/estado").text
+    assert "Ronda por navegador" in estado and "token activo" in estado and "ana (navegador)" in estado
+    client.post("/navegador/token", headers={"HX-Request": "true"})         # regenerar invalida el anterior
+    assert client.get("/api/navegador/ping", headers=auth).status_code == 401

@@ -136,6 +136,15 @@ class Ejecucion(Base):
     pid: Mapped[int | None] = mapped_column(Integer)
 
 
+class RondaNavegador(Base):
+    """Estado de una ronda por navegador (extensión): la conduce el servidor página a página; ver navegador.py.
+    Comparte el id con su Ejecucion (progreso visible en la pantalla Estado)."""
+    __tablename__ = "rondas_navegador"
+
+    id: Mapped[int] = mapped_column(ForeignKey("ejecuciones.id"), primary_key=True)
+    datos: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
 def make_engine(path: str) -> Engine:
     engine = create_engine(f"sqlite:///{path}")
 

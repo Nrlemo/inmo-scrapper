@@ -58,7 +58,14 @@ varias personas.
 
 ## 🕷️ El scrapper
 
-- Consulta una búsqueda por zona, lee el listado y completa datos con el detalle de algunos avisos.
+Hay dos formas de traer los avisos, con las mismas reglas:
+- **Ronda por navegador (recomendada):** una extensión para Vivaldi/Chrome ([`extension/`](extension/README.md)) abre
+  una vez por día tus búsquedas en tu propio navegador y las carga en Inmo. Es tu navegador real, así que no la frena
+  la protección anti-bots del portal.
+- **Scrapper HTTP:** el mismo proceso desde el servidor, sin navegador. Es más simple, pero Zonaprop lo bloquea seguido.
+
+En los dos casos:
+- Consulta una búsqueda por zona y lee el listado de resultados, con todas las fotos y la ubicación de cada aviso.
 - Guarda cada publicación con la fecha en que se vio por primera y última vez; si cambia el precio, lo registra en
   el historial con el porcentaje de variación.
 - Da de baja los avisos que dejan de aparecer en varias consultas seguidas.

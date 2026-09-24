@@ -183,6 +183,20 @@ su WebView — no hace falta abrir el formulario HTML desde la app.
 - **Cortesía:** respeta `robots.txt`, usa un User-Agent identificable, pausas aleatorias de 20 a 150 s y reintentos con backoff. Si el portal bloquea, se frena y entra en cooldown.
 - **Una corrida completa puede tardar 30 minutos o más**; los avisos se guardan al terminar.
 
+### Ronda por navegador (extensión)
+Alternativa al scrapper HTTP cuando Cloudflare lo bloquea. La extensión de [`extension/`](../extension/README.md)
+(Vivaldi, Chrome y otros basados en Chromium) abre las búsquedas en el navegador del usuario y manda cada página a
+`/api/navegador/*`. El servidor conduce la ronda con las mismas reglas del conector (`inmo/navegador.py`).
+- **Token:** *Estado → Ronda por navegador → Generar token*. Hay uno por usuario y se guarda solo su hash.
+- **Endpoints** (autenticados con `Authorization: Bearer <token>`, sin cookies ni CSRF):
+  `GET /api/navegador/ping`, `POST /api/navegador/ronda`, `POST /api/navegador/pagina`,
+  `POST /api/navegador/error` y `POST /api/navegador/cancelar`.
+- Respeta `min_hours_between_runs` y el cooldown tras un bloqueo, y no arranca si hay otra corrida en curso. Una ronda
+  sin noticias de la extensión por 30 min queda «interrumpida».
+- Con la extensión como fuente principal, conviene apagar la *Ejecución automática diaria* del scrapper, para no
+  visitar el portal dos veces.
+- Con authentik delante, `/api/navegador/` necesita la misma excepción que `/api/login`.
+
 ### Etiquetas automáticas
 En `profiles.yaml`, la sección `auto_tags` asigna etiquetas según palabras clave del título o la descripción (ver `profiles.example.yaml`):
 ```yaml
