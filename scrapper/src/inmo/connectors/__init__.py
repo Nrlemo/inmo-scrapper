@@ -7,7 +7,9 @@ from .zonaprop import PORTAL as _zonaprop
 REGISTRO: dict[str, Portal] = {p.nombre: p for p in (_zonaprop,)}
 # Datos anteriores al multi-portal (rondas guardadas sin portal por zona) son de este portal: era el único
 PORTAL_HISTORICO = _zonaprop.nombre
-# Los que se van a sumar (se muestran en Estado → Búsqueda como «etapa 2»)
+# Los que se van a sumar (se muestran en Estado → Búsqueda como «etapa 2»). Sus parsers ya están (argenprop.py,
+# mercadolibre.py, probados con páginas reales); falta, antes de pasarlos a REGISTRO: que la extensión los soporte
+# (inmo-extension#2) y verificar una URL de búsqueda permitida por robots.txt (Argenprop) y la paginación (MercadoLibre).
 PROXIMOS = {"argenprop": "Argenprop", "mercadolibre": "MercadoLibre"}
 
 
