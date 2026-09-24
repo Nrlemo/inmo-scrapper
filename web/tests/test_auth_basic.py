@@ -385,3 +385,18 @@ def test_api_login_remember(admin, monkeypatch):
         c = new_client()
         c.cookies.set(d["cookie_name"], cookie)
         assert c.get("/ranking").status_code == esperado
+
+
+def test_ranking_sin_columnas_de_usuarios_sin_cuenta(admin):
+    """Puntajes de una identidad sin cuenta (quedó «yo» de antes del login propio): cuentan, pero sin columna."""
+    admin.post("/p/1/puntaje", data={"valor": 4}, headers=hx(admin))
+    from datetime import datetime
+    from sqlalchemy.orm import Session
+    from app.main import ENGINE
+    from app.models_web import Puntaje
+    with Session(ENGINE) as s:
+        s.add(Puntaje(publicacion_id=2, usuario="yo", puntaje=5, fecha=datetime.now()))
+        s.commit()
+    t = admin.get("/ranking").text
+    assert "<th class=\"yo\">admin</th>" in t and ">yo</th>" not in t and "Puntajes de yo" not in t
+    assert "Calle 2" in t                                     # el aviso puntuado por «yo» sigue en el ranking

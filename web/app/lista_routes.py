@@ -66,7 +66,8 @@ def borrar_busqueda(bid: int, c=Depends(ctx)):
 
 @router.get("/ranking", response_class=HTMLResponse)
 def ranking(request: Request, usuario: str = "", inactivas: int = 0, descartadas: int = 0, c=Depends(ctx)):
-    rows, usuarios = queries.ranking(c["s"].connection(), usuario, bool(inactivas), bool(descartadas))
+    rows, usuarios = queries.ranking(c["s"].connection(), usuario, bool(inactivas), bool(descartadas),
+                                     solo_cuentas=config.AUTH_MODE == "basic")
     return render(request, "ranking.html", c, rows=rows, usuarios=usuarios, sel=usuario,
                   inactivas=inactivas, descartadas=descartadas)
 
