@@ -3,7 +3,7 @@
 {% set est = 'desc' if p.descartada else 'fav' if p.favorito else 'pot' if p.potencial else 'cont' if p.contactada else '' %}
 <article class="item {{ 'desc' if p.descartada }} {{ 'e-' ~ est if est }}" id="p{{ p.id }}">
   <a class="ph" hx-get="/p/{{ p.id }}?panel=1" hx-target="#panel-body" href="/p/{{ p.id }}">
-    <img class="th" loading="lazy" referrerpolicy="no-referrer" src="{{ p.fotos[0] if p.fotos }}" alt="">{{ variacion(p) }}</a>
+    <img class="th" loading="lazy" referrerpolicy="no-referrer" src="{{ p.fotos[0]|chica if p.fotos }}" alt="">{{ variacion(p) }}</a>
   <div class="b">
     <div class="top-l"><span class="price">{{ p.precio|money(p.moneda) }}</span>{{ acciones(p, 'fila', rapidas=True) }}</div>
     <div class="sub">{% if p.usd_m2 %}{{ usd_m2(p) }} · {% endif %}{% if p.m2_cubiertos or p.m2_totales %}{{ (p.m2_cubiertos or p.m2_totales)|round|int }} m² · {% endif %}{% if p.ambientes %}{{ p.ambientes }} amb.{% endif %}{% if p.expensas %} · exp. {{ p.expensas|money(p.moneda_expensas) }}{% endif %}</div>

@@ -6,9 +6,9 @@
 <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml"><link rel="icon" href="/static/icons/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
 <link rel="manifest" href="/static/manifest.json">
-<link rel="stylesheet" href="/static/app.css?v=8">{# subir ?v= (acá y en app.js) al cambiar CSS/JS: el service worker sirve la copia en caché #}
+<link rel="stylesheet" href="/static/app.css?v=10">{# subir ?v= (acá y en app.js) al cambiar CSS/JS: el service worker sirve la copia en caché #}
 {% block head %}{% endblock %}
-<script src="/static/htmx.min.js" defer></script><script src="/static/app.js?v=4" defer></script>
+<script src="/static/htmx.min.js" defer></script><script src="/static/app.js?v=5" defer></script>
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js',{scope:'/'});</script>
 </head><body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>

@@ -93,6 +93,11 @@ class Filtros:
         return (" WHERE " + " AND ".join(w)) if w else "", a
 
 
+def foto_chica(url: str | None) -> str:
+    """Miniatura: las fotos se guardan en 720x532 (galería); para listados alcanza la versión de 360x266 del CDN."""
+    return (url or "").replace("/720x532/", "/360x266/")
+
+
 def _row(m) -> dict:
     d = dict(m)
     d["fotos"] = json.loads(d["fotos"]) if isinstance(d.get("fotos"), str) else (d.get("fotos") or [])
@@ -236,7 +241,7 @@ def mapa(c: Connection, f: Filtros) -> list[dict]:
         d = _row(r)
         out.append({"id": d["id"], "lat": d["lat"], "lng": d["lng"], "precio": d["precio"], "moneda": d["moneda"],
                     "m2": d["m2_cubiertos"], "amb": d["ambientes"], "dir": d["direccion"], "barrio": d["barrio"],
-                    "foto": (d["fotos"] or [None])[0], "fav": bool(d["favorito"]), "pot": bool(d["potencial"]), "desc": bool(d["descartada"]),
+                    "foto": foto_chica((d["fotos"] or [None])[0]), "fav": bool(d["favorito"]), "pot": bool(d["potencial"]), "desc": bool(d["descartada"]),
                     "cont": bool(d["contactada"]), "baja": (d["variacion_pct"] or 0) < 0})
     return out
 

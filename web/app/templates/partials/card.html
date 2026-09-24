@@ -6,10 +6,17 @@
 <div class="cola"><span><b>{{ total }}</b> sin revisar</span>{% if hoy %}<span>hoy: {{ hoy }} revisada{{ 's' if hoy != 1 }}</span>{% endif %}</div>
 <div class="cola-bar"><i style="width:{{ ((100 * hoy / (hoy + total)) if (hoy + total) else 0)|round|int }}%"></i></div>
 <article class="card">
-  <div class="hero-w">
+  {% set n = p.fotos|length %}
+  {# Galería: tocar el costado izquierdo/derecho de la foto (o las flechas en la compu) cambia de foto; ver app.js #}
+  <div class="hero-w"{% if n > 1 %} data-fotos='{{ p.fotos|tojson }}'{% endif %}>
     <img class="hero" referrerpolicy="no-referrer" src="{{ p.fotos[0] if p.fotos }}" alt="">
+    {% if n > 1 %}
+    <div class="h-dots">{% for f in p.fotos %}<i class="{{ 'on' if loop.first }}"></i>{% endfor %}</div>
+    <span class="h-fotos">1/{{ n }}</span>
+    <button class="g-nav g-prev" aria-label="Foto anterior" onclick="galeria(this, -1)">‹</button>
+    <button class="g-nav g-next" aria-label="Foto siguiente" onclick="galeria(this, 1)">›</button>
+    {% endif %}
     {% if varios_portales() %}<span class="h-portal">{{ p.portal }}</span>{% endif %}
-    {% if p.fotos|length > 1 %}<span class="h-fotos">{{ p.fotos|length }} fotos</span>{% endif %}
     <div class="h-info">
       <span class="price">{{ p.precio|money(p.moneda) }}</span> {{ variacion(p) }}
       <div class="h-sub">{% if p.usd_m2 %}{{ usd_m2(p) }}{% endif %}{% if p.usd_m2 and p.expensas %} · {% endif %}{% if p.expensas %}exp. {{ p.expensas|money(p.moneda_expensas) }}{% endif %}</div>

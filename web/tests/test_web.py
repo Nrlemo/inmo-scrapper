@@ -381,3 +381,17 @@ def test_etiquetas_automaticas_filtro_y_badges(client):
     assert 'class="badge auto"' in r                                      # la 1 la tiene sólo automática
     assert r.count('title="Automática') == 1                              # la 2 la tiene manual: no se repite
     assert "Calle 1" not in client.get("/lista?etiqueta=ver").text
+
+
+def test_galeria_en_revision_y_miniaturas_chicas(client):
+    import json
+    from sqlalchemy import text
+    from app.main import ENGINE
+    fotos = [f"https://img/avisos/1/720x532/{i}.jpg" for i in range(3)]
+    with ENGINE.begin() as c:
+        c.execute(text("UPDATE publicaciones SET fotos=:f"), {"f": json.dumps(fotos)})
+    html = client.get("/").text
+    assert "data-fotos=" in html and ">1/3<" in html and html.count('<i class') >= 3
+    assert "https://img/avisos/1/720x532/0.jpg" in html                    # la tarjeta usa la foto grande
+    lista = client.get("/lista").text
+    assert "/360x266/0.jpg" in lista and "/720x532/" not in lista            # el listado, la miniatura

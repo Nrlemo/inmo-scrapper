@@ -10,10 +10,30 @@ document.addEventListener('keydown', e => {
   const el = document.querySelector('[data-key="' + k + '"]');
   if (el) { e.preventDefault(); el.click(); }
 });
+// Galería de la tarjeta de Revisión: `paso` = -1 / +1 (con vuelta). Precarga la foto siguiente.
+function galeria(el, paso) {
+  const w = el.closest('.hero-w'), fotos = JSON.parse(w.dataset.fotos || '[]'), n = fotos.length;
+  if (n < 2) return;
+  const i = ((+w.dataset.i || 0) + paso + n) % n;
+  w.dataset.i = i;
+  w.querySelector('.hero').src = fotos[i];
+  w.querySelectorAll('.h-dots i').forEach((d, k) => d.classList.toggle('on', k === i));
+  w.querySelector('.h-fotos').textContent = `${i + 1}/${n}`;
+  new Image().src = fotos[(i + 1) % n];
+}
+function precargarGaleria() {
+  const w = document.querySelector('#card .hero-w[data-fotos]');
+  if (w) new Image().src = JSON.parse(w.dataset.fotos)[1];
+}
+document.addEventListener('DOMContentLoaded', precargarGaleria);
+document.addEventListener('htmx:afterSwap', e => { if (e.detail.target.id === 'card') precargarGaleria(); });
+
 // Revisión en pantallas táctiles: deslizar la tarjeta ← descarta, → pasa a la siguiente (como el botón Saltar).
+// Toque simple sobre la foto: costado izquierdo = foto anterior, resto = siguiente. Espera la ventana del doble toque
+// (potencial) antes de cambiar la foto, así un doble toque nunca pasa fotos.
 // El scroll vertical queda para el navegador (touch-action:pan-y en CSS); acá sólo se sigue el movimiento horizontal.
 (() => {
-  let art = null, x0 = 0, y0 = 0, dx = 0, eje = null;
+  let art = null, x0 = 0, y0 = 0, dx = 0, eje = null, heroW = null, tapFoto = null;
   const umbral = () => Math.min(120, innerWidth * 0.28);
   const boton = dir => document.querySelector(dir < 0 ? '#card .card [data-key="d"]' : '#card .card [data-key="n"]');
   const mover = (d, anim) => {
@@ -25,6 +45,7 @@ document.addEventListener('keydown', e => {
     art = e.touches.length === 1 && !e.target.closest('textarea,button,a,input') && e.target.closest('#card article.card');
     if (!art) return;
     x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; eje = null;
+    heroW = e.target.closest('.hero-w[data-fotos]');
   }, { passive: true });
   document.addEventListener('touchmove', e => {
     if (!art) return;
@@ -38,12 +59,17 @@ document.addEventListener('keydown', e => {
       const ahora = Date.now(), b = document.querySelector('#card .card [data-key="p"]');
       if (ahora - ultimoToque < 320 && Math.hypot(x0 - xt, y0 - yt) < 40 && b) {
         ultimoToque = 0;
+        clearTimeout(tapFoto);   // era un doble toque: no cambiar de foto
         const pop = document.createElement('div');
         pop.className = 'pop'; pop.textContent = '◆';
         art.append(pop);
         if (!b.classList.contains('on')) setTimeout(() => b.click(), 450);  // como el like: nunca desmarca
       } else {
         ultimoToque = ahora; xt = x0; yt = y0;
+        if (heroW) {
+          const w = heroW, r = w.getBoundingClientRect(), paso = x0 - r.left < r.width * 0.35 ? -1 : 1;
+          tapFoto = setTimeout(() => galeria(w, paso), 330);
+        }
       }
     }
     if (!art || eje !== 'x') { art = null; return; }

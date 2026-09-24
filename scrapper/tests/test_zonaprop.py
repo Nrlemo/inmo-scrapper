@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from inmo.connectors.base import Listing
-from inmo.connectors.zonaprop import (ZonapropConnector, _money, _num, matches_profile, page_url,
+from inmo.connectors.zonaprop import (ZonapropConnector, _money, _num, matches_profile, page_url, parse_pictures,
                                       parse_listing_page)
 from inmo.errors import BlockedError
 from inmo.models import Consulta, HistorialPrecio, Publicacion, make_engine
@@ -37,6 +37,10 @@ def test_parse_page():
     assert l.direccion == "Echeverría al 5200" and l.barrio == "Villa Urquiza"
     assert l.fotos and l.fotos[0].startswith("https://imgar.zonapropcdn.com/avisos/")
     assert "logo" not in l.fotos[0]
+    # galería: todas las fotos del estado precargado, en 720x532, empezando por la de la tarjeta
+    assert len(l.fotos) == 8 and all("/720x532/" in f for f in l.fotos) and len(set(l.fotos)) == 8
+    assert l.fotos[0].split("/")[-1].startswith("2071416452.jpg")
+    assert all(len(x.fotos) >= 1 for x in listings)
     c = next(x for x in listings if x.id_externo == "60010042")
     assert c.cocheras == 1 and c.m2_totales == 122 and c.ambientes == 4
     assert all(x.precio and x.moneda for x in listings)
@@ -377,3 +381,9 @@ def test_curl_block_and_network_errors_follow_same_policy(monkeypatch):
     h = _fake_curl(monkeypatch, returncode=6, stderr=b"Could not resolve host")
     with pytest.raises(httpx.TransportError):
         h.PoliteClient((0, 0), retries=0, http_client="curl", sleep=lambda s: None).get("https://x.example/")
+
+
+def test_parse_pictures_sin_estado_precargado_y_con_barras_escapadas():
+    assert parse_pictures("<html></html>") == {}
+    t = '"postingId":"1","url730x532":"https:\\/\\/img\\/a.jpg","url730x532":"https:\\/\\/img\\/a.jpg","postingId":"2","url730x532":"https://img/b.jpg"'
+    assert parse_pictures(t) == {"1": ["https://img/a.jpg"], "2": ["https://img/b.jpg"]}

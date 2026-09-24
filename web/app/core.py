@@ -86,7 +86,7 @@ def varios_portales() -> bool:
     return _portales_cache[1]
 
 
-templates.env.filters.update(money=_money, fecha=_fecha, ago=_ago, dir=_dir)
+templates.env.filters.update(money=_money, fecha=_fecha, ago=_ago, dir=_dir, chica=queries.foto_chica)
 templates.env.globals.update(spark=spark, varios_portales=varios_portales)
 
 

@@ -7,7 +7,7 @@
   <label><input type="checkbox" name="favoritas" value="1" {{ 'checked' if favoritas }} onchange="this.form.submit()"> Sólo favoritas</label>
 </form>
 {% for r in rows %}
-<article class="item {{ 'desc' if r.descartada }}"><img class="th" loading="lazy" referrerpolicy="no-referrer" src="{{ r.fotos[0] if r.fotos }}" alt="">
+<article class="item {{ 'desc' if r.descartada }}"><img class="th" loading="lazy" referrerpolicy="no-referrer" src="{{ r.fotos[0]|chica if r.fotos }}" alt="">
   <div class="b"><div><span class="{{ 'down' if r.variacion_pct < 0 else 'up' }}">{{ '↓' if r.variacion_pct < 0 else '↑' }} {{ '%.1f'|format(r.variacion_pct|abs) }}%</span>
     · {{ r.precio_anterior|money(r.moneda) }} → <b>{{ r.precio|money(r.moneda) }}</b> {% if r.favorito %}★{% endif %}</div>
     <a href="/p/{{ r.id }}">{{ r.direccion|dir or r.titulo }}</a> <span class="mut">· {{ r.barrio }} · {{ r.fecha|fecha }} ({{ r.fecha|ago }})</span></div></article>

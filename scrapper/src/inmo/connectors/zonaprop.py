@@ -116,11 +116,34 @@ def parse_geolocations(text: str) -> dict[str, tuple[float, float]]:
     return out
 
 
+MAX_FOTOS = 20
+
+
+def parse_pictures(text: str) -> dict[str, list[str]]:
+    """id de aviso -> URLs de sus fotos (720x532), del estado precargado de la página de listado.
+
+    El HTML de cada tarjeta trae sólo la primera foto; el estado precargado trae todas las visibles del aviso
+    (visiblePictures), así que la galería no requiere ningún pedido extra al portal.
+    """
+    ids = [(m.start(), m.group(1)) for m in re.finditer(r'"postingId":"(\d+)"', text)]
+    pos = [p for p, _ in ids]
+    out: dict[str, list[str]] = {}
+    for m in re.finditer(r'"url730x532":"(https?:[^"]+)"', text):
+        k = bisect_right(pos, m.start()) - 1
+        if k >= 0:
+            fotos = out.setdefault(ids[k][1], [])
+            url = m.group(1).replace("\\u002F", "/").replace("\\/", "/")
+            if url not in fotos and len(fotos) < MAX_FOTOS:
+                fotos.append(url)
+    return out
+
+
 def parse_listing_page(text: str) -> tuple[list[Listing], int | None]:
     """Devuelve (avisos individuales, total de resultados). Emprendimientos (DEVELOPMENT) se omiten."""
     doc = HTMLParser(text)
     out, seen = [], set()
     geo = parse_geolocations(text)
+    fotos = parse_pictures(text)
     for card in doc.css("[data-posting-type][data-id]"):
         if card.attributes["data-posting-type"] != "PROPERTY":
             continue
@@ -128,6 +151,7 @@ def parse_listing_page(text: str) -> tuple[list[Listing], int | None]:
         if listing and listing.id_externo not in seen:
             seen.add(listing.id_externo)
             listing.lat, listing.lng = geo.get(listing.id_externo, (None, None))
+            listing.fotos = fotos.get(listing.id_externo) or listing.fotos
             out.append(listing)
     return out, parse_total(doc)
 
