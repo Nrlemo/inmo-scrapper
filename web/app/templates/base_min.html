@@ -6,10 +6,11 @@
 <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml"><link rel="icon" href="/static/icons/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
 <link rel="manifest" href="/static/manifest.json">
-<link rel="stylesheet" href="/static/app.css?v=11">
+<script>try{var t=localStorage.getItem('inmo-tema');if(t==='claro'||t==='oscuro')document.documentElement.dataset.tema=t}catch(e){}</script>{# tema elegido en este dispositivo, antes de pintar (sin parpadeo) #}
+<link rel="stylesheet" href="/static/app.css?v=12">
 </head><body>
 <main class="auth-wrap">
-  <div class="auth-brand"><picture><source srcset="/static/icons/icon-dark.svg" media="(prefers-color-scheme: dark)"><img class="logo" src="/static/icons/icon.svg" alt="" width="40" height="40"></picture><b>Inmo</b></div>
+  <div class="auth-brand"><img class="logo logo-c" src="/static/icons/icon.svg" alt="" width="40" height="40"><img class="logo logo-o" src="/static/icons/icon-dark.svg" alt="" width="40" height="40"><b>Inmo</b></div>
   <div class="card in">{% block body %}{% endblock %}</div>
 </main>
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js',{scope:'/'});</script>

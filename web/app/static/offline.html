@@ -4,10 +4,11 @@
 <meta name="theme-color" content="#1b6b58">
 <title>Inmo · sin conexión</title>
 <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+<script>try{var t=localStorage.getItem('inmo-tema');if(t==='claro'||t==='oscuro')document.documentElement.dataset.tema=t}catch(e){}</script>
 <link rel="stylesheet" href="/static/app.css">
 </head><body>
 <main class="auth-wrap">
-  <div class="auth-brand"><picture><source srcset="/static/icons/icon-dark.svg" media="(prefers-color-scheme: dark)"><img class="logo" src="/static/icons/icon.svg" alt="" width="40" height="40"></picture><b>Inmo</b></div>
+  <div class="auth-brand"><img class="logo logo-c" src="/static/icons/icon.svg" alt="" width="40" height="40"><img class="logo logo-o" src="/static/icons/icon-dark.svg" alt="" width="40" height="40"><b>Inmo</b></div>
   <div class="card in">
     <p>Sin conexión con el servidor.</p>
     <p><button onclick="location.reload()">Reintentar</button></p>

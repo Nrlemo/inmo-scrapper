@@ -1,7 +1,13 @@
 /* Colores de estado en tres usos: texto/ícono (--x, contraste AA sobre la tarjeta), relleno de botón con texto blanco
    (--x-fill) y ficha suave (--x-soft de fondo + --x-txt). Revisados con WCAG AA en tema claro y oscuro. */
 :root{color-scheme:light dark;--bg:#f4f5f3;--fg:#191c1a;--mut:#5f6661;--card:#fff;--line:#e4e7e3;--chip:#eceeeb;--acc:#1b6b58;--acc-fg:#fff;--acc-soft:#e3f1ed;--fav:#f2b01e;--fav-ic:#a86b00;--fav-soft:#fdf0cf;--fav-txt:#7a4f00;--bad:#c2362f;--bad-fill:#c2362f;--bad-soft:#f9dcd9;--bad-txt:#8a2a22;--ok:#157a3f;--ok-soft:#d7f0e0;--ok-txt:#0f5c2f;--blue:#2563c9;--blue-fill:#2563c9;--blue-soft:#dde8fb;--blue-txt:#1d4fa3;--pot:#8e44ad;--pot-fill:#8e44ad;--pot-soft:#f1e4f8;--pot-txt:#6d2f8a;--desc:#c9cdca;--r:14px;--sh:0 1px 2px #0000000d,0 6px 18px #00000009;--tab:60px}
-@media(prefers-color-scheme:dark){:root{--bg:#121413;--fg:#ecefec;--mut:#99a19b;--card:#1b1e1c;--line:#2b2f2c;--chip:#262a27;--acc:#55c4a5;--acc-fg:#06251c;--acc-soft:#1c2f29;--fav-ic:#f2b01e;--fav-soft:#3a2f12;--fav-txt:#f5c451;--bad:#f2766b;--bad-fill:#d64545;--bad-soft:#3d1c1a;--bad-txt:#f7a39b;--ok:#4cc27a;--ok-soft:#173424;--ok-txt:#7ddba0;--blue:#7da6ff;--blue-soft:#1b2a45;--blue-txt:#a9c4ff;--pot:#c08ae8;--pot-soft:#33203f;--pot-txt:#d7b0f0;--desc:#4a4f4b;--sh:0 1px 2px #0006}}
+/* Tema: por defecto sigue al dispositivo; data-tema="claro"|"oscuro" en <html> lo fija (selector del header, app.js) */
+@media(prefers-color-scheme:dark){:root:not([data-tema=claro]){--bg:#121413;--fg:#ecefec;--mut:#99a19b;--card:#1b1e1c;--line:#2b2f2c;--chip:#262a27;--acc:#55c4a5;--acc-fg:#06251c;--acc-soft:#1c2f29;--fav-ic:#f2b01e;--fav-soft:#3a2f12;--fav-txt:#f5c451;--bad:#f2766b;--bad-fill:#d64545;--bad-soft:#3d1c1a;--bad-txt:#f7a39b;--ok:#4cc27a;--ok-soft:#173424;--ok-txt:#7ddba0;--blue:#7da6ff;--blue-soft:#1b2a45;--blue-txt:#a9c4ff;--pot:#c08ae8;--pot-soft:#33203f;--pot-txt:#d7b0f0;--desc:#4a4f4b;--sh:0 1px 2px #0006}}
+:root[data-tema=oscuro]{color-scheme:dark;--bg:#121413;--fg:#ecefec;--mut:#99a19b;--card:#1b1e1c;--line:#2b2f2c;--chip:#262a27;--acc:#55c4a5;--acc-fg:#06251c;--acc-soft:#1c2f29;--fav-ic:#f2b01e;--fav-soft:#3a2f12;--fav-txt:#f5c451;--bad:#f2766b;--bad-fill:#d64545;--bad-soft:#3d1c1a;--bad-txt:#f7a39b;--ok:#4cc27a;--ok-soft:#173424;--ok-txt:#7ddba0;--blue:#7da6ff;--blue-soft:#1b2a45;--blue-txt:#a9c4ff;--pot:#c08ae8;--pot-soft:#33203f;--pot-txt:#d7b0f0;--desc:#4a4f4b;--sh:0 1px 2px #0006}
+:root[data-tema=claro]{color-scheme:light}
+.logo-o{display:none!important}
+@media(prefers-color-scheme:dark){:root:not([data-tema=claro]) .logo-c{display:none!important}:root:not([data-tema=claro]) .logo-o{display:block!important}}
+:root[data-tema=oscuro] .logo-c{display:none!important}:root[data-tema=oscuro] .logo-o{display:block!important}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -24,6 +30,8 @@ svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stro
 .tabs .n{font-size:.7rem;min-width:1.25rem;text-align:center;padding:0 .35rem;border-radius:999px;background:var(--acc);color:var(--acc-fg)}
 .tabs a.on .n{background:var(--acc-fg);color:var(--acc)}
 .sec{margin-left:auto;display:flex;gap:.9rem;align-items:center;font-size:.9rem;min-width:0;overflow-x:auto;scrollbar-width:none;white-space:nowrap}.sec a{color:var(--mut)}.sec a.on{color:var(--acc);font-weight:600}
+.tema{display:inline-flex;align-items:center;justify-content:center;flex:none;width:34px;height:34px;min-height:0;padding:0;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--mut);cursor:pointer}
+.tema:hover{color:var(--acc);border-color:var(--acc);background:transparent}.tema svg.i{width:18px;height:18px}
 /* Pantallas medianas (celular apaisado, tablet): las pestañas y los links secundarios no entran en una fila */
 @media(min-width:701px) and (max-width:1100px){.top{flex-wrap:wrap;row-gap:.3rem}.sec{margin-left:0;flex-basis:100%}}
 @media(max-width:700px){

@@ -1,6 +1,6 @@
 // Service worker mínimo: cachea el shell estático y da una página de reserva cuando no hay red.
 // No cachea HTML dinámico (listados, detalle) porque cambia todo el tiempo y es por-usuario.
-const CACHE = 'inmo-shell-v4';
+const CACHE = 'inmo-shell-v5';
 const SHELL = [
   '/static/app.css', '/static/app.js', '/static/htmx.min.js',
   '/static/offline.html', '/static/manifest.json',

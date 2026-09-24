@@ -121,3 +121,27 @@ document.addEventListener('DOMContentLoaded', () => {
   const d = document.getElementById('fdet');
   if (d && matchMedia('(min-width:701px)').matches) d.open = true;
 });
+// Tema: automático (sigue al dispositivo) → claro → oscuro. Se guarda en este dispositivo; el <head> lo aplica antes
+// de pintar la página (ver base.html) y el CSS lo lee de <html data-tema>.
+const TEMAS = ['auto', 'claro', 'oscuro'];
+const TEMA_NOMBRE = { auto: 'automático (del dispositivo)', claro: 'claro', oscuro: 'oscuro' };
+const temaActual = () => document.documentElement.dataset.tema || 'auto';
+function pintarTema() {
+  const b = document.getElementById('tema');
+  if (!b) return;
+  const t = temaActual(), sig = TEMAS[(TEMAS.indexOf(t) + 1) % TEMAS.length];
+  b.querySelector('use').setAttribute('href', '#i-tema-' + t);
+  b.title = `Tema ${TEMA_NOMBRE[t]} · tocá para pasar a ${TEMA_NOMBRE[sig]}`;
+  b.setAttribute('aria-label', b.title);
+}
+function cambiarTema() {
+  const t = TEMAS[(TEMAS.indexOf(temaActual()) + 1) % TEMAS.length];
+  if (t === 'auto') delete document.documentElement.dataset.tema;
+  else document.documentElement.dataset.tema = t;
+  try { t === 'auto' ? localStorage.removeItem('inmo-tema') : localStorage.setItem('inmo-tema', t); } catch { /* sin almacenamiento: vale para esta página */ }
+  pintarTema();
+}
+document.addEventListener('DOMContentLoaded', () => {
+  pintarTema();
+  document.getElementById('tema')?.addEventListener('click', cambiarTema);
+});

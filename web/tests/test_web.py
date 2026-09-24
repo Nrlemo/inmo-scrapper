@@ -17,6 +17,13 @@ def test_all_pages_render(client):
     assert "&lt;b&gt;" in client.get("/p/1").text          # escapado de contenido scrapeado
 
 
+def test_selector_de_tema(client):
+    t = client.get("/lista").text
+    assert 'id="tema"' in t and "localStorage.getItem('inmo-tema')" in t
+    assert t.index("inmo-tema") < t.index("app.css")                  # se aplica antes de pintar (sin parpadeo)
+    assert 'class="logo logo-c"' in t and 'class="logo logo-o"' in t   # el logo sigue al tema elegido, no sólo al dispositivo
+
+
 def test_review_flow_and_discard(client):
     assert "<b>3</b> sin revisar" in client.get("/").text
     r = client.post("/p/3/accion", data={"accion": "descartar", "vista": "card"}, headers=HX)
