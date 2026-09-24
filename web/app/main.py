@@ -70,7 +70,7 @@ def _filtros(request: Request, desde) -> Filtros:
             return None
     return Filtros(q=(g("q") or "").strip(), barrio=g("barrio") or "", portal=g("portal") or "",
                    inmo=num("inmo", int), pmin=num("pmin"), pmax=num("pmax"), mmin=num("mmin"), amb=num("amb", int),
-                   cochera=g("cochera") == "1", etiqueta=(g("etiqueta") or "").strip(), estado=g("estado") or "", baja=g("baja") == "1",
+                   cochera=g("cochera") == "1", bajo_barrio=g("bajo") == "1", etiqueta=(g("etiqueta") or "").strip(), estado=g("estado") or "", baja=g("baja") == "1",
                    nuevas=g("nuevas") == "1", inactivas=g("inactivas") == "1", fuera=g("fuera") == "1", orden=g("orden") or "nuevas",
                    pagina=num("pagina", int) or 1, desde=desde)
 
@@ -288,8 +288,7 @@ def comparar(request: Request, ids: str = "", c=Depends(ctx)):
     for p in props:
         p["hist"] = queries.historial(conn, p["id"])
     stats = queries.stats_barrios(conn)
-    med = {b["barrio"]: b["mediana"] for b in stats}
-    return render(request, "comparar.html", c, props=props, stats=stats, med=med, favoritas=usando_favoritas)
+    return render(request, "comparar.html", c, props=props, stats=stats, favoritas=usando_favoritas)
 
 
 @app.get("/mapa", response_class=HTMLResponse)
@@ -349,13 +348,13 @@ def export(request: Request, c=Depends(ctx)):
     rows, _ = queries.listar(c["s"].connection(), f, 100000)
     out = io.StringIO()
     w = csv.writer(out)
-    w.writerow(["id", "portal", "url", "barrio", "direccion", "precio", "moneda", "m2_cub", "ambientes", "usd_m2",
+    w.writerow(["id", "portal", "url", "barrio", "direccion", "precio", "moneda", "m2_cub", "ambientes", "usd_m2", "vs_barrio_pct",
                 "favorito", "potencial", "descartada", "contactada", "puntaje_promedio", "votos", "notas"])
     for p in rows:
         def safe(v):  # evita inyección de fórmulas al abrir en planilla
             return "'" + v if isinstance(v, str) and v[:1] in "=+-@" else v
         w.writerow([p["id"], p["portal"], p["url"], safe(p["barrio"]), safe(p["direccion"]), p["precio"], p["moneda"],
-                    p["m2_cubiertos"], p["ambientes"], round(p["usd_m2"] or 0) or "", p["favorito"], p["potencial"],
+                    p["m2_cubiertos"], p["ambientes"], round(p["usd_m2"] or 0) or "", p["vb_pct"] if p["vb_pct"] is not None else "", p["favorito"], p["potencial"],
                     p["descartada"], p["contactada"], round(p["puntaje"], 2) if p["puntaje"] else "", p["votos"],
                     safe(p["notas"])])
     return Response(out.getvalue(), media_type="text/csv",

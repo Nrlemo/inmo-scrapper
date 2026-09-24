@@ -1,4 +1,5 @@
 """Piezas compartidas por las rutas: plantillas, dependencias (sesión, ctx) y cabeceras de seguridad."""
+import logging
 import re
 import time
 from datetime import datetime, timedelta
@@ -7,9 +8,10 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from . import config, queries
+from . import config, mercado, queries
 from .auth import PasswordChangeRequired, User, current_user, es_https
 from .models_web import Usuario
 from .security import iguales
@@ -131,6 +133,10 @@ def ctx(request: Request, user: User = Depends(current_user), s: Session = Depen
             u.visita_previa = u.ultima_visita
         u.ultima_visita = now
         s.commit()
+    try:
+        mercado.actualizar(s.connection())  # USD/m² vs. barrio, antes de consultar: sólo recalcula si cambiaron los datos
+    except OperationalError:                # base ocupada por otra escritura: se usa lo calculado antes
+        logging.getLogger("inmo.mercado").warning("no se pudo actualizar el indicador de oportunidad", exc_info=True)
     return {"user": user, "desde": u.visita_previa, "s": s}
 
 
