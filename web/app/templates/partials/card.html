@@ -27,6 +27,15 @@
       <div class="addr-l">{{ p.direccion|dir or p.titulo }}</div>
       <div class="mut">{{ p.barrio }}{% if p.inmo_nombre %} · {{ p.inmo_nombre }}{% endif %}</div>
     </div>
+    {# Ubicación: mapa estático (no toma gestos, así deslizar y el doble toque siguen andando); lo arma app.js #}
+    {% if p.lat is not none and p.lng is not none %}
+    <div class="mini-mapa-w">
+      <div class="mini-mapa" data-lat="{{ p.lat }}" data-lng="{{ p.lng }}" role="img" aria-label="Ubicación en el mapa"></div>
+      <a class="mini-mapa-link" href="https://www.google.com/maps/search/?api=1&amp;query={{ p.lat }},{{ p.lng }}" target="_blank" rel="noopener noreferrer">Abrir en Google Maps ↗</a>
+    </div>
+    {% else %}
+    <div class="mini-mapa sin-geo">Sin geolocalización</div>
+    {% endif %}
     {{ fichas(p) }}
     <div class="chips">{{ estados(p) }}{{ etiquetas(p) }}</div>
     <p class="desc-txt">{{ (p.descripcion or p.titulo or '')[:600] }}</p>

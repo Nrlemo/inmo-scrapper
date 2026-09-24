@@ -7,9 +7,9 @@
 <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
 <link rel="manifest" href="/static/manifest.json">
 <script>try{var t=localStorage.getItem('inmo-tema');if(t==='claro'||t==='oscuro')document.documentElement.dataset.tema=t}catch(e){}</script>{# tema elegido en este dispositivo, antes de pintar (sin parpadeo) #}
-<link rel="stylesheet" href="/static/app.css?v=12">{# subir ?v= (acá y en app.js) al cambiar CSS/JS: el service worker sirve la copia en caché #}
+<link rel="stylesheet" href="/static/app.css?v=13">{# subir ?v= (acá y en app.js) al cambiar CSS/JS: el service worker sirve la copia en caché #}
 {% block head %}{% endblock %}
-<script src="/static/htmx.min.js" defer></script><script src="/static/app.js?v=6" defer></script>
+<script src="/static/htmx.min.js" defer></script><script src="/static/app.js?v=7" defer></script>
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js',{scope:'/'});</script>
 </head><body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>

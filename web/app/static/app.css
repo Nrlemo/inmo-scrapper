@@ -132,6 +132,11 @@ a.badge:hover{text-decoration:none;filter:brightness(1.1)}
 .hero-w:hover .g-nav{opacity:1}.hero-w .g-nav:hover{background:#000b}.g-prev{left:.6rem}.g-next{right:.6rem}
 @media(hover:none){.hero-w .g-nav{display:none}}
 .addr-l{font-weight:700;font-size:1.1rem;letter-spacing:-.01em}
+/* Mini mapa de la tarjeta de Revisión: estático, los gestos pasan a la tarjeta */
+.mini-mapa{height:150px;border-radius:12px;border:1px solid var(--line);background:var(--chip);overflow:hidden;pointer-events:none;z-index:0}
+.mini-mapa *{pointer-events:none!important}   /* leaflet.css reactiva los marcadores */
+.mini-mapa.sin-geo{height:auto;padding:.6rem;display:flex;align-items:center;justify-content:center;border-style:dashed;color:var(--mut);font-size:.9rem}
+.mini-mapa-w{display:flex;flex-direction:column;gap:.25rem}.mini-mapa-link{align-self:flex-end;font-size:.82rem}
 .fichas{display:flex;flex-wrap:wrap;gap:.35rem}.fichas span{font-size:.82rem;padding:.15rem .6rem;border-radius:9px;background:var(--chip)}
 
 /* ---- fila del listado: franja de color según el estado ---- */

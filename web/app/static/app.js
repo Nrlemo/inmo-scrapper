@@ -145,3 +145,18 @@ document.addEventListener('DOMContentLoaded', () => {
   pintarTema();
   document.getElementById('tema')?.addEventListener('click', cambiarTema);
 });
+// Mini mapa de la tarjeta de Revisión con la ubicación del aviso. Estático: no se arrastra ni hace zoom (los gestos
+// de la tarjeta, deslizar y doble toque, siguen andando encima). Se arma de nuevo cada vez que htmx trae otra tarjeta.
+function miniMapa() {
+  const el = document.querySelector('#card .mini-mapa[data-lat]');
+  if (!el || !window.L || el.dataset.listo) return;
+  el.dataset.listo = '1';
+  const ll = [+el.dataset.lat, +el.dataset.lng];
+  const m = L.map(el, { zoomControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false,
+                        boxZoom: false, keyboard: false, attributionControl: true }).setView(ll, 15);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, referrerPolicy: 'origin', attribution: '© OpenStreetMap' }).addTo(m);
+  const acc = getComputedStyle(document.documentElement).getPropertyValue('--acc').trim() || '#1b6b58';
+  L.circleMarker(ll, { radius: 9, color: '#fff', weight: 3, fillColor: acc, fillOpacity: 1, interactive: false }).addTo(m);
+}
+document.addEventListener('DOMContentLoaded', miniMapa);
+document.addEventListener('htmx:afterSwap', e => { if (e.detail.target.id === 'card') miniMapa(); });
