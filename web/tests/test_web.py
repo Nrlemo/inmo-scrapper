@@ -359,7 +359,7 @@ def test_filtros_con_error_no_se_guardan_y_conservan_lo_escrito(client):
     r = client.post("/busqueda/0", data={**FORM, "zonaprop_zonas": "almagro\nvilla crespo"}, headers=HX)
     assert "Zona de la línea 2" in r.text and "villa crespo" in r.text
     r = client.post("/busqueda/0", data={**FORM, "precio_min": "300000"}, headers=HX)
-    assert "mínimo es mayor que el máximo" in r.text
+    assert "mínimo de precio es mayor que el máximo" in r.text
     assert "importado de profiles.yaml" in client.get("/estado").text           # nada se guardó
 
 
@@ -377,4 +377,12 @@ def test_maximos_por_portal_desde_estado(client):
     assert "Guardado. 3 avisos activos quedan fuera" in r.text                    # los 3 de prueba tienen 3 ambientes
     assert 'name="zonaprop_amb_max" inputmode="numeric" value="2"' in r.text and 'name="dorm_max" inputmode="numeric" value="3"' in r.text
     r = client.post("/busqueda/0", data={**FORM, "precio_min": "1", "dorm_min": "3", "dorm_max": "2"}, headers=HX)
-    assert "dormitorios mínimo es mayor" in r.text
+    assert "mínimo de dormitorios es mayor" in r.text
+
+
+def test_m2_maximo_global_y_por_portal(client):
+    # los 3 avisos de prueba tienen 50 m² cubiertos
+    r = client.post("/busqueda/0", data={**FORM, "precio_min": "1", "m2_cub_max": "40"}, headers=HX)
+    assert "Guardado. 3 avisos activos quedan fuera" in r.text
+    r = client.post("/busqueda/0", data={**FORM, "precio_min": "1", "m2_cub_max": "", "zonaprop_m2_tot_max": "70"}, headers=HX)
+    assert "Guardado. 0 avisos activos" in r.text and 'name="zonaprop_m2_tot_max" inputmode="numeric" value="70"' in r.text

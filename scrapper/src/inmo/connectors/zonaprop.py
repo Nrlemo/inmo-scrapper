@@ -182,12 +182,18 @@ def armar_plantilla(f: dict[str, Any]) -> str:
         partes.append(f"mas-de-{int(f['dorm_min'])}-habitaciones")
     if f.get("amb_min"):
         partes.append(f"mas-de-{int(f['amb_min'])}-ambientes")
+    elif f.get("amb_max"):
+        # Verificado: «hasta-1-ambiente». Con mínimo y máximo a la vez no hay un formato verificado: va el mínimo
+        # en la URL y el máximo se filtra al recibir la página (matches_profile).
+        n = int(f["amb_max"])
+        partes.append(f"hasta-{n}-ambiente" + ("s" if n > 1 else ""))
     partes.append(f"{{price_min}}-{{price_max}}-{MONEDAS[f['moneda']]}")
     return f"{BASE}/" + "-".join(partes) + ".html"
 
 
 _PLANTILLA_RE = re.compile(r"^https://www\.zonaprop\.com\.ar/departamentos-venta-\{zone\}(-con-apto-credito)?"
-                           r"(?:-mas-de-(\d+)-habitaciones)?(?:-mas-de-(\d+)-ambientes)?-\{price_min\}-\{price_max\}-dolar\.html$")
+                           r"(?:-mas-de-(\d+)-habitaciones)?(?:-mas-de-(\d+)-ambientes|-hasta-(\d+)-ambientes?)?"
+                           r"-\{price_min\}-\{price_max\}-dolar\.html$")
 
 
 def leer_plantilla(tpl: str) -> dict[str, Any] | None:
@@ -196,7 +202,8 @@ def leer_plantilla(tpl: str) -> dict[str, Any] | None:
     if not m:
         return None
     return {"tipo": "departamento", "operacion": "compra", "moneda": "USD", "apto_credito": bool(m.group(1)),
-            "dorm_min": int(m.group(2)) if m.group(2) else None, "amb_min": int(m.group(3)) if m.group(3) else None}
+            "dorm_min": int(m.group(2)) if m.group(2) else None, "amb_min": int(m.group(3)) if m.group(3) else None,
+            "amb_max": int(m.group(4)) if m.group(4) else None}
 
 
 def search_urls(profile: dict[str, Any]) -> list[tuple[str, str]]:
