@@ -31,8 +31,9 @@ from .models import Publicacion
 # Portales que la ronda por navegador ya sabe recorrer; los demás se muestran en la web como «etapa 2».
 PORTALES = {"zonaprop": "Zonaprop", "argenprop": "Argenprop", "mercadolibre": "MercadoLibre"}
 DISPONIBLES = {"zonaprop"}
-NUMERICOS = ("precio_min", "precio_max", "amb_min", "amb_max", "dorm_min", "dorm_max", "m2_tot_min", "m2_cub_min")
-AJUSTABLES = ("precio_min", "precio_max", "amb_min", "amb_max", "dorm_max", "m2_tot_min")   # los que un portal puede pisar
+NUMERICOS = ("precio_min", "precio_max", "amb_min", "amb_max", "dorm_min", "dorm_max", "m2_tot_min", "m2_tot_max",
+             "m2_cub_min", "m2_cub_max")
+AJUSTABLES = ("precio_min", "precio_max", "amb_min", "amb_max", "dorm_max", "m2_tot_min", "m2_tot_max")   # los que un portal puede pisar
 
 COMUNES_VACIOS: dict[str, Any] = {"operacion": "compra", "tipo": "departamento", "moneda": "USD",
                                   **{k: None for k in NUMERICOS}, "apto_credito": False, "excluir": []}
@@ -57,7 +58,8 @@ def desde_yaml(profiles: list[dict[str, Any]], estricto: bool = True) -> dict[st
                  precio_min=p.get("price", {}).get("min"), precio_max=p.get("price", {}).get("max"),
                  amb_min=p.get("rooms", {}).get("min"), amb_max=p.get("rooms", {}).get("max"),
                  dorm_min=p.get("bedrooms", {}).get("min"), dorm_max=p.get("bedrooms", {}).get("max"),
-                 m2_tot_min=p.get("total_m2_min"), m2_cub_min=p.get("covered_m2_min"))
+                 m2_tot_min=p.get("total_m2_min"), m2_tot_max=p.get("total_m2_max"),
+                 m2_cub_min=p.get("covered_m2_min"), m2_cub_max=p.get("covered_m2_max"))
         for portal, pc in (p.get("portals") or {}).items():
             dest = b["portales"].setdefault(portal, {"activo": True, "zonas": [], "ajustes": {}, "plantilla": None})
             dest["activo"] = True
@@ -69,6 +71,7 @@ def desde_yaml(profiles: list[dict[str, Any]], estricto: bool = True) -> dict[st
                 c["apto_credito"] = f["apto_credito"]
                 c["dorm_min"] = c["dorm_min"] or f["dorm_min"]
                 c["amb_min"] = max(x for x in (c["amb_min"], f["amb_min"], 0) if x is not None) or None
+                c["amb_max"] = c["amb_max"] or f["amb_max"]
             elif tpl:
                 dest["plantilla"] = tpl
         for portal, pc in b["portales"].items():
@@ -170,9 +173,10 @@ def _numero(v: Any, campo: str) -> int | None:
 
 def _rangos(c: dict[str, Any], donde: str) -> None:
     for lo, hi, nombre in (("precio_min", "precio_max", "precio"), ("amb_min", "amb_max", "ambientes"),
-                           ("dorm_min", "dorm_max", "dormitorios")):
+                           ("dorm_min", "dorm_max", "dormitorios"), ("m2_tot_min", "m2_tot_max", "m² totales"),
+                           ("m2_cub_min", "m2_cub_max", "m² cubiertos")):
         if c.get(lo) is not None and c.get(hi) is not None and c[lo] > c[hi]:
-            raise ValueError(f"{donde}: el {nombre} mínimo es mayor que el máximo")
+            raise ValueError(f"{donde}: el mínimo de {nombre} es mayor que el máximo")
 
 
 # ---------- documento -> perfiles de la ronda ----------
@@ -197,7 +201,8 @@ def perfiles(doc: dict[str, Any]) -> list[dict[str, Any]]:
             out.append({"name": b["nombre"], "operation": f["operacion"], "type": f["tipo"], "currency": f["moneda"],
                         "price": {"min": f["precio_min"], "max": f["precio_max"]},
                         "rooms": {"min": f["amb_min"], "max": f["amb_max"]}, "bedrooms": {"min": f["dorm_min"], "max": f["dorm_max"]},
-                        "total_m2_min": f["m2_tot_min"], "covered_m2_min": f["m2_cub_min"],
+                        "total_m2_min": f["m2_tot_min"], "total_m2_max": f["m2_tot_max"],
+                        "covered_m2_min": f["m2_cub_min"], "covered_m2_max": f["m2_cub_max"],
                         "exclude_keywords": list(f["excluir"]), "portals": {portal: conf}})
     return out
 

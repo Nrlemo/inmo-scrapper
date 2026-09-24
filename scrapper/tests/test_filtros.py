@@ -56,7 +56,7 @@ def test_zonas_como_texto_ida_y_vuelta():
 
 
 @pytest.mark.parametrize("cambio, error", [
-    (lambda b: b["comunes"].update(precio_min=200000), "mínimo es mayor"),
+    (lambda b: b["comunes"].update(precio_min=200000), "mínimo de precio es mayor"),
     (lambda b: b["comunes"].update(precio_max=None), "precio mínimo y máximo"),
     (lambda b: b["portales"]["zonaprop"].update(zonas=[]), "no tiene zonas"),
     (lambda b: b["comunes"].update(tipo="casa"), "no está verificado"),
@@ -123,7 +123,7 @@ def test_maximos_de_ambientes_y_dormitorios_globales_y_por_portal():
 def test_dormitorios_minimo_mayor_que_maximo():
     doc = filtros.desde_yaml(YAML)
     doc["busquedas"][0]["comunes"].update(dorm_min=3, dorm_max=2)
-    with pytest.raises(ValueError, match="dormitorios mínimo es mayor"):
+    with pytest.raises(ValueError, match="mínimo de dormitorios es mayor"):
         filtros.validar(doc)
     doc = filtros.desde_yaml(YAML)
     doc["busquedas"][0]["portales"]["zonaprop"]["ajustes"] = {"dorm_max": 1}         # 1 < dorm_min 2 común
@@ -136,3 +136,36 @@ def test_filtros_guardados_antes_de_los_maximos_siguen_andando():
     del doc["busquedas"][0]["comunes"]["dorm_max"]                                    # como están en producción
     p = filtros.perfiles(doc)[0]
     assert p["bedrooms"] == {"min": 2, "max": None}
+
+
+def _solo_recoleta(**comunes):
+    doc = filtros.desde_yaml(YAML)
+    b = doc["busquedas"][0]
+    b["comunes"].update({"precio_min": 0, "precio_max": 125000, "apto_credito": False, "dorm_min": None, "amb_min": None,
+                         **comunes})
+    b["portales"]["zonaprop"]["zonas"] = [{"zona": "recoleta", "precio_min": None, "precio_max": None}]
+    return filtros.perfiles(filtros.validar(doc))[0]
+
+
+def test_maximo_de_ambientes_va_en_la_url_como_zonaprop():
+    # URL verificada en el portal
+    assert search_urls(_solo_recoleta(amb_max=1)) == [
+        ("recoleta", "https://www.zonaprop.com.ar/departamentos-venta-recoleta-hasta-1-ambiente-0-125000-dolar.html")]
+    assert search_urls(_solo_recoleta(amb_max=3))[0][1].endswith("-recoleta-hasta-3-ambientes-0-125000-dolar.html")
+    # Mínimo y máximo: no hay formato verificado -> el mínimo en la URL, el máximo se filtra al recibir
+    p = _solo_recoleta(amb_min=2, amb_max=3)
+    assert search_urls(p)[0][1].endswith("-recoleta-mas-de-2-ambientes-0-125000-dolar.html") and p["rooms"]["max"] == 3
+    from inmo.connectors.zonaprop import leer_plantilla
+    f = leer_plantilla("https://www.zonaprop.com.ar/departamentos-venta-{zone}-hasta-1-ambiente-{price_min}-{price_max}-dolar.html")
+    assert f["amb_max"] == 1 and f["amb_min"] is None
+
+
+def test_m2_maximos():
+    from inmo.connectors.common import matches_profile
+    p = _solo_recoleta(m2_tot_max=80, m2_cub_max=70)
+    assert p["total_m2_max"] == 80 and p["covered_m2_max"] == 70
+    assert not matches_profile(Listing("zonaprop", "1", "u", m2_totales=81), p)
+    assert not matches_profile(Listing("zonaprop", "1", "u", m2_cubiertos=71), p)
+    assert matches_profile(Listing("zonaprop", "1", "u", m2_totales=80, m2_cubiertos=None), p)
+    with pytest.raises(ValueError, match="mínimo de m² totales es mayor"):
+        _solo_recoleta(m2_tot_min=90, m2_tot_max=80)

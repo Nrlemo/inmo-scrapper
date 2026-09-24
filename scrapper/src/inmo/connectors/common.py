@@ -67,6 +67,12 @@ def matches_profile(l: Listing, profile: dict[str, Any]) -> bool:
     min_tot = profile.get("total_m2_min")  # el listado da m² totales de casi todos los avisos; cubiertos casi nunca
     if min_tot is not None and l.m2_totales is not None and l.m2_totales < min_tot:
         return False
+    max_tot = profile.get("total_m2_max")
+    if max_tot is not None and l.m2_totales is not None and l.m2_totales > max_tot:
+        return False
+    max_cub = profile.get("covered_m2_max")
+    if max_cub is not None and l.m2_cubiertos is not None and l.m2_cubiertos > max_cub:
+        return False
     min_cub = profile.get("covered_m2_min")
     if min_cub is not None and l.m2_cubiertos is not None and l.m2_cubiertos < min_cub:
         return False
