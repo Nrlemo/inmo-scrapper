@@ -101,3 +101,38 @@ def test_dormitorios_minimos_se_filtran_al_recibir():
     p = filtros.perfiles(filtros.desde_yaml(YAML))[0]
     assert not matches_profile(Listing("zonaprop", "1", "u", dormitorios=1), p)
     assert matches_profile(Listing("zonaprop", "1", "u", dormitorios=2), p)
+
+
+def test_maximos_de_ambientes_y_dormitorios_globales_y_por_portal():
+    from inmo.connectors.common import matches_profile
+    doc = filtros.desde_yaml(YAML)
+    b = doc["busquedas"][0]
+    b["comunes"].update(amb_max=4, dorm_max=3)
+    p = filtros.perfiles(filtros.validar(doc))[0]
+    assert p["rooms"] == {"min": 3, "max": 4} and p["bedrooms"] == {"min": 2, "max": 3}
+    assert not matches_profile(Listing("zonaprop", "1", "u", ambientes=5), p)
+    assert not matches_profile(Listing("zonaprop", "1", "u", dormitorios=4), p)
+    assert matches_profile(Listing("zonaprop", "1", "u", ambientes=4, dormitorios=3), p)
+    b["portales"]["zonaprop"]["ajustes"] = {"amb_max": "3", "dorm_max": "2"}          # Zonaprop pisa los globales
+    p = filtros.perfiles(filtros.validar(doc))[0]
+    assert p["rooms"]["max"] == 3 and p["bedrooms"]["max"] == 2
+    assert not matches_profile(Listing("zonaprop", "1", "u", ambientes=4), p)
+    assert search_urls(p) == search_urls(YAML[0])                                     # los máximos no van en la URL
+
+
+def test_dormitorios_minimo_mayor_que_maximo():
+    doc = filtros.desde_yaml(YAML)
+    doc["busquedas"][0]["comunes"].update(dorm_min=3, dorm_max=2)
+    with pytest.raises(ValueError, match="dormitorios mínimo es mayor"):
+        filtros.validar(doc)
+    doc = filtros.desde_yaml(YAML)
+    doc["busquedas"][0]["portales"]["zonaprop"]["ajustes"] = {"dorm_max": 1}         # 1 < dorm_min 2 común
+    with pytest.raises(ValueError, match="en Zonaprop"):
+        filtros.validar(doc)
+
+
+def test_filtros_guardados_antes_de_los_maximos_siguen_andando():
+    doc = filtros.desde_yaml(YAML)
+    del doc["busquedas"][0]["comunes"]["dorm_max"]                                    # como están en producción
+    p = filtros.perfiles(doc)[0]
+    assert p["bedrooms"] == {"min": 2, "max": None}
