@@ -15,8 +15,6 @@ def _build(tmp_path, monkeypatch, mode, headers=None, base_url="http://testserve
     cfg.write_text("profiles:\n  - name: p\n    portals:\n      zonaprop:\n        search_url_template: x\n"
                    "        zones: [almagro, {zone: almagro, price_min: 1}, palermo, recoleta]\n")
     monkeypatch.setenv("INMO_CONFIG", str(cfg))
-    monkeypatch.delenv("RUN_ALLOWED_USERS", raising=False)
-    monkeypatch.setenv("SCHEDULER_ENABLED", "false")
     monkeypatch.setenv("AUTH_MODE", mode)
     monkeypatch.setenv("SETUP_TOKEN", "TEST-CODE-1234")
     monkeypatch.delenv("PROXY_SECRET", raising=False)

@@ -61,12 +61,6 @@ AUTH_MODE=none
 # En modo none, con este nombre quedan registrados tus cambios
 AUTH_DEFAULT_USER=$USUARIO
 TRUSTED_PROXY_HOPS=0
-
-# Cliente HTTP del scrapper (httpx | curl) y contacto para su User-Agent (dato personal: no se versiona)
-INMO_HTTP_CLIENT=httpx
-INMO_CONTACT=
-
-SCHEDULER_ENABLED=true
 E
   chmod 600 "$ENV_FILE"
   echo "Creado $ENV_FILE"

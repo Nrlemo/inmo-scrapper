@@ -130,66 +130,49 @@ def test_compare_uses_total_m2_fallback(client):
     assert "2.000" in html                         # 100000 / 50 USD/m²
 
 
-FAKE = """
-import sys, time
-from inmo.models import make_engine
-from inmo.progress import Tracker
-t = Tracker(make_engine(sys.argv[1]), int(sys.argv[2]))
-t.update(zonas_total=2, zona_idx=2, zona_actual='palermo', pagina=1, paginas=2, resultados=7)
-time.sleep({sleep})
-t.finish('ok', '7 avisos')
-"""
-
-
-def _fake_cmd(monkeypatch, sleep):
-    import sys
-    import app.scrapper_ctl as ctl
+# ---------- ronda por navegador en la pantalla Estado ----------
+def _ronda_en_curso():
+    from sqlalchemy.orm import Session
+    from inmo import navegador
+    from inmo.config import load_config
     from app import config
-    monkeypatch.setattr(ctl, "build_cmd", lambda rid, portal, zonas, skip: [
-        sys.executable, "-c", FAKE.format(sleep=sleep), config.DB_PATH, str(rid)])
-    return ctl
+    from app.main import ENGINE
+    with Session(ENGINE) as s:
+        return navegador.iniciar(s, load_config(config.CONFIG_PATH), "ana")["ronda"]
 
 
-def _wait(client, cond, tries=60):
-    import time
-    for _ in range(tries):
-        t = client.get("/scrapper/estado").text
-        if cond(t):
-            return t
-        time.sleep(0.25)
-    raise AssertionError(t)
-
-
-def test_scrapper_run_progress_and_finish(client, monkeypatch):
-    _fake_cmd(monkeypatch, 1.5)
+def test_estado_sin_acciones_del_scrapper_viejo(client):
     page = client.get("/estado").text
-    assert "Ejecutar ahora" in page and 'value="recoleta"' in page and page.count('name="zonas"') == 3  # zonas únicas
-    r = client.post("/scrapper/iniciar", data={"portal": "zonaprop", "zonas": ["palermo"]}, headers=HX)
-    assert r.status_code == 200 and "Scrapper corriendo" in r.text
+    assert "Todavía no hubo ninguna ronda" in page and "Correr ronda ahora" in page
+    assert "Ejecutar ahora" not in page and "Ejecución automática diaria" not in page
+    for ruta in ("/scrapper/iniciar", "/scrapper/programacion", "/scrapper/cancelar"):
+        assert client.post(ruta, headers=HX).status_code in (404, 405)
+
+
+def test_estado_muestra_la_ronda_en_curso_y_permite_cancelarla(client):
+    rid = _ronda_en_curso()
+    page = client.get("/estado").text
+    assert "Ronda en curso" in page and f'hx-get="/ronda/estado?run={rid}"' in page and "Zona 1/4" in page
     assert "corriendo" in client.get("/lista").text                        # indicador global en la barra
-    t = _wait(client, lambda t: "Zona 2/2" in t)
-    assert "Zona 2/2" in t and "página 1/2" in t and "7 avisos hallados" in t and 'value="75"' in t
-    r = client.post("/scrapper/iniciar", data={"portal": "zonaprop"}, headers=HX)
-    assert "Ya hay una corrida en curso" in r.text                          # una sola a la vez
-    t = _wait(client, lambda t: "Última corrida" in t)
-    assert "completa" in t and "7 avisos" in t
-    assert client.get("/scrapper/estado?run=1", headers=HX).headers.get("HX-Refresh") == "true"
+    r = client.post("/ronda/cancelar", headers=HX)
+    assert r.status_code == 200 and "cancelada" in r.text and "Ronda en curso" not in r.text
+    assert client.get(f"/ronda/estado?run={rid}", headers=HX).headers.get("HX-Refresh") == "true"
 
 
-def test_scrapper_cancel_and_permissions(client, monkeypatch):
-    ctl = _fake_cmd(monkeypatch, 30)
-    client.post("/scrapper/iniciar", data={"portal": "zonaprop"}, headers=HX)
-    r = client.post("/scrapper/cancelar", headers=HX)
-    assert "cancelada" in r.text
-    monkeypatch.setattr("app.config.RUN_ALLOWED_USERS", {"admin"})
-    assert client.post("/scrapper/iniciar", data={"portal": "zonaprop"}, headers=HX).status_code == 403
-    assert "no tiene permiso" in client.get("/estado").text
-    assert client.post("/scrapper/iniciar", data={"portal": "nope"}, headers={**HX, "X-authentik-username": "admin"}).status_code == 200
-
-
-def test_scrapper_rejects_unknown_zone(client):
-    r = client.post("/scrapper/iniciar", data={"portal": "zonaprop", "zonas": ["../x"]}, headers=HX)
-    assert "Zona desconocida" in r.text
+def test_al_arrancar_solo_se_cortan_las_corridas_del_scrapper_viejo(client):
+    from datetime import datetime
+    from sqlalchemy.orm import Session
+    from inmo.models import Ejecucion
+    from app import rondas
+    from app.main import ENGINE
+    rid = _ronda_en_curso()
+    with Session(ENGINE) as s:
+        now = datetime.now()
+        s.add(Ejecucion(portal="zonaprop", zonas=[], inicio=now, actualizado=now, estado="corriendo", pid=123))
+        s.commit()
+        rondas.marcar_huerfanas(s)
+        estados = {e.id: e.estado for e in s.query(Ejecucion)}
+    assert estados[rid] == "corriendo" and sorted(estados.values()) == ["corriendo", "interrumpida"]
 
 
 # ---------- autenticación opcional ----------
@@ -206,99 +189,6 @@ def test_auth_disabled_mode(client, monkeypatch):
 
 def test_auth_enabled_by_default_shows_no_warning(client):
     assert "Autenticación desactivada" not in client.get("/estado").text
-
-
-# ---------- programador diario ----------
-from datetime import datetime, timedelta  # noqa: E402
-
-
-def _sched(client):
-    import app.scheduler as sch
-    from app.main import ENGINE
-    return sch, ENGINE
-
-
-def test_calcular_proxima(client):
-    sch, _ = _sched(client)
-    now = datetime(2026, 1, 1, 22, 0)
-    assert sch.calcular_proxima("03:00", now, rnd=lambda: 0) == datetime(2026, 1, 2, 3, 0)
-    assert sch.calcular_proxima("03:00", now, rnd=lambda: 0.5) == datetime(2026, 1, 2, 3, 15)
-    assert sch.calcular_proxima("23:30", now, rnd=lambda: 0) == datetime(2026, 1, 1, 23, 30)   # hoy, aún no pasó
-    assert sch.calcular_proxima("21:00", now, rnd=lambda: 0) == datetime(2026, 1, 2, 21, 0)    # hoy ya pasó
-
-
-def test_tick_launches_once_and_reschedules(client):
-    sch, eng = _sched(client)
-    from sqlalchemy.orm import Session
-    lanzadas = []
-    fake = lambda engine, user, portal, zonas, gap: lanzadas.append((user, portal, zonas, gap))  # noqa: E731
-    with Session(eng) as s:
-        p = sch.configurar(s, True, "03:00", "ana", now=datetime(2026, 1, 1, 22, 0))
-        prox = p.proxima
-    sch.tick(eng, now=prox - timedelta(minutes=1), iniciar=fake)
-    assert lanzadas == []                                                # todavía no es la hora
-    sch.tick(eng, now=prox + timedelta(seconds=5), iniciar=fake)
-    assert lanzadas == [("programada", "zonaprop", [], False)]
-    sch.tick(eng, now=prox + timedelta(seconds=40), iniciar=fake)
-    assert len(lanzadas) == 1                                            # no se repite
-    with Session(eng) as s:
-        p = sch.obtener(s)
-        assert p.proxima > prox + timedelta(hours=20) and p.ultima_auto is not None
-
-
-def test_tick_skips_when_overdue_and_retries_when_busy(client):
-    sch, eng = _sched(client)
-    from sqlalchemy.orm import Session
-    import app.scrapper_ctl as ctl
-    lanzadas = []
-    with Session(eng) as s:
-        prox = sch.configurar(s, True, "03:00", "ana", now=datetime(2026, 1, 1, 22, 0)).proxima
-    sch.tick(eng, now=prox + timedelta(hours=5), iniciar=lambda *a: lanzadas.append(a))   # web caída: se salta
-    assert lanzadas == []
-    with Session(eng) as s:
-        prox2 = sch.obtener(s).proxima
-    estado = {"ocupado": True}
-
-    def busy_then_ok(*a):
-        if estado["ocupado"]:
-            raise ctl.Ocupado()
-        lanzadas.append(a)
-    sch.tick(eng, now=prox2 + timedelta(seconds=1), iniciar=busy_then_ok)
-    assert lanzadas == []
-    estado["ocupado"] = False
-    sch.tick(eng, now=prox2 + timedelta(seconds=40), iniciar=busy_then_ok)   # reintenta en el siguiente tick
-    assert len(lanzadas) == 1
-
-
-def test_disable_clears_schedule(client):
-    sch, eng = _sched(client)
-    from sqlalchemy.orm import Session
-    with Session(eng) as s:
-        sch.configurar(s, True, "03:00", "ana")
-        p = sch.configurar(s, False, "03:00", "ana")
-        assert not p.activa and p.proxima is None
-    hits = []
-    sch.tick(eng, now=datetime.now() + timedelta(days=3), iniciar=lambda *a: hits.append(a))
-    assert hits == []
-
-
-def test_programacion_routes(client):
-    page = client.get("/estado").text
-    assert "Ejecución automática diaria" in page and "Desactivada" in page
-    r = client.post("/scrapper/programacion", data={"activa": "1", "hora": "03:00"}, headers=HX)
-    assert r.status_code == 200 and "Activada" in r.text and "Próxima corrida" in r.text
-    assert "Activada" in client.get("/estado").text                       # persiste
-    r = client.post("/scrapper/programacion", data={"activa": "1", "hora": "25:99"}, headers=HX)
-    assert "Hora inválida" in r.text
-    r = client.post("/scrapper/programacion", data={"hora": "03:00"}, headers=HX)   # checkbox sin marcar
-    assert "Desactivada" in r.text and "No hay corridas automáticas" in r.text
-
-
-def test_programacion_permissions(client, monkeypatch):
-    monkeypatch.setattr("app.config.RUN_ALLOWED_USERS", {"admin"})
-    r = client.post("/scrapper/programacion", data={"activa": "1", "hora": "03:00"}, headers=HX)
-    assert r.status_code == 403
-    assert "no puede cambiar" in client.get("/estado").text
 
 
 # ---------- páginas de error ----------
@@ -320,7 +210,7 @@ def test_other_errors_use_same_page_without_gif(client):
 def test_estado_without_profiles_yaml_shows_hint(client, monkeypatch, tmp_path):
     monkeypatch.setattr("app.config.CONFIG_PATH", str(tmp_path / "no-existe.yaml"))
     r = client.get("/estado")
-    assert r.status_code == 200 and "profiles.example.yaml" in r.text and "Ejecutar ahora" not in r.text
+    assert r.status_code == 200 and "profiles.example.yaml" in r.text and "Correr ronda ahora" not in r.text
 
 
 def test_unwritable_data_dir_gives_clear_error(tmp_path, monkeypatch):

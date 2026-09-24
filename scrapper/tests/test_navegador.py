@@ -142,3 +142,26 @@ def test_forzar_ignora_el_intervalo_pero_no_el_cooldown(tmp_path):
         rid = navegador.iniciar(s, cfg, "ana", T0 + timedelta(hours=1), forzar=True)["ronda"]
         navegador.pagina(s, cfg, rid, URL1, "<title>Just a moment...</title>", T0 + timedelta(hours=1))
         assert "cooldown" in navegador.iniciar(s, cfg, "ana", T0 + timedelta(hours=2), forzar=True)["omitir"]
+
+
+def test_varios_perfiles_del_mismo_portal(tmp_path):
+    """Corren todos los perfiles, un aviso en dos perfiles se cuenta una vez y las bajas usan lo visto por todos."""
+    eng = make_engine(str(tmp_path / "t.sqlite"))
+    cfg = _cfg(min_hours_between_runs=0)
+    cfg["profiles"].append({"name": "otro", "currency": "USD", "price": {"min": 1, "max": 10**7},
+                            "portals": {"zonaprop": {"search_urls": [URL2]}}})
+    chica = _chica()
+    with Session(eng) as s:
+        rid = navegador.iniciar(s, cfg, "ana", T0)["ronda"]
+        r = navegador.pagina(s, cfg, rid, URL1, chica, T0)
+        assert r["siguiente"] == URL2                                      # el 2º perfil también corre
+        r = navegador.pagina(s, cfg, rid, URL2, chica, T0)                 # mismos avisos que el 1º
+        assert r["estado"] == "ok"
+        n = len(s.scalars(select(Publicacion)).all())
+        assert {q.perfil: q.cantidad_resultados for q in s.scalars(select(Consulta))} == {"t": n, "otro": 0}
+        # Desde ahora sólo el 2º perfil los ve: no se dan de baja.
+        for k in range(1, 4):
+            rid = navegador.iniciar(s, cfg, "ana", T0 + timedelta(days=k))["ronda"]
+            navegador.pagina(s, cfg, rid, URL1, _otra(chica, "9"), T0 + timedelta(days=k))
+            navegador.pagina(s, cfg, rid, URL2, chica, T0 + timedelta(days=k))
+        assert all(p.activa for p in s.scalars(select(Publicacion)))

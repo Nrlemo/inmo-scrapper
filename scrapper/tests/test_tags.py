@@ -1,13 +1,13 @@
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from inmo import tags
-from inmo.connectors.base import Listing, SearchResult
+from inmo import navegador, repo, tags
+from inmo.connectors.base import Listing
 from inmo.models import Categorizacion, make_engine
-from inmo.runner import run
 
 REGLAS = {
     "patio": ["patio"],
@@ -40,38 +40,32 @@ def test_reglas_mal_escritas():
         tags.compilar(["patio"])
 
 
-class Fake:
-    def __init__(self, listings):
-        self.listings = listings
-
-    def search(self, profile):
-        return SearchResult(listings=self.listings, completa=True)
-
-
-def _cfg(reglas):
-    return {"profiles": [{"name": "t", "portals": {"zonaprop": {}}}], "politeness": {}, "auto_tags": reglas}
-
-
-def test_runner_aplica_y_no_pisa_las_manuales(tmp_path):
+def test_aplica_a_lo_guardado_y_no_pisa_las_manuales(tmp_path):
     engine = make_engine(str(tmp_path / "t.sqlite"))
-    ls = [Listing("zonaprop", "1", "u1", titulo="Con patio", descripcion="Apto crédito"),
-          Listing("zonaprop", "2", "u2", titulo="Sin cochera")]
-    run(engine, _cfg(REGLAS), "zonaprop", now=datetime(2026, 9, 1), connector=Fake(ls), skip_gap=True)
     with Session(engine) as s:
+        repo.upsert(s, Listing("zonaprop", "1", "u1", titulo="Con patio", descripcion="Apto crédito"), datetime(2026, 9, 1))
+        repo.upsert(s, Listing("zonaprop", "2", "u2", titulo="Sin cochera"), datetime(2026, 9, 1))
+        assert tags.aplicar(s, REGLAS) == 1
+        s.commit()
         c1, c2 = s.scalars(select(Categorizacion).order_by(Categorizacion.publicacion_id)).all()
         assert c1.etiquetas_auto == ["apto_credito", "patio"] and c2.etiquetas_auto == []
         c1.etiquetas = ["ver"]                                               # etiqueta manual
         s.commit()
-    # Cambian las reglas: se recalcula todo lo guardado; las manuales quedan intactas.
-    run(engine, _cfg({"credito": ["apto crédito"]}), "zonaprop", now=datetime(2026, 9, 2), connector=Fake(ls),
-        skip_gap=True)
-    with Session(engine) as s:
+        # Cambian las reglas: se recalcula todo lo guardado; las manuales quedan intactas.
+        tags.aplicar(s, {"credito": ["apto crédito"]})
+        s.commit()
         c1 = s.get(Categorizacion, 1)
         assert c1.etiquetas_auto == ["credito"] and c1.etiquetas == ["ver"]
 
 
-def test_reglas_invalidas_no_rompen_la_corrida(tmp_path):
+def test_reglas_invalidas_no_rompen_la_ronda(tmp_path):
+    html = (Path(__file__).parent / "fixtures" / "zonaprop_listado.html").read_text(encoding="utf-8")
+    html = html.replace("2.864", "25").replace("2864", "25")                # una sola página
+    url = "https://www.zonaprop.com.ar/a.html"
+    cfg = {"profiles": [{"name": "t", "portals": {"zonaprop": {"search_urls": [url]}}}],
+           "politeness": {}, "auto_tags": {"patio": 5}}
     engine = make_engine(str(tmp_path / "t.sqlite"))
-    out = run(engine, _cfg({"patio": 5}), "zonaprop", now=datetime(2026, 9, 1),
-              connector=Fake([Listing("zonaprop", "1", "u1", titulo="Con patio")]), skip_gap=True)
-    assert out["t"]["nuevas"] == 1
+    with Session(engine) as s:
+        r = navegador.iniciar(s, cfg, "ana", datetime(2026, 9, 1))
+        r = navegador.pagina(s, cfg, r["ronda"], url, html, datetime(2026, 9, 1))
+        assert r["fin"] and r["estado"] == "ok" and "0 nuevos" not in r["mensaje"]

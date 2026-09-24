@@ -1,7 +1,7 @@
 """Ronda por navegador: API para la extensión (token propio, sin cookies ni CSRF) y gestión del token en Estado.
 
 La extensión (repo aparte: https://github.com/Nrlemo/inmo-extension) abre las búsquedas de Zonaprop en el navegador
-del usuario y manda cada página a /api/navegador/pagina; la lógica de la ronda está en el scrapper (inmo.navegador).
+del usuario y manda cada página a /api/navegador/pagina; la lógica de la ronda está en `inmo.navegador`.
 """
 import logging
 from datetime import datetime

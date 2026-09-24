@@ -114,7 +114,7 @@ class Categorizacion(Base):
 
 
 class Ejecucion(Base):
-    """Corrida del scrapper con su progreso (la lanza la web; el CLI la actualiza con --run-id)."""
+    """Ronda de carga con su progreso (pantalla Estado). Hoy todas son rondas por navegador (ver RondaNavegador)."""
     __tablename__ = "ejecuciones"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -133,7 +133,7 @@ class Ejecucion(Base):
     paginas: Mapped[int] = mapped_column(Integer, default=0)
     resultados: Mapped[int] = mapped_column(Integer, default=0)
     mensaje: Mapped[str | None] = mapped_column(Text)
-    pid: Mapped[int | None] = mapped_column(Integer)
+    pid: Mapped[int | None] = mapped_column(Integer)   # sólo lo usaban las corridas del scrapper HTTP (ya no existe)
 
 
 class RondaNavegador(Base):

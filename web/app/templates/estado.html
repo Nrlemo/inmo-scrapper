@@ -1,18 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Estado{% endblock %}
 {% block main %}
-<h1>Estado del scrapper</h1>
+<h1>Estado</h1>
 <p class="mut">{{ tot[0] }} publicaciones · {{ tot[1] or 0 }} activas · {{ tot[2] or 0 }} con coordenadas (mapa)</p>
 {% if auth_mode == 'none' %}<div class="card in" style="margin-bottom:1rem;border-color:var(--bad)"><b class="up">⚠ Autenticación desactivada</b>
-  <div class="mut" style="font-size:.9rem">Cualquiera que llegue a esta URL puede ver, modificar y lanzar el scrapper. Usalo sólo en red privada o con otra protección delante.</div></div>{% endif %}
-{% include "partials/scrapper.html" %}
+  <div class="mut" style="font-size:.9rem">Cualquiera que llegue a esta URL puede ver y modificar todo. Usalo sólo en red privada o con otra protección delante.</div></div>{% endif %}
+{% include "partials/ronda.html" %}
 {% include "partials/navegador.html" %}
-{% include "partials/programacion.html" %}
-<h2>Corridas</h2>
+<h2>Rondas</h2>
 <div class="scroll"><table><tr><th>Inicio</th><th>Estado</th><th>Zonas</th><th>Duración</th><th>Por</th><th>Detalle</th></tr>
   {% for h in hist %}<tr><td>{{ h.inicio|fecha }} {{ h.inicio.strftime('%H:%M') }}</td><td>{{ h.estado }}</td>
     <td>{{ h.zonas|join(', ') if h.zonas else 'todas' }}</td><td>{{ h.minutos }} min</td><td>{{ h.usuario or '' }}</td>
-    <td class="mut">{{ (h.mensaje or '')[:100] }}</td></tr>{% else %}<tr><td colspan="6" class="mut">Todavía no se lanzó ninguna corrida desde la web.</td></tr>{% endfor %}</table></div>
+    <td class="mut">{{ (h.mensaje or '')[:100] }}</td></tr>{% else %}<tr><td colspan="6" class="mut">Todavía no hubo ninguna ronda.</td></tr>{% endfor %}</table></div>
 <h2>Consultas por perfil y portal</h2>
 <div class="scroll"><table><tr><th>Fecha</th><th>Perfil</th><th>Portal</th><th>Resultados</th><th>Estado</th><th>Errores</th></tr>
   {% for q in consultas %}<tr><td>{{ q.fecha|fecha }} {{ q.fecha.strftime('%H:%M') }}</td><td>{{ q.perfil }}</td><td>{{ q.portal }}</td><td>{{ q.cantidad_resultados }}</td>

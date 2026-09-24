@@ -198,7 +198,7 @@ def test_csrf_token_required_for_state_changes(admin):
 
 def test_htmx_gets_redirect_header_when_session_lost(admin):
     admin.post("/logout", headers=hx(admin))
-    r = admin.get("/scrapper/estado", headers={"HX-Request": "true"})
+    r = admin.get("/ronda/estado", headers={"HX-Request": "true"})
     assert r.status_code == 401 and r.headers["hx-redirect"] == "/login"
     assert admin.get("/api/mapa").status_code == 401
 

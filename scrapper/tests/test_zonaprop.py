@@ -6,12 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from inmo.connectors.base import Listing
-from inmo.connectors.zonaprop import (ZonapropConnector, _money, _num, matches_profile, page_url, parse_pictures,
+from inmo.connectors.zonaprop import (_money, _num, matches_profile, page_url, parse_pictures,
                                       parse_listing_page)
-from inmo.errors import BlockedError
-from inmo.models import Consulta, HistorialPrecio, Publicacion, make_engine
+from inmo.models import HistorialPrecio, Publicacion, make_engine
 from inmo import repo
-from inmo.runner import run
 
 HTML = (Path(__file__).parent / "fixtures" / "zonaprop_listado.html").read_text(encoding="utf-8")
 
@@ -64,48 +62,6 @@ def test_matches_profile():
     assert matches_profile(Listing("zonaprop", "6", "u", precio=100000, moneda="USD"), prof)  # sin m² => no se descarta
 
 
-class FakeClient:
-    """Sirve el fixture como página 1 y páginas sucesivas con avisos distintos; registra los pedidos."""
-    def __init__(self, pages):
-        self.pages, self.urls = pages, []
-
-    def get(self, url, delay=None):
-        self.urls.append(url)
-        p = self.pages[len(self.urls) - 1]
-        if isinstance(p, Exception):
-            raise p
-        return p
-
-
-def _profile():
-    return {"name": "t", "currency": "USD", "price": {"min": 1, "max": 10**7}, "portals": {"zonaprop": {
-        "search_url": "https://www.zonaprop.com.ar/x.html"}}}
-
-
-def _cfg(max_pages=5):
-    return {"page_delay": [0, 0], "max_pages": max_pages}
-
-
-def test_pagination_stops_on_repeated_page():
-    fake = FakeClient([HTML, HTML])                        # página 2 repite ids => corta
-    res = ZonapropConnector(_cfg(), fake).search(_profile())
-    assert len(fake.urls) == 2 and fake.urls[1].endswith("x-pagina-2.html")
-    assert res.completa and not res.bloqueada
-    assert res.truncada and any("solo se pueden leer" in e for e in res.errores)  # 2864 > 150
-
-
-def test_page_cap_from_config():
-    other = HTML.replace('data-id="', 'data-id="9')       # ids distintos => no corta por repetición
-    fake = FakeClient([HTML, other, other.replace('data-id="9', 'data-id="8')])
-    ZonapropConnector(_cfg(max_pages=3), fake).search(_profile())
-    assert len(fake.urls) == 3
-
-
-def test_block_is_reported_not_raised():
-    res = ZonapropConnector(_cfg(), FakeClient([HTML, BlockedError("HTTP 403")])).search(_profile())
-    assert res.bloqueada and not res.completa and len(res.listings) > 0
-
-
 @pytest.fixture
 def engine(tmp_path):
     return make_engine(str(tmp_path / "t.sqlite"))
@@ -144,57 +100,10 @@ def test_cross_portal_link(engine):
         assert a.grupo_id == b.grupo_id == a.id
 
 
-def test_runner_cooldown_after_block(engine):
-    class Blocked:
-        def search(self, profile):
-            from inmo.connectors.base import SearchResult
-            return SearchResult(completa=False, bloqueada=True, errores=["HTTP 403"])
-    cfg = {"profiles": [_profile()], "politeness": {"zonaprop": {"cooldown_hours_on_block": 24}}}
-    t0 = datetime(2026, 9, 20, 10)
-    out = run(engine, cfg, "zonaprop", now=t0, connector=Blocked())
-    assert out["t"]["bloqueada"]
-    out = run(engine, cfg, "zonaprop", now=t0 + timedelta(hours=5), connector=Blocked())
-    assert "cooldown" in out["t"]
-    with Session(engine) as s:
-        assert len(s.scalars(select(Consulta)).all()) == 1
-
-
-def test_multi_zone_urls_dedupe_and_truncation():
+def test_search_urls_explicitas():
     from inmo.connectors.zonaprop import search_urls
-    prof = _profile()
-    prof["portals"]["zonaprop"] = {"search_url_template": "https://www.zonaprop.com.ar/d-{zone}-x.html",
-                                   "zones": ["almagro", "boedo"]}
-    assert [z for z, _ in search_urls(prof)] == ["almagro", "boedo"]
-    small = HTML.replace("2.864 Departamentos", "40 Departamentos")   # 2 páginas por zona
-    fake = FakeClient([small, "<html><title>x</title></html>", small, "<html><title>x</title></html>"])
-    res = ZonapropConnector({"page_delay": [0, 0], "max_pages": 5}, fake).search(prof)
-    assert fake.urls[0].endswith("d-almagro-x.html") and fake.urls[2].endswith("d-boedo-x.html")
-    ids = [l.id_externo for l in res.listings]
-    assert len(ids) == len(set(ids)) and not res.truncada and res.completa   # boedo repite ids => no duplica
-
-
-def test_block_in_one_zone_stops_the_rest():
-    prof = _profile()
-    prof["portals"]["zonaprop"] = {"search_url_template": "https://x/{zone}.html", "zones": ["a", "b"]}
-    fake = FakeClient([BlockedError("HTTP 403"), HTML])
-    res = ZonapropConnector({"page_delay": [0, 0]}, fake).search(prof)
-    assert res.bloqueada and len(fake.urls) == 1 and "[a]" in res.errores[0]
-
-
-def test_truncated_search_does_not_inactivate(engine):
-    class Trunc:
-        def search(self, profile):
-            from inmo.connectors.base import SearchResult
-            return SearchResult(truncada=True)
-    cfg = {"profiles": [_profile()], "politeness": {"zonaprop": {}}}
-    t0 = datetime(2026, 9, 20)
-    with Session(engine) as s:
-        p, _ = repo.upsert(s, Listing("zonaprop", "1", "u", precio=1, moneda="USD"), t0)
-        s.commit()
-    for d in range(1, 5):
-        run(engine, cfg, "zonaprop", now=t0 + timedelta(days=d), connector=Trunc())
-    with Session(engine) as s:
-        assert s.scalar(select(Publicacion)).activa is True
+    prof = {"portals": {"zonaprop": {"search_urls": ["https://www.zonaprop.com.ar/x-y.html"]}}}
+    assert search_urls(prof) == [("x-y", "https://www.zonaprop.com.ar/x-y.html")]
 
 
 def test_migration_adds_and_backfills_variacion(tmp_path):
@@ -292,95 +201,11 @@ def test_cross_portal_link_tolerates_barrio_naming(engine):
         assert a.grupo_id == b.grupo_id == a.id and c.grupo_id is None
 
 
-def test_tracker_records_progress_and_skip_gap(engine):
-    from inmo.models import Ejecucion
-    from inmo.progress import Tracker
-    now = datetime(2026, 1, 1, 12)
-    with Session(engine) as s:
-        s.add(Ejecucion(id=1, portal="zonaprop", zonas=[], inicio=now, actualizado=now, estado="corriendo"))
-        s.commit()
-    t = Tracker(engine, 1)
-    t.update(zonas_total=3, zona_idx=2, zona_actual="almagro", pagina=1, paginas=4)
-    with Session(engine) as s:
-        e = s.get(Ejecucion, 1)
-        assert (e.zonas_total, e.zona_idx, e.zona_actual, e.pagina, e.paginas) == (3, 2, "almagro", 1, 4)
-    t.finish("ok", "listo")
-    t.update(zona_idx=3)                     # ya finalizada: no se pisa
-    with Session(engine) as s:
-        e = s.get(Ejecucion, 1)
-        assert e.estado == "ok" and e.zona_idx == 2 and e.fin is not None
-
-
-def test_user_agent_has_no_contact_unless_configured(monkeypatch):
-    import importlib
-    import inmo.http as h
-    monkeypatch.delenv("INMO_CONTACT", raising=False)
-    assert "contacto" not in importlib.reload(h).UA
-    monkeypatch.setenv("INMO_CONTACT", "yo@example.com")
-    assert "contacto: yo@example.com" in importlib.reload(h).UA
-    monkeypatch.delenv("INMO_CONTACT")
-    importlib.reload(h)
-
-
-# ---------- cliente curl opcional ----------
-def _fake_curl(monkeypatch, stdout=b"", returncode=0, stderr=b"", capture=None):
-    import subprocess
-    from inmo import http as h
-    monkeypatch.setattr(h.shutil, "which", lambda n: "/usr/bin/curl")
-
-    def run(cmd, **kw):
-        if capture is not None:
-            capture.append((cmd, kw))
-        return subprocess.CompletedProcess(cmd, returncode, stdout, stderr)
-    monkeypatch.setattr(h.subprocess, "run", run)
-    return h
-
-
-def test_client_selection_env_over_yaml(monkeypatch):
-    from inmo import http as h
-    monkeypatch.delenv("INMO_HTTP_CLIENT", raising=False)
-    assert isinstance(h.PoliteClient((0, 0))._client, __import__("httpx").Client)
-    _fake_curl(monkeypatch)
-    assert isinstance(h.PoliteClient((0, 0), http_client="curl")._client, h._CurlClient)      # YAML
-    monkeypatch.setenv("INMO_HTTP_CLIENT", "httpx")
-    assert isinstance(h.PoliteClient((0, 0), http_client="curl")._client, __import__("httpx").Client)  # env gana
-    monkeypatch.setenv("INMO_HTTP_CLIENT", "otro")
-    with pytest.raises(ValueError):
-        h.PoliteClient((0, 0))
-
-
-def test_curl_missing_binary_is_a_clear_error(monkeypatch):
-    from inmo import http as h
-    monkeypatch.setattr(h.shutil, "which", lambda n: None)
-    with pytest.raises(RuntimeError, match="curl"):
-        h.PoliteClient((0, 0), http_client="curl")
-
-
-def test_curl_get_parses_body_status_and_uses_safe_args(monkeypatch):
-    calls = []
-    h = _fake_curl(monkeypatch, stdout="<html>ñandú\n</html>\n200".encode(), capture=calls)
-    c = h.PoliteClient((0, 0), http_client="curl", sleep=lambda s: None)
-    assert c.get("https://www.zonaprop.com.ar/x.html") == "<html>ñandú\n</html>"
-    cmd, kw = calls[0]
-    assert cmd[cmd.index("-A") + 1] == h.UA and cmd[-2:] == ["--url", "https://www.zonaprop.com.ar/x.html"]
-    assert kw.get("shell") is None and kw["capture_output"] is True                    # sin shell
-    with pytest.raises(ValueError):
-        h._CurlClient(5).get("-o /etc/passwd")                                          # nada que curl tome como opción
-
-
-def test_curl_block_and_network_errors_follow_same_policy(monkeypatch):
-    import httpx
-    from inmo.errors import BlockedError
-    h = _fake_curl(monkeypatch, stdout=b"<html><title>Just a moment...</title></html>\n403")
-    c = h.PoliteClient((0, 0), retries=1, backoff=(0, 0), sleep=lambda s: None, http_client="curl")
-    with pytest.raises(BlockedError):
-        c.get("https://www.zonaprop.com.ar/x.html")                                     # 403 -> BlockedError tras reintentar
-    h = _fake_curl(monkeypatch, stdout=b"<html><title>Un momento</title></html>\n200")
-    with pytest.raises(BlockedError):
-        h.PoliteClient((0, 0), http_client="curl", sleep=lambda s: None).get("https://x.example/")   # challenge en un 200
-    h = _fake_curl(monkeypatch, returncode=6, stderr=b"Could not resolve host")
-    with pytest.raises(httpx.TransportError):
-        h.PoliteClient((0, 0), retries=0, http_client="curl", sleep=lambda s: None).get("https://x.example/")
+def test_desafio_anti_bot_por_titulo():
+    from inmo.connectors.common import es_desafio
+    assert es_desafio("<html><head><title>Just a moment...</title></head></html>")
+    assert es_desafio("<title>Un momento…</title>")
+    assert not es_desafio(HTML)                          # el listado real menciona "challenge" en scripts, no en el título
 
 
 def test_parse_pictures_sin_estado_precargado_y_con_barras_escapadas():

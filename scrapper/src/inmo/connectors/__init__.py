@@ -1,7 +1,5 @@
-from .base import BlockedError, Connector, Listing, SearchResult
-from .zonaprop import ZonapropConnector
+from .base import Listing
 
-# Para agregar un portal: crear connectors/<portal>.py con una subclase de Connector y registrarla acá.
-REGISTRY = {"zonaprop": ZonapropConnector}
-
-__all__ = ["BlockedError", "Connector", "Listing", "SearchResult", "REGISTRY"]
+# Un módulo por portal con sus parsers (URLs de búsqueda, paginación, parseo de la página). La ronda por navegador
+# (inmo.navegador) los usa para procesar las páginas que manda la extensión.
+__all__ = ["Listing"]

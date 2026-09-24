@@ -69,6 +69,8 @@ def _migrar(c, primera_vez_puntajes: bool) -> None:
         c.execute(text("ALTER TABLE web_revision ADD COLUMN potencial BOOLEAN NOT NULL DEFAULT 0"))
     if "recordar" not in {r[1] for r in c.execute(text("PRAGMA table_info(web_sesiones)"))}:
         c.execute(text("ALTER TABLE web_sesiones ADD COLUMN recordar BOOLEAN NOT NULL DEFAULT 0"))
+    # El programador diario del scrapper HTTP ya no existe (la extensión programa su propia ronda).
+    c.execute(text("DROP TABLE IF EXISTS web_programacion"))
     if primera_vez_puntajes:
         # Antes el puntaje era uno solo por publicación: se le atribuye a quien lo puso por última vez
         # (según el registro de actividad) o, si no hay registro, a quien modificó la publicación.

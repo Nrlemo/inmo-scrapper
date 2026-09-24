@@ -1,6 +1,7 @@
 """Ronda por navegador: la extensión abre las búsquedas de Zonaprop en el navegador del usuario y manda cada página
-acá; este módulo decide qué página sigue y guarda los avisos con las mismas reglas que el conector HTTP
-(zonas del YAML, tope de páginas de robots.txt, filtros del perfil, bajas sólo tras una ronda completa).
+acá; este módulo decide qué página sigue y guarda los avisos (zonas del YAML, tope de páginas de robots.txt,
+filtros del perfil, bajas sólo tras una ronda completa). Es la única vía de carga: el servidor no pide páginas a los
+portales.
 
 Flujo (lo expone la web en /api/navegador/*):
     iniciar()  -> {"ronda": id, "url": primera página, "pausa": s}   o {"omitir": motivo}
@@ -24,8 +25,8 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from . import repo, tags
 from .config import INACTIVE_AFTER
+from .connectors.common import es_desafio
 from .connectors.zonaprop import PAGE_SIZE, ROBOTS_MAX_PAGES, matches_profile, page_url, parse_listing_page, search_urls
-from .http import PoliteClient
 from .models import Consulta, Ejecucion, RondaNavegador
 
 log = logging.getLogger(__name__)
@@ -100,7 +101,7 @@ def pagina(s: Session, cfg: dict[str, Any], ronda: int, url: str, html: str, now
     esperada = page_url(z["url"], d["pagina"])
     if url != esperada:                                  # desfasada (p. ej. reintento): pedir la correcta
         return {"siguiente": esperada, "pausa": PAUSA_MIN}
-    if PoliteClient._is_challenge(html):
+    if es_desafio(html):
         d["completa"] = False
         d["errores"].append(f"[{z['zona']}] desafío anti-bot en {url}")
         return _terminar(s, cfg, e, r, d, now, bloqueada=True)
@@ -184,7 +185,7 @@ def _terminar(s, cfg, e, r, d, now, bloqueada: bool = False) -> dict[str, Any]:
         s.add(Consulta(perfil=perfil, portal=PORTAL, fecha=now, cantidad_resultados=len(ids),
                        completa=completa, bloqueada=bloqueada, errores=errores))
     desactivadas = 0
-    if completa and not d["truncada"]:                  # como el conector: truncada => "no visto" no implica baja
+    if completa and not d["truncada"]:                  # truncada => "no visto" no implica baja
         desactivadas = repo.mark_missing(s, PORTAL, {i for ids in d["vistos"].values() for i in ids}, INACTIVE_AFTER)
     try:
         tags.aplicar(s, cfg.get("auto_tags"))

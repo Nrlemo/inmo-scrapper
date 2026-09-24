@@ -1,12 +1,7 @@
-"""Interfaz común de conectores. Un módulo por portal; se registran en connectors/__init__.py."""
+"""Aviso normalizado que devuelven los parsers de cada portal (un módulo por portal en connectors/)."""
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
-
-
-from ..errors import BlockedError  # noqa: F401
 
 
 @dataclass
@@ -35,25 +30,3 @@ class Listing:
     inmobiliaria_nombre: str | None = None   # aproximado: derivado del nombre del archivo del logo
     inmobiliaria_logo: str | None = None
     corredor: str | None = None              # de la descripción ("Corredor Responsable: ...")
-
-
-@dataclass
-class SearchResult:
-    listings: list[Listing] = field(default_factory=list)
-    completa: bool = True          # False si se cortó por error/bloqueo
-    errores: list[str] = field(default_factory=list)
-    bloqueada: bool = False
-    truncada: bool = False         # True si algún resultado quedó fuera por el tope de páginas
-
-
-class Connector(ABC):
-    portal: str
-    progress = None  # callable(**campos) opcional; lo asigna el runner para informar avance
-
-    def _notify(self, **kw) -> None:
-        if self.progress:
-            self.progress(**kw)
-
-    @abstractmethod
-    def search(self, profile: dict[str, Any]) -> SearchResult:
-        """Ejecuta la búsqueda del perfil. No debe lanzar: devuelve errores en SearchResult."""

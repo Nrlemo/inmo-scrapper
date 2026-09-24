@@ -22,7 +22,7 @@ La primera vez se crea `scrapper/config/profiles.yaml` a partir de `profiles.exa
 
 > **Podman:** `podman build -t inmo-web .` y correrlo con `--userns=keep-id:uid=1000,gid=1000` y los volúmenes con `:Z`.
 
-Los datos viven en `scrapper/data/` (SQLite, que incluye usuarios y sesiones, y logs de corridas) y la configuración en `scrapper/config/profiles.yaml`.
+Los datos viven en `scrapper/data/` (SQLite, que incluye usuarios y sesiones) y la configuración en `scrapper/config/profiles.yaml`.
 El contenedor corre con UID 1000: si tu usuario es otro, hacé `chown` de `scrapper/data`.
 
 ### Modo `basic`: primer inicio
@@ -47,7 +47,7 @@ Guía paso a paso (Proxy Provider, outpost, nginx) en [`deploy/authentik.md`](..
 - ✅ No publiques el puerto de la app (la base no lo hace) y definí `PROXY_SECRET`: Traefik lo agrega a cada pedido y la app lo exige.
 
 ### Modo `none`
-Sin usuarios ni contraseñas: la pantalla Estado muestra un aviso y el log lo advierte al arrancar. Si la URL es pública, cualquiera podrá ver, modificar y lanzar el scrapper.
+Sin usuarios ni contraseñas: la pantalla Estado muestra un aviso y el log lo advierte al arrancar. Si la URL es pública, cualquiera podrá ver y modificar todo.
 
 ## 🐳 Imagen de Docker
 
@@ -57,9 +57,9 @@ Sin usuarios ni contraseñas: la pantalla Estado muestra un aviso y el log lo ad
 <tr><td><b>Plataforma</b></td><td><code>linux/amd64</code> (no hay build para ARM todavía)</td></tr>
 <tr><td><b>Tamaño</b></td><td>~68 MB comprimida al descargar (~290 MB en disco)</td></tr>
 <tr><td><b>Base</b></td><td><code>python:3.12-slim</code>, corre como usuario sin privilegios (UID 1000)</td></tr>
-<tr><td><b>Contenido</b></td><td>la web (FastAPI) y el scrapper. No incluye datos personales, configuración ni base de datos: todo eso se monta desde afuera.</td></tr>
+<tr><td><b>Contenido</b></td><td>la web (FastAPI) y el paquete <code>inmo</code> (parsers y ronda por navegador). No incluye datos personales, configuración ni base de datos: todo eso se monta desde afuera.</td></tr>
 <tr><td><b>Puerto</b></td><td><code>8000</code></td></tr>
-<tr><td><b>Volúmenes</b></td><td><code>/data</code>: SQLite (avisos, usuarios, sesiones) y logs de corridas (escribible por UID 1000) · <code>/config</code>: <code>profiles.yaml</code> (se crea desde el ejemplo la primera vez; también escribible por UID 1000)</td></tr>
+<tr><td><b>Volúmenes</b></td><td><code>/data</code>: SQLite (avisos, usuarios, sesiones), escribible por UID 1000 · <code>/config</code>: <code>profiles.yaml</code> (se crea desde el ejemplo la primera vez; también escribible por UID 1000)</td></tr>
 <tr><td><b>Healthcheck</b></td><td><code>GET /healthz</code> cada 30 s</td></tr>
 </table>
 
@@ -94,9 +94,6 @@ services:
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}   # 0 = acceso directo; 1 detrás de Traefik/nginx
       COOKIE_SECURE: ${COOKIE_SECURE:-auto}
       PROXY_SECRET: ${PROXY_SECRET:-}
-      INMO_CONTACT: ${INMO_CONTACT:-}                # contacto para el User-Agent del scrapper
-      RUN_ALLOWED_USERS: ${RUN_ALLOWED_USERS:-}
-      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
     volumes:
       - ./data:/data
       - ./config:/config                             # profiles.yaml: se crea solo desde el ejemplo
@@ -112,7 +109,6 @@ docker run -d --name inmo --restart unless-stopped \
   -p 127.0.0.1:8000:8000 \
   -e TZ=America/Argentina/Buenos_Aires \
   -e TRUSTED_PROXY_HOPS=0 \
-  -e INMO_CONTACT=tu@email.com \
   -v "$PWD/data:/data" -v "$PWD/config:/config:ro" \
   nrlemo/inmo-web:latest
 ```
@@ -140,7 +136,7 @@ Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push 
 
 ## ⚙️ Configuración
 
-**Búsquedas** — `scrapper/config/profiles.yaml` (se crea sola a partir de `profiles.example.yaml` la primera vez; no se versiona porque contiene tu presupuesto y zonas): perfiles (operación, tipo, precio, ambientes, m², palabras a excluir), zonas por portal y parámetros de cortesía (pausas, páginas, horarios).
+**Búsquedas** — `scrapper/config/profiles.yaml` (se crea sola a partir de `profiles.example.yaml` la primera vez; no se versiona porque contiene tu presupuesto y zonas): perfiles (operación, tipo, precio, ambientes, m², palabras a excluir), zonas por portal y parámetros de cortesía (pausas, páginas, intervalo entre rondas, cooldown).
 
 **Variables de entorno**
 
@@ -156,12 +152,8 @@ Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push 
 | `AUTH_DEFAULT_USER` | Modo `none`: nombre con el que actúan todos (`anonimo`) |
 | `AUTH_USER_HEADER`, `AUTH_EMAIL_HEADER` | Modo `authentik`: cabeceras de identidad (por defecto `X-authentik-username` y `X-authentik-email`) |
 | `PROXY_SECRET` | Modo `authentik`: exige `X-Proxy-Secret` igual en cada pedido |
-| `RUN_ALLOWED_USERS` | Usuarios que pueden lanzar el scrapper y cambiar la programación (vacío = todos los autenticados) |
 | `PUID`, `PGID` | Usuario/grupo con el que corre el contenedor (default `1000:1000`); debe poder escribir la carpeta de datos |
-| `INMO_HTTP_CLIENT` | Cliente HTTP del scrapper: `httpx` (default) o `curl` (ver «Si Zonaprop responde 403») |
-| `INMO_CONTACT` | Email o URL que va en el User-Agent del scrapper (dato personal; vacío = sin contacto) |
-| `SCHEDULER_ENABLED` | Habilita el programador diario (default `true`); se prende/apaga desde la pantalla Estado |
-| `PAGE_SIZE`, `TZ` | Paginación; zona horaria (la misma para web y scrapper, las fechas son locales) |
+| `PAGE_SIZE`, `TZ` | Paginación; zona horaria (las fechas se guardan locales, sin zona) |
 
 ## 📱 App Android
 
@@ -175,26 +167,26 @@ las credenciales no son válidas (mismo límite por IP y bloqueo progresivo que 
 la cookie de sesión (`cookie_name`/`cookie_value`/`max_age_seconds`/`secure`) para que la app la use directo en
 su WebView — no hace falta abrir el formulario HTML desde la app.
 
-## 🕷️ El scrapper
+## 🧭 Ronda por navegador (extensión)
 
-- **Desde la web:** *Estado → Ejecutar ahora*. Con un subconjunto de zonas no se dan de baja los avisos de las demás.
-- **Automático:** en *Estado → Ejecución automática diaria* elegís la hora (por defecto 03:00) y lo activás o desactivás. Se le suma una demora aleatoria de hasta 30 min, distinta cada día. Corre todas las zonas de todos los portales. Si la web estuvo apagada y se pasó la hora por más de 3 h, salta al día siguiente; y si hubo una corrida en las últimas 20 h, la automática se omite (cortesía con el portal). Queda guardado en la base, así que sobrevive a reinicios.
-- **Por CLI o cron externo:** `docker compose run --rm -e PYTHONPATH=/srv/scrapper_src web python -m inmo run --portal zonaprop`
-- **Cortesía:** respeta `robots.txt`, usa un User-Agent identificable, pausas aleatorias de 20 a 150 s y reintentos con backoff. Si el portal bloquea, se frena y entra en cooldown.
-- **Una corrida completa puede tardar 30 minutos o más**; los avisos se guardan al terminar.
-
-### Ronda por navegador (extensión)
-Alternativa al scrapper HTTP cuando Cloudflare lo bloquea. La extensión de [`inmo-extension`](https://github.com/Nrlemo/inmo-extension)
-(Vivaldi, Chrome y otros basados en Chromium) abre las búsquedas en el navegador del usuario y manda cada página a
-`/api/navegador/*`. El servidor conduce la ronda con las mismas reglas del conector (`inmo/navegador.py`).
-- **Token:** *Estado → Ronda por navegador → Generar token*. Hay uno por usuario y se guarda solo su hash.
+Es la única forma de traer avisos: el servidor no pide páginas a los portales (el scrapper HTTP se quitó porque
+Cloudflare lo bloqueaba). La extensión de [`inmo-extension`](https://github.com/Nrlemo/inmo-extension) (Vivaldi,
+Chrome y otros basados en Chromium) abre las búsquedas en el navegador del usuario y manda cada página a
+`/api/navegador/*`. El servidor conduce la ronda (`scrapper/src/inmo/navegador.py`): decide qué página sigue y cuánto
+esperar, guarda los avisos y, al terminar una ronda completa, da de baja los que ya no aparecen.
+- **Instalación:** ver el README de la extensión. **Token:** *Estado → Ronda por navegador → Generar token*. Hay uno
+  por usuario y se guarda solo su hash.
+- **Cuándo corre:** la extensión programa una ronda diaria (hora configurable en sus opciones, más una demora
+  aleatoria). Para correr una en el momento: *Correr ronda ahora* en las opciones de la extensión.
+- **Cortesía:** respeta `robots.txt` (tope de 5 páginas por búsqueda en Zonaprop), pausas aleatorias entre páginas y
+  zonas (`page_delay` y `zone_delay` en el YAML, nunca menos de 30 s), `min_hours_between_runs` entre rondas y un
+  cooldown de 24 h tras un bloqueo. No arranca si hay otra ronda en curso.
+- **Progreso:** en *Estado* (zona, página, avisos hallados), con opción de cancelar. Lo recibido hasta ese momento
+  queda guardado, pero una ronda cancelada o parcial no da de baja ningún aviso. Una ronda sin noticias de la
+  extensión por 30 min queda «interrumpida».
 - **Endpoints** (autenticados con `Authorization: Bearer <token>`, sin cookies ni CSRF):
   `GET /api/navegador/ping`, `POST /api/navegador/ronda`, `POST /api/navegador/pagina`,
   `POST /api/navegador/error` y `POST /api/navegador/cancelar`.
-- Respeta `min_hours_between_runs` y el cooldown tras un bloqueo, y no arranca si hay otra corrida en curso. Una ronda
-  sin noticias de la extensión por 30 min queda «interrumpida».
-- Con la extensión como fuente principal, conviene apagar la *Ejecución automática diaria* del scrapper, para no
-  visitar el portal dos veces.
 - Con authentik delante, `/api/navegador/` necesita la misma excepción que `/api/login`.
 
 ### Etiquetas automáticas
@@ -206,22 +198,18 @@ auto_tags:
 ```
 - No distingue mayúsculas ni tildes y busca por palabra completa. No cuentan las menciones negadas («sin cochera», «no tiene patio», «ni balcón»).
 - Se guardan aparte de las etiquetas manuales: no las pisan. En la web se ven con borde punteado, y el listado tiene un filtro por etiqueta.
-- Se recalculan sobre todo lo guardado al final de cada corrida del scrapper, así que un cambio en las reglas se aplica solo. Para aplicarlo en el momento: `python -m inmo retag` (en Docker: `docker compose run --rm -e PYTHONPATH=/srv/scrapper_src web python -m inmo retag`).
+- Se recalculan sobre todo lo guardado al final de cada ronda, así que un cambio en las reglas se aplica solo. Para aplicarlo en el momento: `python -m inmo retag` (en Docker: `docker compose run --rm -e PYTHONPATH=/srv/scrapper_src web python -m inmo retag`).
 
-### Si Zonaprop responde 403
-Zonaprop usa Cloudflare, que además de la IP mira **cómo se presenta el cliente**. Puede pasar que acepte a un cliente y rechace a otro desde la misma red (en las pruebas: `httpx` HTTP/2 recibía un desafío; `httpx` HTTP/1.1 pasaba en un lado y no en otro). Qué hacer:
-1. **Esperar.** Los bloqueos son temporales y cada intento nuevo los empeora: tras un `403` el scrapper entra en cooldown de 24 h. No lances varias corridas seguidas.
-2. **Probar con una sola zona** antes de lanzar todas.
-3. Si un solo pedido con `curl` pasa pero el scrapper no, activá `INMO_HTTP_CLIENT=curl` (en `.env`): el scrapper pide las páginas con el binario `curl` incluido en la imagen, con **el mismo User-Agent honesto, las mismas pausas y la misma detección de bloqueos**; solo cambia el cliente de red. Es más frágil que `httpx`: depende de que el sitio siga aceptándolo.
-4. También podés correr el scrapper desde otra conexión (por ejemplo tu PC de casa).
-
-No se implementa nada para imitar a un navegador ni para rotar identidades: no es el uso responsable para el que se diseñó esto.
+### Si la ronda queda «bloqueada»
+El portal mostró su verificación anti-bot (Cloudflare) y no se resolvió sola en ~30 s. La ronda se corta, queda
+registrada como bloqueada y no se reintenta hasta que pase el cooldown (24 h). Si pasa seguido, entrá al portal a
+mano desde ese mismo navegador y resolvé la verificación. No se implementa nada para esquivarla ni para rotar
+identidades.
 
 ### Agregar un portal
-
-1. Crear `scrapper/src/inmo/connectors/<portal>.py` con una subclase de `Connector` cuyo `search(profile)` devuelva un `SearchResult` (sin lanzar excepciones: los errores van en el resultado).
-2. Registrarlo en `scrapper/src/inmo/connectors/__init__.py`.
-3. Agregar el portal y sus zonas al perfil en `profiles.yaml`. Aparece solo en el selector de la pantalla Estado.
+Por ahora la ronda está atada a Zonaprop. La interfaz de conector por páginas, que permite sumar portales sin tocar
+la ronda, está en [#20](https://github.com/Nrlemo/inmo-scrapper/issues/20); los conectores de MercadoLibre y Argenprop
+en [#1](https://github.com/Nrlemo/inmo-scrapper/issues/1) y [#2](https://github.com/Nrlemo/inmo-scrapper/issues/2).
 
 ## 🛠️ Desarrollo
 
@@ -230,7 +218,7 @@ No se implementa nada para imitar a un navegador ni para rotar identidades: no e
 cd scrapper && python -m venv .venv && .venv/bin/pip install -e '.[dev]' && .venv/bin/pytest
 
 # web
-cd web && python -m venv .venv && .venv/bin/pip install -r requirements.txt pytest
+cd web && python -m venv .venv && .venv/bin/pip install -r requirements.txt pytest httpx   # httpx: TestClient
 AUTH_MODE=none .venv/bin/uvicorn app.main:app --reload
 .venv/bin/pytest
 ```

@@ -246,7 +246,7 @@ def mapa(c: Connection, f: Filtros) -> list[dict]:
     return out
 
 
-def scrapper_estado(c: Connection) -> list[dict]:
+def consultas(c: Connection) -> list[dict]:
     rows = c.execute(text("SELECT perfil, portal, fecha, cantidad_resultados, completa, bloqueada, errores "
                           "FROM consultas ORDER BY fecha DESC LIMIT 30")).mappings().all()
     out = []

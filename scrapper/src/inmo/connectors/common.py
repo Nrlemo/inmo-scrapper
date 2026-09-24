@@ -1,4 +1,4 @@
-"""Utilidades compartidas por los conectores (parseo de números/montos, texto y filtros del perfil)."""
+"""Utilidades compartidas por los conectores (parseo de números/montos, texto, filtros del perfil, desafíos anti-bot)."""
 from __future__ import annotations
 
 import html
@@ -6,6 +6,8 @@ import re
 from typing import Any
 
 from .base import Listing
+
+CHALLENGE_TITLES = ("just a moment", "attention required", "un momento")
 
 
 def _num(s: str) -> float | None:
@@ -64,3 +66,11 @@ def matches_profile(l: Listing, profile: dict[str, Any]) -> bool:
         return False
     hay = f"{l.titulo or ''} {l.descripcion or ''}".lower()
     return not any(k.lower() in hay for k in profile.get("exclude_keywords", []))
+
+
+def es_desafio(html: str) -> bool:
+    """¿La página es la verificación anti-bot (Cloudflare) y no el listado? Sólo se mira el <title>: la página real
+    de los sitios protegidos también menciona "challenge" en sus scripts."""
+    m = re.search(r"<title[^>]*>(.*?)</title>", html[:20000], re.I | re.S)
+    title = m.group(1).strip().lower() if m else ""
+    return any(t in title for t in CHALLENGE_TITLES)

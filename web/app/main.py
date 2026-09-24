@@ -3,7 +3,6 @@ import csv
 import io
 import json
 import logging
-import threading
 from contextlib import asynccontextmanager
 from datetime import datetime
 from urllib.parse import quote
@@ -16,7 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from . import config, queries, scheduler, scrapper_ctl
+from . import config, queries, rondas
 from . import auth
 from .auth import LoginRequired, PasswordChangeRequired, SetupRequired
 from .auth_routes import router as auth_router
@@ -25,6 +24,7 @@ from .core import ctx, headers, render, templates
 from .db import init_engine, sembrar_config
 from .models_web import BusquedaGuardada, Evento, Puntaje, Revision, Usuario
 from .queries import Filtros
+from inmo.models import Ejecucion   # después de `config`, que agrega el paquete del scrapper al path
 
 ENGINE = None
 
@@ -34,17 +34,14 @@ async def lifespan(app: FastAPI):
     global ENGINE
     sembrar_config()
     ENGINE = app.state.engine = init_engine()
-    scrapper_ctl.marcar_huerfanas(ENGINE)
+    with Session(ENGINE) as s:
+        rondas.marcar_huerfanas(s)
     log = logging.getLogger("uvicorn.error")
     if config.AUTH_MODE == "none":
         log.warning("AUTENTICACIÓN DESACTIVADA (AUTH_MODE=none): cualquiera que llegue a esta URL puede ver y modificar todo.")
     elif config.AUTH_MODE == "basic":
         auth.avisar_instalacion(ENGINE)
-    stop = threading.Event()
-    if config.SCHEDULER_ENABLED:
-        threading.Thread(target=scheduler.run_forever, args=(ENGINE, stop), daemon=True, name="scheduler").start()
     yield
-    stop.set()
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
@@ -296,77 +293,41 @@ def api_mapa(request: Request, c=Depends(ctx)):
     return JSONResponse(queries.mapa(c["s"].connection(), f))
 
 
-def _panel_scrapper(c) -> dict:
-    """Contexto del panel de ejecución: corrida activa (o la última) + formulario."""
-    from inmo.models import Ejecucion
+def _panel_ronda(c) -> dict:
+    """Contexto del panel de la ronda: la que está en curso (o la última)."""
     s = c["s"]
-    act = scrapper_ctl.activa(s)
-    ult = s.scalar(select(Ejecucion).order_by(Ejecucion.id.desc()).limit(1))
-    e = act or ult
-    return {"ej": scrapper_ctl.vista(e) if e else None, "activa": act is not None,
-            "log": scrapper_ctl.cola_log(e.id) if e else [], "zonas_por_portal": scrapper_ctl.portales_y_zonas(),
-            "puede": not config.RUN_ALLOWED_USERS or c["user"].username in config.RUN_ALLOWED_USERS,
-            "prog": scheduler.obtener(s)}
+    act = rondas.activa(s)
+    e = act or s.scalar(select(Ejecucion).order_by(Ejecucion.id.desc()).limit(1))
+    return {"ej": rondas.vista(e) if e else None, "activa": act is not None,
+            "zonas_por_portal": rondas.portales_y_zonas()}
 
 
 @app.get("/estado", response_class=HTMLResponse)
 def estado(request: Request, c=Depends(ctx)):
-    from inmo.models import Ejecucion
     conn = c["s"].connection()
     tot = conn.execute(text("SELECT COUNT(*), SUM(activa), SUM(lat IS NOT NULL) FROM publicaciones")).one()
-    hist = [scrapper_ctl.vista(e) for e in c["s"].scalars(select(Ejecucion).order_by(Ejecucion.id.desc()).limit(10))]
-    return render(request, "estado.html", c, consultas=queries.scrapper_estado(conn), tot=tot, hist=hist,
-                  tok=token_de(c["s"], c["user"].username), **_panel_scrapper(c))
+    hist = [rondas.vista(e) for e in c["s"].scalars(select(Ejecucion).order_by(Ejecucion.id.desc()).limit(10))]
+    return render(request, "estado.html", c, consultas=queries.consultas(conn), tot=tot, hist=hist,
+                  tok=token_de(c["s"], c["user"].username), **_panel_ronda(c))
 
 
-@app.get("/scrapper/estado", response_class=HTMLResponse)
-def scrapper_estado(request: Request, run: int = 0, c=Depends(ctx)):
+@app.get("/ronda/estado", response_class=HTMLResponse)
+def ronda_estado(request: Request, run: int = 0, c=Depends(ctx)):
     """Panel de progreso (lo consulta HTMX cada pocos segundos mientras corre)."""
-    ctxd = _panel_scrapper(c)
-    resp = render(request, "partials/scrapper.html", c, **ctxd)
+    ctxd = _panel_ronda(c)
+    resp = render(request, "partials/ronda.html", c, **ctxd)
     if run and not ctxd["activa"]:
         resp.headers["HX-Refresh"] = "true"  # terminó: recargar para ver el historial actualizado
     return resp
 
 
-@app.post("/scrapper/iniciar", response_class=HTMLResponse)
-def scrapper_iniciar(request: Request, portal: str = Form(...), zonas: list[str] = Form([]),
-                     skip_gap: str = Form(""), c=Depends(ctx)):
-    if config.RUN_ALLOWED_USERS and c["user"].username not in config.RUN_ALLOWED_USERS:
-        raise HTTPException(403, "No tenés permiso para ejecutar el scrapper")
-    error = None
-    try:
-        scrapper_ctl.iniciar(ENGINE, c["user"].username, portal, zonas, skip_gap == "1")
-    except scrapper_ctl.Ocupado:
-        error = "Ya hay una corrida en curso."
-    except ValueError as e:
-        error = str(e)
-    c["s"].expire_all()
-    return render(request, "partials/scrapper.html", c, error=error, **_panel_scrapper(c))
-
-
-@app.post("/scrapper/programacion", response_class=HTMLResponse)
-def scrapper_programacion(request: Request, activa: str = Form(""), hora: str = Form("03:00"), c=Depends(ctx)):
-    if config.RUN_ALLOWED_USERS and c["user"].username not in config.RUN_ALLOWED_USERS:
-        raise HTTPException(403, "No tenés permiso para cambiar la programación")
-    error = None
-    try:
-        scheduler.configurar(c["s"], activa == "1", hora.strip(), c["user"].username)
-    except ValueError as e:
-        error = str(e)
-    c["s"].expire_all()
-    return render(request, "partials/programacion.html", c, error_prog=error, **_panel_scrapper(c))
-
-
-@app.post("/scrapper/cancelar", response_class=HTMLResponse)
-def scrapper_cancelar(request: Request, c=Depends(ctx)):
-    if config.RUN_ALLOWED_USERS and c["user"].username not in config.RUN_ALLOWED_USERS:
-        raise HTTPException(403)
-    act = scrapper_ctl.activa(c["s"])
+@app.post("/ronda/cancelar", response_class=HTMLResponse)
+def ronda_cancelar(request: Request, c=Depends(ctx)):
+    act = rondas.activa(c["s"])
     if act:
-        scrapper_ctl.cancelar(ENGINE, act.id)
+        rondas.cancelar(c["s"], act.id)
         c["s"].expire_all()
-    return render(request, "partials/scrapper.html", c, **_panel_scrapper(c))
+    return render(request, "partials/ronda.html", c, **_panel_ronda(c))
 
 
 @app.get("/export.csv")

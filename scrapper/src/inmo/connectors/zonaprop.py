@@ -5,9 +5,6 @@ El listado solo informa m² totales; los cubiertos se toman de la descripción s
 """
 from __future__ import annotations
 
-import html
-import logging
-import math
 import re
 from bisect import bisect_right
 from typing import Any
@@ -15,11 +12,8 @@ from urllib.parse import urljoin
 
 from selectolax.parser import HTMLParser, Node
 
-from ..http import PoliteClient
 from .common import _clean, _money, _num, matches_profile  # noqa: F401 (re-exportados)
-from .base import BlockedError, Connector, Listing, SearchResult
-
-log = logging.getLogger(__name__)
+from .base import Listing
 
 BASE = "https://www.zonaprop.com.ar"
 PAGE_SIZE = 30
@@ -184,63 +178,3 @@ def search_urls(profile: dict[str, Any]) -> list[tuple[str, str]]:
         return out
     urls = cfg.get("search_urls") or [cfg["search_url"]]
     return [(re.sub(r"^.*/|\.html$", "", u)[:40], u) for u in urls]
-
-
-class ZonapropConnector(Connector):
-    portal = "zonaprop"
-
-    def __init__(self, politeness: dict[str, Any], client: PoliteClient | None = None):
-        self.cfg = politeness
-        self.client = client or PoliteClient(
-            delay=tuple(politeness["page_delay"]), retries=politeness.get("retries", 1),
-            backoff=tuple(politeness.get("backoff", (120, 600))), http_client=politeness.get("http_client"),
-        )
-
-    def search(self, profile: dict[str, Any]) -> SearchResult:
-        res = SearchResult()
-        urls = search_urls(profile)
-        zone_delay = tuple(self.cfg.get("zone_delay", self.cfg["page_delay"]))
-        seen: set[str] = set()
-        self._notify(zonas_total=len(urls), zona_idx=0)
-        for k, (zone, url) in enumerate(urls):
-            self._notify(zona_idx=k + 1, zona_actual=zone, pagina=0, paginas=0)
-            try:
-                self._search_url(zone, url, profile, res, seen, zone_delay if k else None)
-            except BlockedError as e:
-                res.bloqueada, res.completa = True, False
-                res.errores.append(f"[{zone}] {e}")
-                break  # mismo sitio: si bloquea una zona, no se insiste con las demás
-            except Exception as e:  # noqa: BLE001 - una zona que falla no debe tumbar a las demás
-                log.exception("zonaprop [%s] falló", zone)
-                res.completa = False
-                res.errores.append(f"[{zone}] {type(e).__name__}: {e}")
-        return res
-
-    def _search_url(self, zone: str, url: str, profile: dict[str, Any], res: SearchResult,
-                    seen: set[str], first_delay: tuple[float, float] | None) -> None:
-        max_pages = min(self.cfg.get("max_pages", ROBOTS_MAX_PAGES), ROBOTS_MAX_PAGES)
-        pages, n, zone_seen = max_pages, 1, set()
-        while n <= pages:
-            # Entre zonas se usa una pausa más larga (zone_delay) para la 1ª página de la zona.
-            kw = {"delay": first_delay} if n == 1 and first_delay else {}
-            page, total = parse_listing_page(self.client.get(page_url(url, n), **kw))
-            if n == 1 and total is not None:
-                pages = min(math.ceil(total / PAGE_SIZE), max_pages)
-                log.info("zonaprop [%s]: %s resultados, %s página(s) a recorrer", zone, total, pages)
-                if total > pages * PAGE_SIZE:
-                    res.truncada = True
-                    res.errores.append(
-                        f"[{zone}] {total} resultados pero solo se pueden leer {pages * PAGE_SIZE} "
-                        "(robots.txt/max_pages): dividir esta zona en búsquedas más chicas")
-            self._notify(pagina=n, paginas=pages)
-            new = [l for l in page if l.id_externo not in zone_seen]
-            if not new:
-                log.info("zonaprop [%s]: página %d sin avisos nuevos, corto", zone, n)
-                break
-            zone_seen.update(l.id_externo for l in new)
-            for l in new:
-                if l.id_externo not in seen and matches_profile(l, profile):
-                    seen.add(l.id_externo)  # una zona puede solaparse con otra (ej. Almagro / Almagro Norte)
-                    res.listings.append(l)
-            self._notify(resultados=len(res.listings))
-            n += 1

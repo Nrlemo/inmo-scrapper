@@ -2,7 +2,7 @@
 name = "inmo"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["httpx", "selectolax", "pyyaml", "sqlalchemy>=2"]
+dependencies = ["selectolax", "pyyaml", "sqlalchemy>=2"]
 
 [project.optional-dependencies]
 dev = ["pytest"]

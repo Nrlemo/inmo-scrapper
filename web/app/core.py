@@ -81,7 +81,7 @@ def varios_portales() -> bool:
     global _portales_cache
     ahora = time.monotonic()
     if ahora - _portales_cache[0] > 60:
-        from .scrapper_ctl import portales_y_zonas
+        from .rondas import portales_y_zonas
         _portales_cache = (ahora, len(portales_y_zonas()) > 1)
     return _portales_cache[1]
 
