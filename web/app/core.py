@@ -143,7 +143,9 @@ def ctx(request: Request, user: User = Depends(current_user), s: Session = Depen
 def render(request: Request, name: str, c: dict, **kw):
     conn = c["s"].connection()
     _actualizar_portales(conn)
-    data = {"user": c["user"], "auth_mode": config.AUTH_MODE, "cont": queries.contadores(conn, c["desde"]), **kw}
+    # Los contadores del header (5 COUNT) sólo hacen falta en páginas completas: los parciales de HTMX no lo muestran
+    cont = {} if name.startswith("partials/") else queries.contadores(conn, c["desde"])
+    data = {"user": c["user"], "auth_mode": config.AUTH_MODE, "cont": cont, **kw}
     return templates.TemplateResponse(request, name, data)
 
 

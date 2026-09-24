@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
-    JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint,
+    JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint,
     create_engine, event,
 )
 from sqlalchemy.engine import Engine
@@ -88,6 +88,9 @@ class Consulta(Base):
 
 class HistorialPrecio(Base):
     __tablename__ = "historial_precios"
+    # La web busca, por aviso, el último cambio de precio (ORDER BY fecha DESC, id DESC): con este índice no ordena en
+    # una tabla temporal por cada fila del listado (id es el rowid: va incluido en el índice).
+    __table_args__ = (Index("ix_historial_precios_pub_fecha", "publicacion_id", "fecha"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     publicacion_id: Mapped[int] = mapped_column(ForeignKey("publicaciones.id"), index=True)
@@ -180,6 +183,7 @@ def _migrate(engine: Engine) -> None:
         cat = {r[1] for r in c.exec_driver_sql("PRAGMA table_info(categorizacion)")}
         if cat and "etiquetas_auto" not in cat:
             c.exec_driver_sql("ALTER TABLE categorizacion ADD COLUMN etiquetas_auto JSON")
+        c.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_historial_precios_pub_fecha ON historial_precios(publicacion_id, fecha)")
         cols = {r[1] for r in c.exec_driver_sql("PRAGMA table_info(historial_precios)")}
         if "variacion_pct" not in cols:
             c.exec_driver_sql("ALTER TABLE historial_precios ADD COLUMN variacion_pct FLOAT")

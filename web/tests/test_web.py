@@ -386,3 +386,33 @@ def test_m2_maximo_global_y_por_portal(client):
     assert "Guardado. 3 avisos activos quedan fuera" in r.text
     r = client.post("/busqueda/0", data={**FORM, "precio_min": "1", "m2_cub_max": "", "zonaprop_m2_tot_max": "70"}, headers=HX)
     assert "Guardado. 0 avisos activos" in r.text and 'name="zonaprop_m2_tot_max" inputmode="numeric" value="70"' in r.text
+
+
+def test_el_conteo_liviano_coincide_con_el_listado(client):
+    """listar() cuenta con una consulta sin subconsultas por fila: tiene que dar lo mismo que las filas reales."""
+    from itertools import product
+    from app import queries
+    from app.main import ENGINE
+    client.post("/p/1/accion", data={"accion": "favorito", "vista": "fila"}, headers=HX)
+    client.post("/p/2/accion", data={"accion": "descartar", "vista": "fila"}, headers=HX)
+    client.post("/p/3/etiquetas", data={"etiquetas": "patio"}, headers=HX)
+    with ENGINE.connect() as c:
+        for q, estado, baja, etiqueta, inactivas, fuera, bajo in product(
+                ["", "Calle"], ["", "favoritas", "pendientes", "activas", "descartadas"], [False, True],
+                ["", "patio"], [False, True], [False, True], [False, True]):
+            f = queries.Filtros(q=q, estado=estado, baja=baja, etiqueta=etiqueta, inactivas=inactivas, fuera=fuera,
+                                bajo_barrio=bajo)
+            rows, total = queries.listar(c, f, 100000)
+            assert total == len(rows), f
+
+
+def test_contadores_del_header_solo_en_paginas_completas(client, monkeypatch):
+    from app import queries
+    llamadas = []
+    original = queries.contadores
+    monkeypatch.setattr(queries, "contadores", lambda *a: llamadas.append(1) or original(*a))
+    client.get("/?despues=3", headers=HX)                                   # tarjeta (parcial)
+    client.post("/p/1/puntaje", data={"valor": 3}, headers=HX)              # estrellas (parcial)
+    client.get("/lista", headers={**HX, "HX-Target": "resultados"})         # resultados (parcial)
+    assert llamadas == []
+    assert "Revisión" in client.get("/lista").text and len(llamadas) == 1   # página completa: header con contadores
