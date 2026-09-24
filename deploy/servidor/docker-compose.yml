@@ -23,9 +23,13 @@ services:
       # cloudflared es el único proxy delante: la IP real del cliente y el https salen de sus cabeceras
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
       COOKIE_SECURE: ${COOKIE_SECURE:-auto}
+      # Backups diarios en ./data/backups; con BACKUP_EXTRA (carpeta del host, otro disco u otra máquina) también ahí
+      BACKUP_HORA: ${BACKUP_HORA:-05:00}
+      BACKUP_DIR_EXTRA: ${BACKUP_EXTRA:+/backups-extra}
     volumes:
       - ./data:/data                                 # SQLite (avisos, usuarios, sesiones, filtros)
       - ./config:/config                             # profiles.yaml (cortesía y etiquetas automáticas)
+      - ${BACKUP_EXTRA:-./data/backups}:/backups-extra   # sin BACKUP_EXTRA no se usa (BACKUP_DIR_EXTRA queda vacío)
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]
     logging:

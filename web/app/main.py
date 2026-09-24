@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import logging
+import threading
 from contextlib import asynccontextmanager
 from datetime import datetime
 from urllib.parse import quote
@@ -15,12 +16,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from . import config, queries, rondas
+from . import backups, config, queries, rondas
 from . import auth
 from .auth import LoginRequired, PasswordChangeRequired, SetupRequired
 from .auth_routes import router as auth_router
 from .navegador_routes import router as navegador_router, token_de
 from .busqueda_routes import panel_ctx, router as busqueda_router
+from .backup_routes import panel_ctx as backups_ctx, router as backup_router
 from .core import ctx, headers, render, templates
 from .db import init_engine, sembrar_config
 from .models_web import BusquedaGuardada, Evento, Puntaje, Revision
@@ -42,7 +44,13 @@ async def lifespan(app: FastAPI):
         log.warning("AUTENTICACIÓN DESACTIVADA (AUTH_MODE=none): cualquiera que llegue a esta URL puede ver y modificar todo.")
     elif config.AUTH_MODE == "basic":
         auth.avisar_instalacion(ENGINE)
+    stop = threading.Event()
+    if config.BACKUP_ENABLED:
+        threading.Thread(target=backups.run_forever, args=(stop,), daemon=True, name="backups").start()
+        log.info("Backups diarios a las %s en %s%s", config.BACKUP_HORA, config.BACKUP_DIR,
+                 f" (copia extra en {config.BACKUP_DIR_EXTRA})" if config.BACKUP_DIR_EXTRA else "")
     yield
+    stop.set()
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
@@ -50,6 +58,7 @@ app.middleware("http")(headers)
 app.include_router(auth_router)
 app.include_router(navegador_router)
 app.include_router(busqueda_router)
+app.include_router(backup_router)
 app.mount("/static", StaticFiles(directory=config.ROOT / "app" / "static"), name="static")
 def _filtros(request: Request, desde) -> Filtros:
     g = request.query_params.get
@@ -311,7 +320,8 @@ def estado(request: Request, c=Depends(ctx)):
     tot = conn.execute(text("SELECT COUNT(*), SUM(activa), SUM(lat IS NOT NULL), SUM(activa AND fuera_filtro) FROM publicaciones")).one()
     hist = [rondas.vista(e) for e in c["s"].scalars(select(Ejecucion).order_by(Ejecucion.id.desc()).limit(10))]
     return render(request, "estado.html", c, consultas=queries.consultas(conn), tot=tot, hist=hist,
-                  tok=token_de(c["s"], c["user"].username), **_panel_ronda(c), **panel_ctx(c["s"], c["user"]))
+                  tok=token_de(c["s"], c["user"].username), **_panel_ronda(c), **panel_ctx(c["s"], c["user"]),
+                  **backups_ctx(c["user"]))
 
 
 @app.get("/ronda/estado", response_class=HTMLResponse)

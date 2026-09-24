@@ -1,5 +1,6 @@
 """Configuración por variables de entorno."""
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -37,3 +38,15 @@ CONFIG_PATH = os.environ.get("INMO_CONFIG", str(ROOT.parent / "scrapper" / "conf
 # Ejemplo que se copia a CONFIG_PATH la primera vez (si falta). En la imagen: /srv/defaults/profiles.example.yaml.
 CONFIG_EXAMPLE = os.environ.get("INMO_CONFIG_EXAMPLE", str(ROOT.parent / "scrapper" / "config" / "profiles.example.yaml"))
 PAGE_SIZE = int(os.environ.get("PAGE_SIZE", "40"))
+# Backups automáticos de la SQLite (app/backups.py): una vez por día a BACKUP_HORA, en BACKUP_DIR (por defecto la
+# carpeta `backups` junto a la base) y, si se define, una segunda copia en BACKUP_DIR_EXTRA (otro disco u otra máquina).
+BACKUP_ENABLED = os.environ.get("BACKUP_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
+BACKUP_HORA = os.environ.get("BACKUP_HORA", "05:00").strip()
+if not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", BACKUP_HORA):
+    raise RuntimeError(f"BACKUP_HORA inválida: {BACKUP_HORA!r} (usar HH:MM, por ejemplo 05:00)")
+BACKUP_DIR = os.environ.get("BACKUP_DIR") or str(Path(DB_PATH).parent / "backups")
+BACKUP_DIR_EXTRA = os.environ.get("BACKUP_DIR_EXTRA", "").strip() or None
+# Retención: los más nuevos de cada uno de los últimos N días, semanas y meses
+BACKUP_DIARIOS = int(os.environ.get("BACKUP_DIARIOS", "7"))
+BACKUP_SEMANALES = int(os.environ.get("BACKUP_SEMANALES", "4"))
+BACKUP_MENSUALES = int(os.environ.get("BACKUP_MENSUALES", "6"))

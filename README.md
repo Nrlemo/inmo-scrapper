@@ -33,7 +33,7 @@ varias personas.
 | 🏆 **Ranking** | Cada persona puntúa de 1 a 5 por su cuenta; el ranking ordena por el promedio o por el puntaje de quien elijas. |
 | ⚖️ **Comparar** | Avisos lado a lado, con USD/m² y la diferencia contra la mediana del barrio. |
 | 🔎 **Detalle** | Vista rápida o página completa: notas, puntaje, etiquetas, historial de precio, actividad (quién hizo qué), el mismo aviso en otros portales y link al original. |
-| ⚙️ **Estado** | **Filtros de búsqueda** (precio, ambientes, dormitorios, m², apto crédito, zonas por portal), progreso de la ronda en curso, cancelación, historial de rondas y consultas, y el token de la extensión. |
+| ⚙️ **Estado** | **Filtros de búsqueda** (precio, ambientes, dormitorios, m², apto crédito, zonas por portal), progreso de la ronda en curso, cancelación, historial de rondas y consultas, el token de la extensión y los **backups diarios** (verificados, con rotación y copia a otro disco). |
 
 ## 📸 Capturas
 
