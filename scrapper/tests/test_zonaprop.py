@@ -6,9 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from inmo.connectors.base import Listing
-from inmo.connectors.zonaprop import (_money, _num, matches_profile, page_url, parse_pictures,
-                                      parse_listing_page)
-from inmo.models import HistorialPrecio, Publicacion, make_engine
+from inmo.connectors.common import _money, _num, matches_profile
+from inmo.connectors.zonaprop import page_url, parse_listing_page, parse_pictures
+from inmo.models import Publicacion, make_engine
 from inmo import repo
 
 HTML = (Path(__file__).parent / "fixtures" / "zonaprop_listado.html").read_text(encoding="utf-8")

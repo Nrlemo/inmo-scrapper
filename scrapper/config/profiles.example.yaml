@@ -73,15 +73,11 @@ auto_tags:
   bajas_expensas: ["bajas expensas", "expensas bajas", "sin expensas", "expensas mínimas"]
   cerca_subte: ["subte", "estación de subte", "premetro"]
 
-# Cadencia prudente (por portal). Todos los valores en segundos salvo indicación.
+# Cadencia prudente de la ronda por navegador (por portal). Todos los valores en segundos salvo indicación.
 politeness:
   zonaprop:
     max_pages: 5                 # tope por robots.txt
-    page_delay: [20, 45]         # pausa aleatoria entre páginas
+    page_delay: [20, 45]         # pausa aleatoria entre páginas (la extensión nunca espera menos de 30 s)
     zone_delay: [60, 150]        # pausa aleatoria al pasar de una zona a la siguiente
-    detail_delay: [30, 75]       # pausa aleatoria entre avisos de detalle
-    max_detail_per_run: 10       # detalles por corrida
-    runs_per_day: 1
-    run_window_hours: [8, 22]    # hora local; la hora exacta es aleatoria dentro de la ventana
-    min_hours_between_runs: 20
-    cooldown_hours_on_block: 24  # ante 403/429/challenge: no volver a intentar por este tiempo
+    min_hours_between_runs: 20   # horas entre rondas («Correr ronda ahora» lo ignora)
+    cooldown_hours_on_block: 24  # horas sin intentar tras un desafío anti-bot

@@ -1,6 +1,6 @@
 """Instalación inicial, login/logout, cuenta propia y administración de usuarios (modo AUTH_MODE=basic)."""
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response

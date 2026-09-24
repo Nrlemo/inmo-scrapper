@@ -25,8 +25,8 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from . import repo, tags
 from .config import INACTIVE_AFTER
-from .connectors.common import es_desafio
-from .connectors.zonaprop import PAGE_SIZE, ROBOTS_MAX_PAGES, matches_profile, page_url, parse_listing_page, search_urls
+from .connectors.common import es_desafio, matches_profile
+from .connectors.zonaprop import PAGE_SIZE, ROBOTS_MAX_PAGES, page_url, parse_listing_page, search_urls
 from .models import Consulta, Ejecucion, RondaNavegador
 
 log = logging.getLogger(__name__)

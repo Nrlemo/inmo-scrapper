@@ -12,7 +12,7 @@ from urllib.parse import urljoin
 
 from selectolax.parser import HTMLParser, Node
 
-from .common import _clean, _money, _num, matches_profile  # noqa: F401 (re-exportados)
+from .common import _clean, _money, _num
 from .base import Listing
 
 BASE = "https://www.zonaprop.com.ar"

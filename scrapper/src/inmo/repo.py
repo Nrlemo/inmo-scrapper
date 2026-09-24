@@ -6,7 +6,7 @@ import unicodedata
 from dataclasses import asdict
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .connectors.base import Listing

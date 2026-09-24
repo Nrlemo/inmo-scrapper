@@ -22,7 +22,7 @@ from .auth_routes import router as auth_router
 from .navegador_routes import router as navegador_router, token_de
 from .core import ctx, headers, render, templates
 from .db import init_engine, sembrar_config
-from .models_web import BusquedaGuardada, Evento, Puntaje, Revision, Usuario
+from .models_web import BusquedaGuardada, Evento, Puntaje, Revision
 from .queries import Filtros
 from inmo.models import Ejecucion   # después de `config`, que agrega el paquete del scrapper al path
 
