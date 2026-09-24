@@ -44,7 +44,9 @@ def _pausa(cfg: dict[str, Any], clave: str) -> int:
     return max(PAUSA_MIN, round(random.uniform(lo, hi)))
 
 
-def iniciar(s: Session, cfg: dict[str, Any], usuario: str, now: datetime | None = None) -> dict[str, Any]:
+def iniciar(s: Session, cfg: dict[str, Any], usuario: str, now: datetime | None = None,
+            forzar: bool = False) -> dict[str, Any]:
+    """`forzar` (ronda pedida a mano): ignora el intervalo mínimo entre rondas, pero nunca el cooldown por bloqueo."""
     now = now or datetime.now()
     pol = _pol(cfg)
     until = repo.blocked_until(s, PORTAL, pol.get("cooldown_hours_on_block", 24))
@@ -52,7 +54,7 @@ def iniciar(s: Session, cfg: dict[str, Any], usuario: str, now: datetime | None 
         return {"omitir": f"cooldown por bloqueo hasta {until:%d/%m %H:%M}"}
     last = repo.last_query(s, PORTAL)
     gap = timedelta(hours=pol.get("min_hours_between_runs", 20))
-    if last and now - last.fecha < gap:
+    if last and now - last.fecha < gap and not forzar:
         return {"omitir": f"última consulta {last.fecha:%d/%m %H:%M} (mín. {gap} entre rondas)"}
     for e in s.scalars(select(Ejecucion).where(Ejecucion.estado == "corriendo")):
         if s.get(RondaNavegador, e.id) and now - e.actualizado > ABANDONO:   # navegador cerrado a mitad de ronda

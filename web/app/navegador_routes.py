@@ -42,6 +42,10 @@ class Pagina(BaseModel):
     html: str = Field(max_length=MAX_HTML)
 
 
+class PedidoRonda(BaseModel):
+    forzar: bool = False          # «Correr ronda ahora»: ignora el intervalo mínimo (no el cooldown por bloqueo)
+
+
 class ErrorCarga(BaseModel):
     ronda: int
     url: str
@@ -54,8 +58,8 @@ def ping(usuario: str = Depends(usuario_token)):
 
 
 @router.post("/api/navegador/ronda")
-def iniciar(usuario: str = Depends(usuario_token), s: Session = Depends(get_session)):
-    r = navegador.iniciar(s, load_config(config.CONFIG_PATH), usuario)
+def iniciar(body: PedidoRonda | None = None, usuario: str = Depends(usuario_token), s: Session = Depends(get_session)):
+    r = navegador.iniciar(s, load_config(config.CONFIG_PATH), usuario, forzar=bool(body and body.forzar))
     log.info("ronda por navegador pedida por %s: %s", usuario, r.get("omitir") or f"ronda {r['ronda']}")
     return r
 

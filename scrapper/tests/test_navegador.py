@@ -131,3 +131,14 @@ def test_estado_persiste_entre_sesiones(tmp_path):
     with Session(eng) as s:
         assert navegador.pagina(s, cfg, rid, URL2, _chica(), T0)["estado"] == "parcial"
         assert "timeout" in s.get(Ejecucion, rid).mensaje
+
+
+def test_forzar_ignora_el_intervalo_pero_no_el_cooldown(tmp_path):
+    eng, cfg = make_engine(str(tmp_path / "t.sqlite")), _cfg()
+    with Session(eng) as s:
+        rid = navegador.iniciar(s, cfg, "ana", T0)["ronda"]
+        navegador.pagina(s, cfg, rid, URL1, _chica(), T0)
+        assert "omitir" in navegador.iniciar(s, cfg, "ana", T0 + timedelta(hours=1))
+        rid = navegador.iniciar(s, cfg, "ana", T0 + timedelta(hours=1), forzar=True)["ronda"]
+        navegador.pagina(s, cfg, rid, URL1, "<title>Just a moment...</title>", T0 + timedelta(hours=1))
+        assert "cooldown" in navegador.iniciar(s, cfg, "ana", T0 + timedelta(hours=2), forzar=True)["omitir"]

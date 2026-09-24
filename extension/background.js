@@ -75,17 +75,18 @@ chrome.alarms.onAlarm.addListener(async a => {
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
-  if (msg === "correr") iniciarRonda().then(() => responder(true));
+  if (msg === "correr") iniciarRonda(true).then(() => responder(true));
   else if (msg === "cancelar") cancelar().then(() => responder(true));
   return true;
 });
 
 // ---------- la ronda ----------
-async function iniciarRonda() {
+// `forzar` (botón «Correr ronda ahora»): el servidor ignora el intervalo mínimo entre rondas, no el cooldown por bloqueo.
+async function iniciarRonda(forzar = false) {
   if (await ronda()) return;                                   // ya hay una en curso
   await chrome.storage.local.set({ ultimaRonda: Date.now() });
   let r;
-  try { r = await api("/api/navegador/ronda", {}); }
+  try { r = await api("/api/navegador/ronda", { forzar }); }
   catch (e) { return anotar("error", e.message); }
   if (r.omitir) return anotar("omitida", r.omitir);
   await guardarRonda({ id: r.ronda, url: r.url, tabId: null, windowId: null, cargando: false });

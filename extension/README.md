@@ -24,6 +24,7 @@ Inmo. Reemplaza al scrapper HTTP, que Cloudflare bloquea seguido.
    - **Hora de la ronda diaria:** por defecto 03:30, más una demora aleatoria de hasta 20 min.
 5. **Probar conexión** tiene que responder «Conectado como …».
 6. Opcional: **Correr ronda ahora** para ver la primera ronda. El avance aparece también en Inmo → Estado.
+   A mano no hace falta esperar las 20 h desde la última ronda, pero sí las 24 h de espera tras un bloqueo del portal.
 
 ## Cómo se comporta
 

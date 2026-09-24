@@ -31,9 +31,10 @@
 <div class="card">
   <b>Estado</b>
   <div id="estado">—</div>
-  <div class="row"><button id="correr">Correr ronda ahora</button><button class="bad" id="cancelar">Cancelar ronda en curso</button></div>
+  <div class="row"><button id="correr" title="Ignora el mínimo de 20 h entre rondas (no la espera tras un bloqueo)">Correr ronda ahora</button><button class="bad" id="cancelar">Cancelar ronda en curso</button></div>
 </div>
 <p style="color:var(--mut);font-size:.88rem">La ronda abre tus búsquedas de Zonaprop en una ventana minimizada, una página por vez y con pausas de
-  30 s a 2,5 min (las mismas del scrapper). Podés seguir usando el navegador; no cierres esa ventana mientras corre.</p>
+  30 s a 2,5 min (las mismas del scrapper). Podés seguir usando el navegador; no cierres esa ventana mientras corre.
+  «Correr ronda ahora» no espera las 20 h desde la última ronda, pero sí las 24 h tras un bloqueo del portal.</p>
 <script src="options.js"></script>
 </main></body></html>
