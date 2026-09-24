@@ -53,6 +53,7 @@ Reglas: clave única (portal, id_externo); si una publicación reaparece, actual
 - Diseño responsive (lo uso también desde el celular). Stack: HTMX + Jinja2, CSS propio.
 
 ## Despliegue
+- **Producción:** en el servidor (`ssh server1`), `docker compose` en `/home/nicolas/.docker/inmo` con la imagen publicada, detrás del túnel de Cloudflare propio del servidor (`inmo.nrlemo.com.ar`). Guía: `deploy/servidor.md`. El desktop sólo tiene el clon de desarrollo y la extensión. Nunca migrar ni actualizar la base de producción sin backup.
 - Docker + docker-compose, con volumen persistente para la SQLite y el YAML de configuración. Imagen pública `nrlemo/inmo-web` (tags `latest`, versión de release y hash corto del commit).
 - Releases versionadas en ambos repos (web: imagen de Docker; extensión: `.zip` para cargar descomprimida).
 - Variables de entorno para credenciales y parámetros.
