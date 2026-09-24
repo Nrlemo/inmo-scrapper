@@ -1,16 +1,22 @@
-{# Botones de acción; `vista` = card | fila | detalle #}
-{% macro acciones(p, vista) %}
+{# Botones de acción; `vista` = card | fila | detalle. `rapidas`: sólo favorita y potencial (o restaurar), para las filas #}
+{% macro acciones(p, vista, rapidas=False) %}
 {% set tgt = {'card':'#card','fila':'#p'~p.id,'detalle':'#det'}[vista] %}
 {% set sw = 'innerHTML' if vista == 'card' else 'outerHTML' %}
 <div class="acts {{ 'main' if vista == 'card' }}" hx-target="{{ tgt }}" hx-swap="{{ sw }}">
+  {% if rapidas and p.descartada %}
+  <button title="Restaurar" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"restaurar","vista":"{{ vista }}"}'><span class="ic">↩</span><span class="lbl">Restaurar</span></button>
+  {% else %}
   <button class="fav {{ 'on' if p.favorito }}" title="Favorita (F)" data-key="{{ 'f' if vista != 'fila' }}" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"favorito","vista":"{{ vista }}"}'><span class="ic">{{ '★' if p.favorito else '☆' }}</span><span class="lbl">Favorita</span></button>
   <button class="pot {{ 'on' if p.potencial }}" title="Tiene potencial (P)" data-key="{{ 'p' if vista != 'fila' }}" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"potencial","vista":"{{ vista }}"}'><span class="ic">{{ '◆' if p.potencial else '◇' }}</span><span class="lbl">Potencial</span></button>
+  {% endif %}
+  {% if not rapidas %}
   {% if p.descartada %}
   <button title="Restaurar" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"restaurar","vista":"{{ vista }}"}'><span class="ic">↩</span><span class="lbl">Restaurar</span></button>
   {% else %}
   <button class="bad" title="Descartar (D)" data-key="{{ 'd' if vista != 'fila' }}" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"descartar","vista":"{{ vista }}"}'><span class="ic">✕</span><span class="lbl">Descartar</span></button>
   {% endif %}
   <button class="cont {{ 'on' if p.contactada }}" title="Contactada (C)" data-key="{{ 'c' if vista != 'fila' }}" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"contactada","vista":"{{ vista }}"}'><span class="ic">☎</span><span class="lbl">Contactada</span></button>
+  {% endif %}
 </div>
 {% endmacro %}
 
@@ -20,8 +26,22 @@
   {% if p.m2_totales and p.m2_totales != p.m2_cubiertos %}<span>{{ '%g'|format(p.m2_totales) }} m² tot.</span>{% endif %}
   {% if p.ambientes %}<span>{{ p.ambientes }} amb.</span>{% endif %}
   {% if p.cocheras %}<span>{{ p.cocheras }} coch.</span>{% endif %}
-  {% if p.usd_m2 %}<span>USD {{ '{:,.0f}'.format(p.usd_m2).replace(',', '.') }}/m²</span>{% endif %}
+  {% if p.usd_m2 %}<span>{{ usd_m2(p) }}</span>{% endif %}
   {% if p.expensas %}<span>exp. {{ p.expensas|money(p.moneda_expensas) }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro usd_m2(p) %}USD {{ '{:,.0f}'.format(p.usd_m2).replace(',', '.') }}/m²{% endmacro %}
+
+{# Datos principales como fichas (tarjeta de revisión) #}
+{% macro fichas(p) %}
+<div class="fichas">
+  {% if p.m2_cubiertos %}<span>{{ '%g'|format(p.m2_cubiertos) }} m² cub.</span>{% endif %}
+  {% if p.m2_totales and p.m2_totales != p.m2_cubiertos %}<span>{{ '%g'|format(p.m2_totales) }} m² tot.</span>{% endif %}
+  {% if p.ambientes %}<span>{{ p.ambientes }} amb.</span>{% endif %}
+  {% if p.dormitorios %}<span>{{ p.dormitorios }} dorm.</span>{% endif %}
+  {% if p.banos %}<span>{{ p.banos }} baño{{ 's' if p.banos > 1 }}</span>{% endif %}
+  {% if p.cocheras %}<span>{{ p.cocheras }} coch.</span>{% endif %}
 </div>
 {% endmacro %}
 
@@ -34,18 +54,36 @@
 </div>
 {% endmacro %}
 
+{# Variación del último cambio de precio, como píldora (↓ verde, ↑ roja) #}
+{% macro variacion(p) %}
+{% if p.variacion_pct %}<span class="var {{ 'down' if p.variacion_pct < 0 else 'up' }}" title="{{ p.cambio_fecha|fecha }}">{{ '↓' if p.variacion_pct < 0 else '↑' }} {{ '%.1f'|format(p.variacion_pct|abs)|replace('.', ',') }} %</span>{% endif %}
+{% endmacro %}
+
 {% macro precio(p) %}
-<span class="price">{{ p.precio|money(p.moneda) }}</span>
-{% if p.variacion_pct %}<span class="{{ 'down' if p.variacion_pct < 0 else 'up' }}" title="{{ p.cambio_fecha|fecha }}">{{ '↓' if p.variacion_pct < 0 else '↑' }} {{ '%.1f'|format(p.variacion_pct|abs) }}%</span>{% endif %}
+<span class="price">{{ p.precio|money(p.moneda) }}</span> {{ variacion(p) }}
+{% endmacro %}
+
+{# Estado y señales del aviso, con los mismos colores en toda la app #}
+{% macro estados(p) %}
+{% if p.descartada %}<span class="st desc">✕ descartada</span>{% endif %}
+{% if p.favorito %}<span class="st fav">★ favorita</span>{% endif %}
+{% if p.potencial %}<span class="st pot">◆ potencial</span>{% endif %}
+{% if p.contactada %}<span class="st cont">☎ contactada</span>{% endif %}
+{% if p.votos %}<span class="badge" title="Promedio de {{ p.votos }} puntaje{{ 's' if p.votos > 1 }}">★ {{ '%.1f'|format(p.puntaje)|replace('.', ',') }}{% if p.votos > 1 %} ({{ p.votos }}){% endif %}</span>{% endif %}
+{% if not p.activa %}<span class="badge">dada de baja</span>{% endif %}
+{% if p.grupo_id %}<span class="badge" title="Publicada en más de un portal">dup.</span>{% endif %}
+{% endmacro %}
+
+{# Etiquetas: manuales (llenas) y automáticas (punteadas); tocarlas filtra el listado.
+   `max_auto`: cuántas automáticas mostrar (el resto queda en un «+N» con la lista completa al pasar el mouse) #}
+{% macro etiquetas(p, max_auto=None) %}
+{% for t in p.etiquetas %}<a class="badge man" href="/lista?etiqueta={{ t|urlencode }}">#{{ t }}</a>{% endfor %}
+{% set auto = p.etiquetas_auto|reject('in', p.etiquetas)|list %}
+{% for t in auto[:max_auto] %}<a class="badge auto" href="/lista?etiqueta={{ t|urlencode }}" title="Automática: palabra clave en la descripción">#{{ t }}</a>{% endfor %}
+{% if max_auto is not none and auto|length > max_auto %}<span class="badge auto" title="{{ auto[max_auto:]|join(', ') }}">+{{ auto|length - max_auto }}</span>{% endif %}
 {% endmacro %}
 
 {% macro badges(p) %}
-<span class="badge">{{ p.portal }}</span>
-{% if p.grupo_id %}<span class="badge" title="Publicada en más de un portal/inmobiliaria">dup.</span>{% endif %}
-{% if not p.activa %}<span class="badge">dada de baja</span>{% endif %}
-{% if p.contactada %}<span class="badge n">contactada</span>{% endif %}
-{% if p.potencial %}<span class="badge pot">◆ potencial</span>{% endif %}
-{% if p.votos %}<span class="badge" title="Promedio de {{ p.votos }} puntaje{{ 's' if p.votos > 1 }}">★ {{ '%.1f'|format(p.puntaje) }}{% if p.votos > 1 %} ({{ p.votos }}){% endif %}</span>{% endif %}
-{% for t in p.etiquetas %}<a class="badge" href="/lista?etiqueta={{ t|urlencode }}">#{{ t }}</a>{% endfor %}
-{% for t in p.etiquetas_auto if t not in p.etiquetas %}<a class="badge auto" href="/lista?etiqueta={{ t|urlencode }}" title="Automática: palabra clave en la descripción">#{{ t }}</a>{% endfor %}
+{% if varios_portales() %}<span class="badge">{{ p.portal }}</span>{% endif %}
+{{ estados(p) }}{{ etiquetas(p) }}
 {% endmacro %}

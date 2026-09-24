@@ -1,15 +1,27 @@
-{% from "_m.html" import acciones, datos, precio, badges %}
+{% from "_m.html" import acciones, fichas, variacion, estados, etiquetas, usd_m2 %}
 {% if not p %}
   <div class="card empty"><div style="font-size:2.2rem">🎉</div><p>No quedan publicaciones sin revisar.</p><a class="btn pri" href="/lista">Ver todas</a></div>
 {% else %}
-<div class="mut" style="margin-bottom:.5rem;font-size:.9rem">{{ total }} sin revisar</div>
+{# Progreso de la cola: pendientes + las que revisaste hoy #}
+<div class="cola"><span><b>{{ total }}</b> sin revisar</span>{% if hoy %}<span>hoy: {{ hoy }} revisada{{ 's' if hoy != 1 }}</span>{% endif %}</div>
+<div class="cola-bar"><i style="width:{{ ((100 * hoy / (hoy + total)) if (hoy + total) else 0)|round|int }}%"></i></div>
 <article class="card">
-  <img class="hero" referrerpolicy="no-referrer" src="{{ p.fotos[0] if p.fotos }}" alt="">
+  <div class="hero-w">
+    <img class="hero" referrerpolicy="no-referrer" src="{{ p.fotos[0] if p.fotos }}" alt="">
+    {% if varios_portales() %}<span class="h-portal">{{ p.portal }}</span>{% endif %}
+    {% if p.fotos|length > 1 %}<span class="h-fotos">{{ p.fotos|length }} fotos</span>{% endif %}
+    <div class="h-info">
+      <span class="price">{{ p.precio|money(p.moneda) }}</span> {{ variacion(p) }}
+      <div class="h-sub">{% if p.usd_m2 %}{{ usd_m2(p) }}{% endif %}{% if p.usd_m2 and p.expensas %} · {% endif %}{% if p.expensas %}exp. {{ p.expensas|money(p.moneda_expensas) }}{% endif %}</div>
+    </div>
+  </div>
   <div class="in">
-    <div>{{ precio(p) }} {{ badges(p) }}</div>
-    <div style="font-weight:650;font-size:1.05rem">{{ p.direccion or p.titulo }}</div><div class="mut">{{ p.barrio }}</div>
-    {{ datos(p) }}
-    {% if p.inmo_nombre %}<div class="mut" style="font-size:.85rem">{{ p.inmo_nombre }}</div>{% endif %}
+    <div>
+      <div class="addr-l">{{ p.direccion|dir or p.titulo }}</div>
+      <div class="mut">{{ p.barrio }}{% if p.inmo_nombre %} · {{ p.inmo_nombre }}{% endif %}</div>
+    </div>
+    {{ fichas(p) }}
+    <div class="chips">{{ estados(p) }}{{ etiquetas(p) }}</div>
     <p class="desc-txt">{{ (p.descripcion or p.titulo or '')[:600] }}</p>
     {{ acciones(p, 'card') }}
     <div class="acts">

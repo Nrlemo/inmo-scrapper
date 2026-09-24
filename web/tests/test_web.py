@@ -18,14 +18,14 @@ def test_all_pages_render(client):
 
 
 def test_review_flow_and_discard(client):
-    assert "3 sin revisar" in client.get("/").text
+    assert "<b>3</b> sin revisar" in client.get("/").text
     r = client.post("/p/3/accion", data={"accion": "descartar", "vista": "card"}, headers=HX)
     assert r.status_code == 200
-    assert "2 sin revisar" in client.get("/").text
+    assert "<b>2</b> sin revisar" in client.get("/").text
     assert "3 resultados" not in client.get("/lista?estado=activas").text
     assert "1 resultados" in client.get("/lista?estado=descartadas").text
     client.post("/p/3/accion", data={"accion": "restaurar", "vista": "fila"}, headers=HX)
-    assert "3 sin revisar" in client.get("/").text
+    assert "<b>3</b> sin revisar" in client.get("/").text
 
 
 def test_favorite_notes_contacted_multiuser(client):
@@ -73,7 +73,7 @@ def test_puntaje_por_usuario_y_ranking(client):
     r = client.get("/lista?orden=puntaje")
     assert r.text.index("Calle 2") < r.text.index("Calle 1") < r.text.index("Calle 3")
     client.post("/p/1/puntaje", data={"valor": 0}, headers=HX)                     # ana borra el suyo
-    assert "★ 2.0" in client.get("/lista").text
+    assert "★ 2,0" in client.get("/lista").text
     from sqlalchemy import text
     with client.app.state.engine.connect() as c:
         assert c.execute(text("SELECT puntaje FROM categorizacion WHERE publicacion_id=1")).scalar() == 2

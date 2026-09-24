@@ -1,4 +1,6 @@
 """Piezas compartidas por las rutas: plantillas, dependencias (sesión, ctx) y cabeceras de seguridad."""
+import re
+import time
 from datetime import datetime, timedelta
 
 from fastapi import Depends, HTTPException, Request
@@ -51,8 +53,41 @@ def spark(hist: list[dict]) -> Markup:
                   f'<polyline points="{line}" fill="none" stroke="currentColor" stroke-width="2"/>{dots}</svg>')
 
 
-templates.env.filters.update(money=_money, fecha=_fecha, ago=_ago)
-templates.env.globals["spark"] = spark
+# Siglas que se dejan en mayúsculas al prolijar direcciones
+_SIGLAS = {"PB", "PH", "CABA", "UF", "SUM", "II", "III", "IV", "VI", "SA", "SRL"}
+
+
+def _dir(s: str | None) -> str:
+    """Direcciones más prolijas: palabras TODO EN MAYÚSCULAS pasan a «Capitalizada» («AV. CORDOBA» -> «Av. Cordoba»),
+    salvo siglas conocidas. Lo que ya viene en minúsculas o mixto no se toca."""
+    if not s:
+        return s or ""
+    out = []
+    for w in re.split(r"(\s+)", s):
+        letras = re.sub(r"[^A-Za-zÁÉÍÓÚÑÜáéíóúñü]", "", w)
+        if len(letras) >= 2 and letras.isupper() and letras not in _SIGLAS:
+            w = w[:1] + w[1:].lower()
+        elif w in ("Y", "E", "O") and out:      # «PARAGUAY Y ESMERALDA» -> «Paraguay y Esmeralda»
+            w = w.lower()
+        out.append(w)
+    return "".join(out)
+
+
+_portales_cache: tuple[float, bool] = (0.0, False)
+
+
+def varios_portales() -> bool:
+    """¿Hay más de un portal configurado? Si hay uno solo, no tiene sentido mostrar el nombre en cada aviso."""
+    global _portales_cache
+    ahora = time.monotonic()
+    if ahora - _portales_cache[0] > 60:
+        from .scrapper_ctl import portales_y_zonas
+        _portales_cache = (ahora, len(portales_y_zonas()) > 1)
+    return _portales_cache[1]
+
+
+templates.env.filters.update(money=_money, fecha=_fecha, ago=_ago, dir=_dir)
+templates.env.globals.update(spark=spark, varios_portales=varios_portales)
 
 
 # ---------- dependencias ----------

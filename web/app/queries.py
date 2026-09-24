@@ -265,6 +265,13 @@ def contadores(c: Connection, desde: datetime | None) -> dict:
     }
 
 
+def revisadas_hoy(c: Connection, usuario: str) -> int:
+    """Publicaciones que `usuario` marcó hoy (favorita, potencial, descartada o contactada): progreso de la cola."""
+    hoy = datetime.combine(datetime.now().date(), datetime.min.time())
+    return c.execute(text("SELECT COUNT(DISTINCT publicacion_id) FROM web_eventos WHERE usuario=:u AND fecha >= :d "
+                          "AND tipo IN ('favorito','potencial','descartar','contactada')"), {"u": usuario, "d": hoy}).scalar_one()
+
+
 def mi_puntaje(c: Connection, pid: int, usuario: str) -> int | None:
     return c.execute(text("SELECT puntaje FROM web_puntajes WHERE publicacion_id=:i AND usuario=:u"),
                      {"i": pid, "u": usuario}).scalar()

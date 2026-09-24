@@ -1,10 +1,10 @@
 // Service worker mínimo: cachea el shell estático y da una página de reserva cuando no hay red.
 // No cachea HTML dinámico (listados, detalle) porque cambia todo el tiempo y es por-usuario.
-const CACHE = 'inmo-shell-v3';
+const CACHE = 'inmo-shell-v4';
 const SHELL = [
   '/static/app.css', '/static/app.js', '/static/htmx.min.js',
   '/static/offline.html', '/static/manifest.json',
-  '/static/icons/icon-192.png', '/static/icons/icon-512.png',
+  '/static/icons/icon-192.png', '/static/icons/icon-512.png', '/static/icons/icon.svg',
 ];
 
 self.addEventListener('install', (e) => {

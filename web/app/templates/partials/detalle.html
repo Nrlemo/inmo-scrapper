@@ -1,7 +1,7 @@
 {% from "_m.html" import acciones, datos, precio, badges, stars %}
 <div id="det" class="in" style="padding:.8rem">
   {% if p.fotos %}<img class="hero" style="width:100%;max-height:360px;object-fit:cover;border-radius:8px" referrerpolicy="no-referrer" src="{{ p.fotos[0] }}" alt="">{% endif %}
-  <h1>{{ p.direccion or p.titulo }} <span class="mut">· {{ p.barrio }}</span></h1>
+  <h1>{{ p.direccion|dir or p.titulo }} <span class="mut">· {{ p.barrio }}</span></h1>
   <div>{{ precio(p) }} {{ badges(p) }}</div>
   {{ datos(p) }}
   <p class="mut">{{ p.titulo }}</p>

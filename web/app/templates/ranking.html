@@ -18,7 +18,7 @@
   <tr class="{{ 'desc' if p.descartada }}">
     <td class="pos">{{ loop.index }}</td>
     <td class="pub"><a href="/p/{{ p.id }}"><img class="th" loading="lazy" referrerpolicy="no-referrer" src="{{ p.fotos[0] if p.fotos }}" alt=""></a>
-      <div><a href="/p/{{ p.id }}">{{ p.direccion or p.titulo }}</a>
+      <div><a href="/p/{{ p.id }}">{{ p.direccion|dir or p.titulo }}</a>
         <div class="mut">{{ p.barrio }} · {{ p.precio|money(p.moneda) }}{% if p.m2_cubiertos %} · {{ '%g'|format(p.m2_cubiertos) }} m²{% endif %}</div>
         <div>{% if p.favorito %}<span class="badge">★ favorita</span>{% endif %}{% if p.potencial %} <span class="badge pot">◆ potencial</span>{% endif %}{% if not p.activa %} <span class="badge">dada de baja</span>{% endif %}</div></div></td>
     <td><b>{{ '%.1f'|format(p.puntaje) }}</b> <span class="mut">({{ p.votos }})</span></td>

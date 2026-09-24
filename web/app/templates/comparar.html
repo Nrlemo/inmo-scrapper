@@ -4,7 +4,7 @@
 <h1>Comparar {% if favoritas %}<small class="mut">(tus favoritas; elegí otras con «comparar» en la lista)</small>{% endif %}</h1>
 {% if props %}
 <div class="scroll"><table class="cmp-t">
-  <tr><th></th>{% for p in props %}<th><a href="/p/{{ p.id }}">{{ p.direccion or p.titulo }}</a><br><span class="mut">{{ p.barrio }}</span></th>{% endfor %}</tr>
+  <tr><th></th>{% for p in props %}<th><a href="/p/{{ p.id }}">{{ p.direccion|dir or p.titulo }}</a><br><span class="mut">{{ p.barrio }}</span></th>{% endfor %}</tr>
   {% set best = props|selectattr('usd_m2')|map(attribute='usd_m2')|list %}
   {% for label, key in [('Precio', 'precio'), ('USD/m² cub.', 'usd_m2'), ('vs. mediana del barrio', 'rel'), ('Expensas', 'expensas'), ('m² cubiertos', 'm2_cubiertos'), ('m² totales', 'm2_totales'), ('Ambientes', 'ambientes'), ('Cocheras', 'cocheras'), ('Baños', 'banos')] %}
   <tr><th>{{ label }}</th>{% for p in props %}<td>

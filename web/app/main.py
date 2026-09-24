@@ -110,9 +110,10 @@ def service_worker():
 
 @app.get("/", response_class=HTMLResponse)
 def revision(request: Request, despues: int | None = None, c=Depends(ctx)):
-    p, total = queries.siguiente_pendiente(c["s"].connection(), despues)
+    conn = c["s"].connection()
+    p, total = queries.siguiente_pendiente(conn, despues)
     tpl = "partials/card.html" if request.headers.get("HX-Request") else "revision.html"
-    return render(request, tpl, c, p=p, total=total)
+    return render(request, tpl, c, p=p, total=total, hoy=queries.revisadas_hoy(conn, c["user"].username))
 
 
 @app.post("/p/{pid}/accion", response_class=HTMLResponse)
@@ -145,7 +146,7 @@ def accion(request: Request, pid: int, accion: str = Form(...), vista: str = For
         p, total = queries.siguiente_pendiente(s.connection(), pid)
         if p and p["id"] == pid:
             p = None
-        return render(request, "partials/card.html", c, p=p, total=total)
+        return render(request, "partials/card.html", c, p=p, total=total, hoy=queries.revisadas_hoy(s.connection(), user))
     p = queries.uno(s.connection(), pid)
     return render(request, "partials/detalle.html" if vista == "detalle" else "partials/fila.html", c,
                   p=p, **_detalle_extra(s, p, vista, user))
