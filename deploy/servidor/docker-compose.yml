@@ -1,0 +1,32 @@
+# Producción en un servidor con un túnel de Cloudflare propio (ver deploy/servidor.md).
+# Imagen publicada en Docker Hub; los datos quedan en ./data y ./config, junto a este archivo (en el servidor:
+# /home/nicolas/.docker/inmo, como el resto de las apps).
+#   docker compose up -d                              # levantar / aplicar cambios
+#   INMO_TAG=1.0.3 docker compose up -d               # (o INMO_TAG en .env) pasar a otra versión
+services:
+  web:
+    image: nrlemo/inmo-web:${INMO_TAG:-latest}
+    container_name: inmo-web
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    # Sólo en 127.0.0.1: entra por el túnel de cloudflared del servidor (ingress -> http://127.0.0.1:PUERTO). Así nadie
+    # en la red puede hablarle directo con un X-Forwarded-For inventado (ver TRUSTED_PROXY_HOPS).
+    ports: ["127.0.0.1:${INMO_PORT:-8095}:8000"]
+    environment:
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+      AUTH_MODE: ${AUTH_MODE:-basic}
+      AUTH_DEFAULT_USER: ${AUTH_DEFAULT_USER:-anonimo}
+      SETUP_TOKEN: ${SETUP_TOKEN:-}
+      SESSION_IDLE_HOURS: ${SESSION_IDLE_HOURS:-8}
+      SESSION_MAX_DAYS: ${SESSION_MAX_DAYS:-7}
+      SESSION_REMEMBER_DAYS: ${SESSION_REMEMBER_DAYS:-90}
+      # cloudflared es el único proxy delante: la IP real del cliente y el https salen de sus cabeceras
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
+      COOKIE_SECURE: ${COOKIE_SECURE:-auto}
+    volumes:
+      - ./data:/data                                 # SQLite (avisos, usuarios, sesiones, filtros)
+      - ./config:/config                             # profiles.yaml (cortesía y etiquetas automáticas)
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    logging:
+      options: { max-size: 10m, max-file: "3" }

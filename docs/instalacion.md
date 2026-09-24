@@ -51,6 +51,9 @@ Sin usuarios ni contraseñas: la pantalla Estado muestra un aviso y el log lo ad
 
 ## 🐳 Imagen de Docker
 
+> **Producción en un servidor** (Docker + túnel de Cloudflare ya administrado, migración desde otra máquina, actualización
+> y vuelta atrás): [`deploy/servidor.md`](../deploy/servidor.md).
+
 <table>
 <tr><td><b>Imagen</b></td><td><a href="https://hub.docker.com/r/nrlemo/inmo-web"><code>nrlemo/inmo-web</code></a> en Docker Hub (pública)</td></tr>
 <tr><td><b>Etiquetas</b></td><td><code>latest</code> (la última), una por release (por ejemplo <code>1.0.0</code>, ver <a href="https://github.com/Nrlemo/inmo-scrapper/releases">Releases</a>) y una por commit publicado, con el hash corto (por ejemplo <code>51fe5e2</code>). Para producción conviene fijar una versión.</td></tr>

@@ -114,7 +114,8 @@ que se genera en *Estado*.
 
 ---
 
-Instalación, configuración y operación: [`docs/instalacion.md`](docs/instalacion.md). Versiones y novedades:
+Instalación, configuración y operación: [`docs/instalacion.md`](docs/instalacion.md). Producción en un servidor con
+Docker y un túnel de Cloudflare (y cómo migrar sin perder datos): [`deploy/servidor.md`](deploy/servidor.md). Versiones y novedades:
 [releases de la web](https://github.com/Nrlemo/inmo-scrapper/releases) (imagen de Docker) y
 [de la extensión](https://github.com/Nrlemo/inmo-extension/releases) (`.zip`). Uso personal y de bajo volumen:
 respetá los términos de cada portal.
