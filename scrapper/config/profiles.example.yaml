@@ -19,17 +19,59 @@ profiles:
 
 # Etiquetas automáticas por palabras clave del título/descripción (sin tildes ni mayúsculas, palabra completa;
 # «sin cochera», «no tiene patio» o «ni balcón» no cuentan). No pisan las etiquetas que cargás a mano.
+# Armadas a partir de las descripciones reales: ojo con la letra legal repetida en muchos avisos (p. ej. «puede no
+# ser accesible para personas con movilidad reducida» o publicidad de créditos) antes de agregar una regla.
 auto_tags:
+  # Condiciones de compra
+  apto_credito: ["apto crédito", "apto banco", "apto hipotecario", "acepta crédito"]
+  apto_profesional: ["apto profesional"]
+  mascotas: ["apto mascotas", "acepta mascotas", "pet friendly"]
+  inversion: ["alquilado", "con renta", "con inquilino", "ideal inversor", "ideal inversión"]
+  dueno_directo: ["dueño directo", "sin comisión", "trato directo"]
+  sucesion: ["sucesión", "sucesorio"]
+  # Estado
+  a_estrenar: ["a estrenar", "nunca habitado"]
+  reciclado: ["reciclado a nuevo", "totalmente reciclado", "recién reciclado", "reciclado completo"]
+  a_reciclar: ["a reciclar", "para reciclar", "a refaccionar", "para refaccionar", "necesita mejoras", "a actualizar", "para actualizar"]
+  # Espacios exteriores
+  balcon: ["balcón", "balcones"]
+  balcon_frances: ["balcón francés"]
+  terraza_propia: ["terraza propia", "terraza exclusiva", "terraza privada", "terraza privativa"]
+  terraza_comun: ["terraza de uso común", "terraza común", "terraza comunitaria"]
   patio: ["patio"]
-  balcon: ["balcón"]
-  terraza: ["terraza"]
-  cochera: ["cochera", "garage"]
-  apto_credito: ["apto crédito", "apto credito", "apto banco"]
-  a_reciclar: ["a reciclar", "para reciclar", "a refaccionar"]
-  luminoso: ["luminoso", "luminosa"]
-  a_estrenar: ["a estrenar"]
-  amenities: ["amenities", "piscina", "pileta de natación", "pileta climatizada", "sum", "gimnasio", "solarium"]
-  mascotas: ["apto mascotas", "acepta mascotas"]
+  patio_comun: ["patio de uso común", "patio común"]
+  parrilla: ["parrilla"]
+  # Ambientes y distribución
+  cochera: ["cochera", "garage", "garaje"]
+  baulera: ["baulera"]
+  dependencia: ["dependencia de servicio", "cuarto de servicio"]
+  toilette: ["toilette", "toilet"]
+  dos_banos: ["dos baños", "2 baños", "baño en suite", "en suite"]
+  lavadero: ["lavadero independiente", "lavadero separado", "lavadero incorporado"]
+  cocina_separada: ["cocina independiente", "cocina separada"]
+  cocina_integrada: ["cocina integrada", "cocina americana", "cocina abierta"]
+  escritorio: ["escritorio", "home office", "espacio de trabajo"]
+  ph: ["ph", "tipo casa"]
+  planta_baja: ["planta baja", "pb"]
+  # Luz, orientación y terminaciones
+  luminoso: ["luminoso", "luminosa", "excelente luminosidad", "mucha luz", "luz natural"]
+  frente: ["al frente", "unidad de frente", "departamento de frente"]
+  contrafrente: ["contrafrente"]
+  orientacion_norte: ["orientación norte", "orientado al norte", "orientación noreste", "orientación noroeste"]
+  vista_abierta: ["vista abierta", "vista despejada", "vista panorámica", "vista al río"]
+  ventilacion_cruzada: ["ventilación cruzada"]
+  techos_altos: ["techos altos", "doble altura"]
+  pisos_madera: ["parquet", "pisos de madera", "piso de madera", "pinotea"]
+  aire_acondicionado: ["aire acondicionado", "aires acondicionados", "split", "frío calor"]
+  calefaccion: ["calefacción central", "calefacción individual", "losa radiante", "caldera", "radiadores"]
+  # Edificio y entorno
+  ascensor: ["ascensor", "ascensores"]
+  sin_ascensor: ["sin ascensor", "por escalera", "no tiene ascensor"]
+  encargado: ["encargado", "portero"]
+  seguridad: ["seguridad 24", "seguridad las 24", "vigilancia"]
+  amenities: ["amenities", "piscina", "pileta de natación", "pileta climatizada", "sum", "gimnasio", "solarium", "laundry"]
+  bajas_expensas: ["bajas expensas", "expensas bajas", "sin expensas", "expensas mínimas"]
+  cerca_subte: ["subte", "estación de subte", "premetro"]
 
 # Cadencia prudente (por portal). Todos los valores en segundos salvo indicación.
 politeness:
