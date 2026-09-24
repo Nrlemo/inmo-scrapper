@@ -59,7 +59,7 @@ varias personas.
 ## 🕷️ El scrapper
 
 Hay dos formas de traer los avisos, con las mismas reglas:
-- **Ronda por navegador (recomendada):** una extensión para Vivaldi/Chrome ([`extension/`](extension/README.md)) abre
+- **Ronda por navegador (recomendada):** una extensión para Vivaldi/Chrome ([`inmo-extension`](https://github.com/Nrlemo/inmo-extension)) abre
   una vez por día tus búsquedas en tu propio navegador y las carga en Inmo. Es tu navegador real, así que no la frena
   la protección anti-bots del portal.
 - **Scrapper HTTP:** el mismo proceso desde el servidor, sin navegador. Es más simple, pero Zonaprop lo bloquea seguido.

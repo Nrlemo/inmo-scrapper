@@ -184,7 +184,7 @@ su WebView — no hace falta abrir el formulario HTML desde la app.
 - **Una corrida completa puede tardar 30 minutos o más**; los avisos se guardan al terminar.
 
 ### Ronda por navegador (extensión)
-Alternativa al scrapper HTTP cuando Cloudflare lo bloquea. La extensión de [`extension/`](../extension/README.md)
+Alternativa al scrapper HTTP cuando Cloudflare lo bloquea. La extensión de [`inmo-extension`](https://github.com/Nrlemo/inmo-extension)
 (Vivaldi, Chrome y otros basados en Chromium) abre las búsquedas en el navegador del usuario y manda cada página a
 `/api/navegador/*`. El servidor conduce la ronda con las mismas reglas del conector (`inmo/navegador.py`).
 - **Token:** *Estado → Ronda por navegador → Generar token*. Hay uno por usuario y se guarda solo su hash.
