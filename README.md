@@ -158,6 +158,7 @@ services:
       SETUP_TOKEN: ${SETUP_TOKEN:-}                  # modo basic: código de instalación (vacío = aleatorio, en el log)
       SESSION_IDLE_HOURS: ${SESSION_IDLE_HOURS:-8}
       SESSION_MAX_DAYS: ${SESSION_MAX_DAYS:-7}
+      SESSION_REMEMBER_DAYS: ${SESSION_REMEMBER_DAYS:-90}
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}   # 0 = acceso directo; 1 detrás de Traefik/nginx
       COOKIE_SECURE: ${COOKIE_SECURE:-auto}
       PROXY_SECRET: ${PROXY_SECRET:-}
@@ -217,6 +218,7 @@ Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push 
 | `AUTH_MODE` | `basic` (default), `authentik` o `none` |
 | `SETUP_TOKEN` | Modo `basic`: código de instalación (vacío = aleatorio, en el log) |
 | `SESSION_IDLE_HOURS`, `SESSION_MAX_DAYS` | Modo `basic`: cierre por inactividad (8) y duración máxima de la sesión (7) |
+| `SESSION_REMEMBER_DAYS` | Modo `basic`: duración de la sesión con «Mantener sesión iniciada» (90 días, sin cierre por inactividad) |
 | `TRUSTED_PROXY_HOPS` | Proxies delante de la app (1 con Traefik; 0 si se accede directo). La IP del cliente se lee de `X-Forwarded-For` desde la derecha, así no se puede falsear para esquivar los límites de intentos |
 | `COOKIE_SECURE` | `auto` (Secure si el pedido llega por https), `true` o `false` |
 | `AUTH_DEFAULT_USER` | Modo `none`: nombre con el que actúan todos (`anonimo`) |

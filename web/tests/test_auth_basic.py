@@ -350,3 +350,30 @@ def test_api_login_gives_working_session_cookie(admin):
     app_client.cookies.set(d["cookie_name"], d["cookie_value"])
     assert app_client.get("/ranking").status_code == 200
     assert app_client.get("/sw.js").headers["service-worker-allowed"] == "/"
+
+
+def test_remember_me_survives_idle_and_lasts_longer(admin, monkeypatch):
+    from app.main import ENGINE
+    from app.models_web import Sesion
+    from sqlalchemy.orm import Session
+    admin.cookies.clear()
+    tok = _csrf(admin.get("/login").text)
+    r = admin.post("/login", data={"usuario": "admin", "clave": PW, "next": "/", "csrf": tok, "recordar": "1"})
+    assert r.status_code == 303
+    assert "max-age=7776000" in r.headers["set-cookie"].lower()             # 90 días
+    monkeypatch.setattr("app.config.SESSION_IDLE_HOURS", 0)                  # sin inactividad permitida…
+    assert admin.get("/").status_code == 200                                # …la sesión recordada sigue viva
+    with Session(ENGINE) as s:
+        assert s.query(Sesion).filter_by(recordar=True).count() == 1
+
+
+def test_api_login_remember(admin, monkeypatch):
+    d = admin.post("/api/login", json={"usuario": "admin", "clave": PW, "recordar": True}).json()
+    assert d["max_age_seconds"] == 90 * 86400
+    normal = admin.post("/api/login", json={"usuario": "admin", "clave": PW}).json()
+    assert normal["max_age_seconds"] == 7 * 86400
+    monkeypatch.setattr("app.config.SESSION_IDLE_HOURS", 0)
+    for cookie, esperado in ((d["cookie_value"], 200), (normal["cookie_value"], 303)):
+        c = new_client()
+        c.cookies.set(d["cookie_name"], cookie)
+        assert c.get("/ranking").status_code == esperado

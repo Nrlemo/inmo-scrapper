@@ -28,6 +28,7 @@ SETUP_TOKEN = os.environ.get("SETUP_TOKEN") or None
 TRUSTED_PROXY_HOPS = int(os.environ.get("TRUSTED_PROXY_HOPS", "1"))
 SESSION_IDLE_HOURS = float(os.environ.get("SESSION_IDLE_HOURS", "8"))     # cierre por inactividad
 SESSION_MAX_DAYS = float(os.environ.get("SESSION_MAX_DAYS", "7"))         # duración máxima absoluta
+SESSION_REMEMBER_DAYS = float(os.environ.get("SESSION_REMEMBER_DAYS", "90"))  # «Mantener sesión»: sin cierre por inactividad
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "auto").strip().lower()   # auto (según https) | true | false
 # Secreto opcional compartido con el proxy (cabecera X-Proxy-Secret) como defensa extra.
 PROXY_SECRET = os.environ.get("PROXY_SECRET")

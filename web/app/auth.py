@@ -115,12 +115,16 @@ def avisar_instalacion(engine) -> None:
 
 
 # ---------- sesiones ----------
-def crear_sesion(s: Session, cuenta: Cuenta, request: Request) -> str:
+def duracion_sesion(recordar: bool) -> timedelta:
+    return timedelta(days=config.SESSION_REMEMBER_DAYS if recordar else config.SESSION_MAX_DAYS)
+
+
+def crear_sesion(s: Session, cuenta: Cuenta, request: Request, recordar: bool = False) -> str:
     now = datetime.now()
     s.execute(delete(Sesion).where(Sesion.expira < now))
     token = security.nuevo_token()
     s.add(Sesion(id_hash=security.hash_token(token), cuenta_id=cuenta.id, csrf=security.nuevo_token(24), creada=now,
-                 actividad=now, expira=now + timedelta(days=config.SESSION_MAX_DAYS),
+                 actividad=now, expira=now + duracion_sesion(recordar), recordar=recordar,
                  ip=client_ip(request)[:45],
                  agente=(request.headers.get("user-agent") or "")[:200]))
     cuenta.ultimo_login = now
@@ -169,7 +173,8 @@ def _usuario_por_cookie(request: Request) -> User | None:
         row = s.get(Sesion, security.hash_token(token))
         if row is None:
             return None
-        if now >= row.expira or now - row.actividad > timedelta(hours=config.SESSION_IDLE_HOURS):
+        inactiva = not row.recordar and now - row.actividad > timedelta(hours=config.SESSION_IDLE_HOURS)
+        if now >= row.expira or inactiva:
             s.delete(row)
             s.commit()
             return None

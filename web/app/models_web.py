@@ -96,3 +96,4 @@ class Sesion(WebBase):
     expira: Mapped[datetime] = mapped_column(DateTime)
     ip: Mapped[str | None] = mapped_column(String(45))
     agente: Mapped[str | None] = mapped_column(String(200))
+    recordar: Mapped[bool] = mapped_column(Boolean, default=False)   # «Mantener sesión iniciada»

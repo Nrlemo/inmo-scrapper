@@ -7,6 +7,7 @@
   {% if error %}<div class="up" role="alert">{{ error }}</div>{% endif %}
   <label class="fld">Usuario<input name="usuario" value="{{ usuario }}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus maxlength="32"></label>
   <label class="fld">Contraseña<input type="password" name="clave" autocomplete="current-password" required maxlength="128"></label>
+  <label><input type="checkbox" name="recordar" value="1"> Mantener sesión iniciada</label>
   <button class="pri" type="submit">Ingresar</button>
 </form>
 {% endblock %}

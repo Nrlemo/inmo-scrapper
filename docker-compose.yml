@@ -20,6 +20,7 @@ services:
       SETUP_TOKEN: ${SETUP_TOKEN:-}               # modo basic: código de instalación (vacío = aleatorio, en el log)
       SESSION_IDLE_HOURS: ${SESSION_IDLE_HOURS:-8}
       SESSION_MAX_DAYS: ${SESSION_MAX_DAYS:-7}
+      SESSION_REMEMBER_DAYS: ${SESSION_REMEMBER_DAYS:-90}
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}   # proxies delante de la app (Traefik = 1; acceso directo = 0)
       COOKIE_SECURE: ${COOKIE_SECURE:-auto}       # auto = Secure cuando el pedido llega por https
       PROXY_SECRET: ${PROXY_SECRET:-}             # modo authentik: secreto que el proxy envía en X-Proxy-Secret

@@ -43,10 +43,11 @@ def _csrf_pre_ok(request: Request, enviado: str) -> bool:
     return bool(cookie) and security.iguales(cookie, enviado)
 
 
-def _entrar(request: Request, s: Session, cuenta: Cuenta, destino: str) -> Response:
-    token = auth.crear_sesion(s, cuenta, request)
+def _entrar(request: Request, s: Session, cuenta: Cuenta, destino: str, recordar: bool = False) -> Response:
+    token = auth.crear_sesion(s, cuenta, request, recordar)
     resp = RedirectResponse("/cuenta" if cuenta.debe_cambiar else destino, status_code=303)
-    auth.poner_cookie(resp, request, auth.cookie_sesion(request), token, max_age=int(config.SESSION_MAX_DAYS * 86400))
+    auth.poner_cookie(resp, request, auth.cookie_sesion(request), token,
+                     max_age=int(auth.duracion_sesion(recordar).total_seconds()))
     auth.borrar_cookie(resp, request, auth.cookie_pre(request))
     return resp
 
@@ -105,7 +106,7 @@ def login_form(request: Request, next: str = "/", s: Session = Depends(get_sessi
 
 @router.post("/login", response_class=HTMLResponse)
 def login_post(request: Request, usuario: str = Form(""), clave: str = Form(""), next: str = Form("/"),
-               csrf: str = Form(""), s: Session = Depends(get_session)):
+               csrf: str = Form(""), recordar: str = Form(""), s: Session = Depends(get_session)):
     _solo_basic()
     usuario = security.normalizar_usuario(usuario)
     destino = security.next_seguro(next)
@@ -124,7 +125,7 @@ def login_post(request: Request, usuario: str = Form(""), clave: str = Form(""),
         log.warning("login fallido: usuario=%r ip=%s motivo=%s", usuario[:32], _ip(request), motivo)
         return fallo()
     log.info("login ok: usuario=%r ip=%s", cuenta.username, _ip(request))
-    return _entrar(request, s, cuenta, destino)     # sesión nueva en cada login (evita fijación de sesión)
+    return _entrar(request, s, cuenta, destino, bool(recordar))  # sesión nueva en cada login (evita fijación de sesión)
 
 
 # ---------------- login para la app Android (JSON, sin CSRF de doble envío) ----------------
@@ -134,6 +135,7 @@ def login_post(request: Request, usuario: str = Form(""), clave: str = Form(""),
 class LoginBody(BaseModel):
     usuario: str
     clave: str
+    recordar: bool = False
 
 
 @router.post("/api/login")
@@ -147,7 +149,7 @@ def api_login(request: Request, body: LoginBody, s: Session = Depends(get_sessio
     if cuenta is None:
         log.warning("api login fallido: usuario=%r ip=%s motivo=%s", usuario[:32], _ip(request), motivo)
         raise HTTPException(401, _GENERICO)
-    token = auth.crear_sesion(s, cuenta, request)   # mismo mecanismo de sesión que el login web
+    token = auth.crear_sesion(s, cuenta, request, body.recordar)   # mismo mecanismo de sesión que el login web
     log.info("api login ok: usuario=%r ip=%s", cuenta.username, _ip(request))
     return {
         "usuario": cuenta.username,
@@ -155,7 +157,7 @@ def api_login(request: Request, body: LoginBody, s: Session = Depends(get_sessio
         "debe_cambiar": cuenta.debe_cambiar,
         "cookie_name": auth.cookie_sesion(request),
         "cookie_value": token,
-        "max_age_seconds": int(config.SESSION_MAX_DAYS * 86400),
+        "max_age_seconds": int(auth.duracion_sesion(body.recordar).total_seconds()),
         "secure": auth.es_https(request),
     }
 
