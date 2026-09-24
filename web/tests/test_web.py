@@ -292,14 +292,16 @@ def test_galeria_en_revision_y_miniaturas_chicas(client):
     import json
     from sqlalchemy import text
     from app.main import ENGINE
-    fotos = [f"https://img/avisos/1/720x532/{i}.jpg" for i in range(3)]
+    fotos = [f"https://imgar.zonapropcdn.com/avisos/1/720x532/{i}.jpg" for i in range(3)]
     with ENGINE.begin() as c:
         c.execute(text("UPDATE publicaciones SET fotos=:f"), {"f": json.dumps(fotos)})
     html = client.get("/").text
     assert "data-fotos=" in html and ">1/3<" in html and html.count('<i class') >= 3
-    assert "https://img/avisos/1/720x532/0.jpg" in html                    # la tarjeta usa la foto grande
+    assert "https://imgar.zonapropcdn.com/avisos/1/720x532/0.jpg" in html  # la tarjeta usa la foto grande
     lista = client.get("/lista").text
     assert "/360x266/0.jpg" in lista and "/720x532/" not in lista            # el listado, la miniatura
+    from app.queries import foto_chica
+    assert foto_chica("https://otro-portal.com/fotos/720x532/1.jpg") == "https://otro-portal.com/fotos/720x532/1.jpg"
 
 
 def test_api_ronda_por_navegador_con_token(client):

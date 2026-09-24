@@ -50,7 +50,7 @@ def vista(e: Ejecucion) -> dict:
         frac = (max(e.zona_idx - 1, 0) + (e.pagina / e.paginas if e.paginas else 0)) / e.zonas_total
         pct = min(int(frac * 100), 99)
     fin = e.fin or datetime.now()
-    return {"id": e.id, "portal": e.portal, "zonas": e.zonas or [], "usuario": e.usuario, "estado": e.estado,
+    return {"id": e.id, "portal": (e.portal or "").replace(",", ", "), "zonas": e.zonas or [], "usuario": e.usuario, "estado": e.estado,
             "inicio": e.inicio, "fin": e.fin, "minutos": int((fin - e.inicio).total_seconds() // 60),
             "zonas_total": e.zonas_total, "zona_idx": e.zona_idx, "zona_actual": e.zona_actual,
             "pagina": e.pagina, "paginas": e.paginas, "resultados": e.resultados, "mensaje": e.mensaje, "pct": pct}

@@ -215,9 +215,18 @@ mano desde ese mismo navegador y resolvé la verificación. No se implementa nad
 identidades.
 
 ### Agregar un portal
-Por ahora la ronda está atada a Zonaprop. La interfaz de conector por páginas, que permite sumar portales sin tocar
-la ronda, está en [#20](https://github.com/Nrlemo/inmo-scrapper/issues/20); los conectores de MercadoLibre y Argenprop
-en [#1](https://github.com/Nrlemo/inmo-scrapper/issues/1) y [#2](https://github.com/Nrlemo/inmo-scrapper/issues/2).
+La ronda, los filtros y la web no nombran portales: todo pasa por el registro de `scrapper/src/inmo/connectors/`.
+1. `connectors/<portal>.py` con una subclase de `Portal` (`connectors/base.py`): `nombre`, `etiqueta`, `host`,
+   `page_size`, `max_pages` (tope de `robots.txt`), `page_url()` y `parse_page()` (avisos + total de resultados). Si
+   corresponde, `armar_plantilla()`/`leer_plantilla()` (URL de búsqueda a partir de los filtros, sólo con segmentos
+   verificados en el portal), `es_desafio()` (su página anti-bot) y `miniatura()` (fotos chicas de su CDN).
+2. Registrarla en `REGISTRO` de `connectors/__init__.py` (y sacarla de `PROXIMOS`).
+3. Tests con HTML real guardado desde el navegador (`scrapper/tests/fixtures/`), como `test_zonaprop.py`.
+4. Su cadencia en `politeness.<portal>` de `profiles.yaml` (pausas, páginas, intervalo mínimo, cooldown) y, del lado
+   de la extensión, permisos para su dominio (inmo-extension#2).
+
+La ronda recorre los portales en el orden del registro; cada uno lleva su propio cooldown, intervalo mínimo, consultas
+y bajas, y si uno bloquea se sigue con los demás.
 
 ## 🛠️ Desarrollo
 

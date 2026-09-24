@@ -10,7 +10,7 @@ Actuá como desarrollador full-stack senior. Esta es una aplicación web self-ho
 - **La única vía es la extensión del navegador** (Vivaldi/Chrome), en su propio repo: [Nrlemo/inmo-extension](https://github.com/Nrlemo/inmo-extension). Abre las búsquedas en el navegador real del usuario, página por página, y manda el HTML a la web (`/api/navegador/*`, token por usuario).
 - **El servidor conduce la ronda** (`scrapper/src/inmo/navegador.py`): decide qué página sigue, cuánto esperar, guarda y da de baja. La extensión sólo abre, espera, lee y envía; los cambios de reglas no deberían requerir tocarla.
 - **El scrapper HTTP (httpx/curl) se quitó** en la etapa 1 (Cloudflare lo bloqueaba). No agregar código que pida páginas a los portales desde el servidor.
-- **Conectores = parsers por página con interfaz común** (un módulo por portal en `connectors/`): URLs de búsqueda por zona, paginación, parseo de la página, detección de bloqueo. Agregar un portal no debería tocar ni la ronda ni la API de la extensión.
+- **Conectores = parsers por página con interfaz común** (`Portal` en `connectors/base.py`, registro en `connectors/__init__.py`): URLs de búsqueda por zona, paginación, parseo de la página, detección de bloqueo, miniaturas. Una ronda recorre todos los portales del registro con cooldown, intervalo mínimo, consultas y bajas por portal. Agregar un portal no toca ni la ronda ni la API de la extensión; fuera de `connectors/` nadie nombra un portal.
 - **Scraping responsable, aunque sea desde el navegador:** respetar `robots.txt` (tope de páginas), pausas aleatorias entre páginas y zonas, cooldown tras un bloqueo, una ronda por día como máximo. Un portal que falla o bloquea no corta a los demás.
 
 ## Portales

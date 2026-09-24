@@ -117,8 +117,9 @@ class Filtros:
 
 
 def foto_chica(url: str | None) -> str:
-    """Miniatura: las fotos se guardan en 720x532 (galería); para listados alcanza la versión de 360x266 del CDN."""
-    return (url or "").replace("/720x532/", "/360x266/")
+    """Miniatura para listados: cada portal sabe achicar las fotos de su CDN (connectors.miniatura)."""
+    from inmo.connectors import miniatura
+    return miniatura(url)
 
 
 def _row(m) -> dict:
