@@ -24,6 +24,17 @@ LEFT JOIN inmobiliarias i ON i.id = p.inmobiliaria_id
 LEFT JOIN web_vs_barrio vb ON vb.publicacion_id = p.id
 """
 
+# Para contar resultados no hacen falta el promedio de puntajes ni el último cambio de precio por fila: sólo las tablas
+# que puede usar Filtros.where() (el último cambio, sólo con el filtro «bajó de precio»).
+_CONTEO = """SELECT COUNT(*) FROM publicaciones p
+LEFT JOIN web_revision r ON r.publicacion_id = p.id
+LEFT JOIN categorizacion c ON c.publicacion_id = p.id
+LEFT JOIN web_vs_barrio vb ON vb.publicacion_id = p.id"""
+_JOIN_CAMBIO = """
+LEFT JOIN historial_precios ch ON ch.id = (
+  SELECT h.id FROM historial_precios h WHERE h.publicacion_id = p.id AND h.variacion_pct IS NOT NULL
+  ORDER BY h.fecha DESC, h.id DESC LIMIT 1)"""
+
 # Fuera de los filtros de búsqueda actuales (inmo.filtros): se oculta, salvo que ya la hayas marcado (favorita,
 # potencial o contactada): lo que marcaste no desaparece por cambiar los filtros.
 VISIBLE = ("(COALESCE(p.fuera_filtro,0) = 0 OR COALESCE(r.favorito,0) = 1 OR COALESCE(r.potencial,0) = 1"
@@ -120,7 +131,7 @@ def _row(m) -> dict:
 
 def listar(c: Connection, f: Filtros, size: int) -> tuple[list[dict], int]:
     where, args = f.where()
-    total = c.execute(text(f"SELECT COUNT(*) FROM ({BASE}{where})"), args).scalar_one()
+    total = c.execute(text(_CONTEO + (_JOIN_CAMBIO if f.baja else "") + where), args).scalar_one()
     order = ORDENES.get(f.orden, ORDENES["nuevas"])
     rows = c.execute(text(f"{BASE}{where} ORDER BY {order} NULLS LAST, p.id DESC LIMIT :n OFFSET :o"),
                      {**args, "n": size, "o": (max(f.pagina, 1) - 1) * size}).mappings().all()
