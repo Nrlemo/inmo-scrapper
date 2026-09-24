@@ -81,3 +81,15 @@ politeness:
     zone_delay: [60, 150]        # pausa aleatoria al pasar de una zona a la siguiente
     min_hours_between_runs: 20   # horas entre rondas («Correr ronda ahora» lo ignora)
     cooldown_hours_on_block: 24  # horas sin intentar tras un desafío anti-bot
+  argenprop:                     # corta enseguida las consultas agresivas: pausas largas
+    max_pages: 3                 # tope por robots.txt
+    page_delay: [90, 180]
+    zone_delay: [180, 360]
+    min_hours_between_runs: 20
+    cooldown_hours_on_block: 48
+  mercadolibre:
+    max_pages: 5
+    page_delay: [30, 75]
+    zone_delay: [60, 150]
+    min_hours_between_runs: 20
+    cooldown_hours_on_block: 24

@@ -18,7 +18,7 @@
 
 ## ✨ Qué hace
 
-Una **extensión del navegador** abre tus búsquedas de Zonaprop una vez por día y las carga en Inmo, que las filtra
+Una **extensión del navegador** abre tus búsquedas de **Zonaprop, Argenprop y MercadoLibre** una vez por día y las carga en Inmo, que las filtra
 según tus criterios y guarda todo en SQLite.
 Una **web liviana**, pensada para el celular, te deja revisar, marcar, puntuar y comparar las publicaciones entre
 varias personas.

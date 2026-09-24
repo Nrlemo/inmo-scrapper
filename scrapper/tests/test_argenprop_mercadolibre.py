@@ -116,23 +116,16 @@ def test_los_filtros_rechazan_urls_que_prohibe_robots(con_portales):
     assert filtros.validar(doc)
 
 
-def test_todavia_no_estan_en_la_ronda():
-    """Hasta que la extensión los soporte (inmo-extension#2) y se verifiquen las URLs, siguen como «próximos»."""
-    from inmo.connectors import PROXIMOS
-    assert "argenprop" in PROXIMOS and "mercadolibre" in PROXIMOS
-    assert "argenprop" not in REGISTRO and "mercadolibre" not in REGISTRO
-
-
-def test_urls_verificadas_en_los_portales():
-    """Las que armó el usuario en el navegador (2026-09-24). A la de Argenprop se le quitan los filtros de la consulta
-    (?con-permitemascotas&…): robots.txt no permite paginar con ellos."""
-    f = {"tipo": "departamento", "operacion": "compra", "moneda": "USD", "apto_credito": True}
-    assert ap.armar_plantilla(f).format(zone="tribunales", price_max=125000) == \
-        "https://www.argenprop.com/departamentos/venta/tribunales/dolares-hasta-125000/apto-credito"
-    assert ap.leer_plantilla(ap.armar_plantilla(f))["apto_credito"] and ap.problema_robots(ap.armar_plantilla(f)) is None
-    base_ml = ml.armar_plantilla(f).format(zone="san-nicolas")
-    assert ml.page_url(base_ml, 2) == \
-        "https://inmuebles.mercadolibre.com.ar/departamentos/venta/propiedades-individuales/capital-federal/san-nicolas/_Desde_49_NoIndex_True"
-    assert ml.problema_robots(ml.armar_plantilla(f)) is None
-    with pytest.raises(ValueError, match="no está verificado"):
-        ap.armar_plantilla({**f, "moneda": "ARS"})
+def test_registrados_pero_apagados_hasta_configurarlos():
+    """Entran en la ronda sólo si se prenden y tienen zonas (Estado → Búsqueda); con filtros guardados antes, quedan
+    apagados."""
+    assert list(REGISTRO)[:3] == ["zonaprop", "argenprop", "mercadolibre"]
+    doc = filtros.desde_yaml([{"name": "t", "currency": "USD", "price": {"min": 1, "max": 2},
+                               "portals": {"zonaprop": {"search_urls": ["https://www.zonaprop.com.ar/a.html"]}}}])
+    pc = doc["busquedas"][0]["portales"]
+    assert pc["zonaprop"]["activo"] and not pc["argenprop"]["activo"] and not pc["mercadolibre"]["activo"]
+    assert [list(p["portals"]) for p in filtros.perfiles(doc)] == [["zonaprop"]]
+    viejo = {"busquedas": [{"nombre": "t", "comunes": doc["busquedas"][0]["comunes"],
+                            "portales": {"zonaprop": pc["zonaprop"]}}]}              # guardado cuando sólo existía Zonaprop
+    nuevo = filtros.validar(viejo)["busquedas"][0]["portales"]
+    assert not nuevo["argenprop"]["activo"] and not nuevo["mercadolibre"]["activo"]

@@ -334,7 +334,8 @@ def test_busqueda_se_importa_del_yaml_y_se_ve_en_estado(client):
     t = client.get("/estado").text
     assert "🔎 Búsqueda" in t and "Guardar filtros" in t and "importado de profiles.yaml" in t
     assert "almagro 1-" in t and "recoleta" in t                             # zonas del YAML de prueba
-    assert "Argenprop · se incorpora en la etapa 2" in t
+    assert 'name="argenprop_zonas"' in t and 'name="mercadolibre_zonas"' in t        # configurables, apagados
+    assert "Argenprop · apagado" in t and "MercadoLibre · apagado" in t
 
 
 def test_guardar_filtros_oculta_lo_que_no_cumple_y_cambia_la_ronda(client):

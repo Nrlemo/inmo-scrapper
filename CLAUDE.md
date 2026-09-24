@@ -14,9 +14,11 @@ Actuá como desarrollador full-stack senior. Esta es una aplicación web self-ho
 - **Scraping responsable, aunque sea desde el navegador:** respetar `robots.txt` (tope de páginas), pausas aleatorias entre páginas y zonas, cooldown tras un bloqueo, una ronda por día como máximo. Un portal que falla o bloquea no corta a los demás.
 
 ## Portales
-- **Zonaprop:** funcionando por la extensión.
-- **MercadoLibre Inmuebles:** la API oficial **no trae resultados (está bloqueada)**, ya lo investigamos. Va por la extensión, leyendo el listado web.
-- **Argenprop:** corta enseguida las consultas agresivas. Va por la extensión con una cadencia bastante más prudente que Zonaprop (pausas largas, pocas páginas, cooldown largo).
+Todos por la extensión (desde la 1.1.0), cada uno con su conector en `connectors/` y su cadencia en `politeness.<portal>`:
+- **Zonaprop:** robots.txt permite 5 páginas por búsqueda. URL armada con filtros verificados (tipo, zona, apto crédito, dormitorios/ambientes mínimos, «hasta N ambientes», precio).
+- **Argenprop:** corta enseguida las consultas agresivas → pausas largas y cooldown de 48 h. robots.txt: máx. 3 páginas (`?pagina-N` como única consulta) y ninguna URL con dos o más «-o-». URL verificada: `/departamentos/venta/{zona}/dolares-hasta-{max}[/apto-credito]`.
+- **MercadoLibre:** la API oficial **no trae resultados (está bloqueada)**; se lee el listado web. robots.txt prohíbe precio y superficie en la URL (se filtran al recibir). URL verificada: `/departamentos/venta/propiedades-individuales/capital-federal/{zona}/`, página N `…/_Desde_{48(N-1)+1}_NoIndex_True`. La tarjeta no trae expensas, coordenadas ni inmobiliaria.
+- Cada portal se prende en *Estado → Búsqueda* cargando sus zonas (con el nombre que usa ese portal en la URL).
 
 ## Criterios de búsqueda (configurables desde la web, no hardcodeados)
 Se editan en *Estado → Búsqueda* (sólo administradores) y se guardan en la base (`inmo/filtros.py`, `web/app/busqueda.py`); `profiles.yaml` se importa una sola vez y sigue aportando la cortesía por portal y las etiquetas automáticas. Filtros comunes a todos los portales + por portal: activo, zonas, ajustes que pisan un filtro común y plantilla de URL avanzada. Cada conector arma su URL sólo con segmentos verificados; lo demás se filtra al recibir la página. Los avisos ya guardados que dejan de cumplir los filtros se ocultan (`fuera_filtro`), no se borran; los marcados (favorita/potencial/contactada) se ven siempre.

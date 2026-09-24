@@ -1,16 +1,17 @@
 """Registro de portales. Para sumar uno: connectors/<portal>.py con una subclase de Portal (base.py), agregarla a
 REGISTRO y sacarlo de PROXIMOS. La ronda por navegador, los filtros y la web sólo usan este registro."""
 from .base import Listing, Portal
+from .argenprop import PORTAL as _argenprop
+from .mercadolibre import PORTAL as _mercadolibre
 from .zonaprop import PORTAL as _zonaprop
 
 # Portales que la ronda ya sabe recorrer, en el orden en que los recorre
-REGISTRO: dict[str, Portal] = {p.nombre: p for p in (_zonaprop,)}
+REGISTRO: dict[str, Portal] = {p.nombre: p for p in (_zonaprop, _argenprop, _mercadolibre)}
 # Datos anteriores al multi-portal (rondas guardadas sin portal por zona) son de este portal: era el único
 PORTAL_HISTORICO = _zonaprop.nombre
-# Los que se van a sumar (se muestran en Estado → Búsqueda como «etapa 2»). Sus conectores ya están (argenprop.py,
-# mercadolibre.py: parsers y URLs verificados con páginas reales); falta que la extensión los soporte
-# (inmo-extension#2) antes de pasarlos a REGISTRO.
-PROXIMOS = {"argenprop": "Argenprop", "mercadolibre": "MercadoLibre"}
+# Los que se van a sumar (se muestran en Estado → Búsqueda como «próximamente»). Argenprop y MercadoLibre necesitan la
+# extensión 1.1.0 o posterior (permisos de sus dominios).
+PROXIMOS: dict[str, str] = {}
 
 
 def portal(nombre: str) -> Portal:
