@@ -58,9 +58,12 @@ def matches_profile(l: Listing, profile: dict[str, Any]) -> bool:
             return False
         if rooms.get("max") is not None and l.ambientes > rooms["max"]:
             return False
-    min_dorm = profile.get("bedrooms", {}).get("min")
-    if min_dorm is not None and l.dormitorios is not None and l.dormitorios < min_dorm:
-        return False
+    dorm = profile.get("bedrooms", {})
+    if l.dormitorios is not None:
+        if dorm.get("min") is not None and l.dormitorios < dorm["min"]:
+            return False
+        if dorm.get("max") is not None and l.dormitorios > dorm["max"]:
+            return False
     min_tot = profile.get("total_m2_min")  # el listado da m² totales de casi todos los avisos; cubiertos casi nunca
     if min_tot is not None and l.m2_totales is not None and l.m2_totales < min_tot:
         return False

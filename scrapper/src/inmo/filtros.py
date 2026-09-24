@@ -6,7 +6,7 @@ y, por portal, si está activo, sus zonas, ajustes que pisan algún filtro comú
     {"busquedas": [{"nombre": "caba-apto-credito",
                     "comunes": {"operacion": "compra", "tipo": "departamento", "moneda": "USD",
                                 "precio_min": 50000, "precio_max": 125000, "amb_min": 3, "amb_max": None,
-                                "dorm_min": 2, "m2_tot_min": 60, "m2_cub_min": None, "apto_credito": True,
+                                "dorm_min": 2, "dorm_max": None, "m2_tot_min": 60, "m2_cub_min": None, "apto_credito": True,
                                 "excluir": ["pozo", "sin escritura"]},
                     "portales": {"zonaprop": {"activo": True, "zonas": [{"zona": "almagro", "precio_max": 110000}],
                                               "ajustes": {"precio_max": 120000}, "plantilla": None}}}]}
@@ -31,8 +31,8 @@ from .models import Publicacion
 # Portales que la ronda por navegador ya sabe recorrer; los demás se muestran en la web como «etapa 2».
 PORTALES = {"zonaprop": "Zonaprop", "argenprop": "Argenprop", "mercadolibre": "MercadoLibre"}
 DISPONIBLES = {"zonaprop"}
-NUMERICOS = ("precio_min", "precio_max", "amb_min", "amb_max", "dorm_min", "m2_tot_min", "m2_cub_min")
-AJUSTABLES = ("precio_min", "precio_max", "amb_min", "m2_tot_min")   # los que un portal puede pisar
+NUMERICOS = ("precio_min", "precio_max", "amb_min", "amb_max", "dorm_min", "dorm_max", "m2_tot_min", "m2_cub_min")
+AJUSTABLES = ("precio_min", "precio_max", "amb_min", "amb_max", "dorm_max", "m2_tot_min")   # los que un portal puede pisar
 
 COMUNES_VACIOS: dict[str, Any] = {"operacion": "compra", "tipo": "departamento", "moneda": "USD",
                                   **{k: None for k in NUMERICOS}, "apto_credito": False, "excluir": []}
@@ -56,7 +56,7 @@ def desde_yaml(profiles: list[dict[str, Any]], estricto: bool = True) -> dict[st
                  moneda=p.get("currency", "USD"), excluir=list(p.get("exclude_keywords") or []),
                  precio_min=p.get("price", {}).get("min"), precio_max=p.get("price", {}).get("max"),
                  amb_min=p.get("rooms", {}).get("min"), amb_max=p.get("rooms", {}).get("max"),
-                 dorm_min=p.get("bedrooms", {}).get("min"),
+                 dorm_min=p.get("bedrooms", {}).get("min"), dorm_max=p.get("bedrooms", {}).get("max"),
                  m2_tot_min=p.get("total_m2_min"), m2_cub_min=p.get("covered_m2_min"))
         for portal, pc in (p.get("portals") or {}).items():
             dest = b["portales"].setdefault(portal, {"activo": True, "zonas": [], "ajustes": {}, "plantilla": None})
@@ -169,7 +169,8 @@ def _numero(v: Any, campo: str) -> int | None:
 
 
 def _rangos(c: dict[str, Any], donde: str) -> None:
-    for lo, hi, nombre in (("precio_min", "precio_max", "precio"), ("amb_min", "amb_max", "ambientes")):
+    for lo, hi, nombre in (("precio_min", "precio_max", "precio"), ("amb_min", "amb_max", "ambientes"),
+                           ("dorm_min", "dorm_max", "dormitorios")):
         if c.get(lo) is not None and c.get(hi) is not None and c[lo] > c[hi]:
             raise ValueError(f"{donde}: el {nombre} mínimo es mayor que el máximo")
 
@@ -183,7 +184,7 @@ def perfiles(doc: dict[str, Any]) -> list[dict[str, Any]]:
         for portal, pc in b["portales"].items():
             if not pc.get("activo") or portal not in DISPONIBLES:
                 continue
-            f = {**b["comunes"], **pc.get("ajustes", {})}
+            f = {**COMUNES_VACIOS, **b["comunes"], **pc.get("ajustes", {})}   # docs guardados antes de sumar campos
             conf: dict[str, Any] = {}
             if pc.get("urls"):
                 conf["search_urls"] = list(pc["urls"])
@@ -195,7 +196,7 @@ def perfiles(doc: dict[str, Any]) -> list[dict[str, Any]]:
                                  for z in pc["zonas"]]
             out.append({"name": b["nombre"], "operation": f["operacion"], "type": f["tipo"], "currency": f["moneda"],
                         "price": {"min": f["precio_min"], "max": f["precio_max"]},
-                        "rooms": {"min": f["amb_min"], "max": f["amb_max"]}, "bedrooms": {"min": f["dorm_min"]},
+                        "rooms": {"min": f["amb_min"], "max": f["amb_max"]}, "bedrooms": {"min": f["dorm_min"], "max": f["dorm_max"]},
                         "total_m2_min": f["m2_tot_min"], "covered_m2_min": f["m2_cub_min"],
                         "exclude_keywords": list(f["excluir"]), "portals": {portal: conf}})
     return out

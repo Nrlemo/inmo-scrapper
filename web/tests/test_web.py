@@ -370,3 +370,11 @@ def test_copiar_y_borrar_busquedas(client):
     r = client.post("/busqueda/1/borrar", headers=HX)
     assert "«p-2» borrada" in r.text
     assert "al menos una" in client.post("/busqueda/0/borrar", headers=HX).text
+
+
+def test_maximos_por_portal_desde_estado(client):
+    r = client.post("/busqueda/0", data={**FORM, "precio_min": "1", "amb_min": "1", "dorm_max": "3", "zonaprop_amb_max": "2"}, headers=HX)
+    assert "Guardado. 3 avisos activos quedan fuera" in r.text                    # los 3 de prueba tienen 3 ambientes
+    assert 'name="zonaprop_amb_max" inputmode="numeric" value="2"' in r.text and 'name="dorm_max" inputmode="numeric" value="3"' in r.text
+    r = client.post("/busqueda/0", data={**FORM, "precio_min": "1", "dorm_min": "3", "dorm_max": "2"}, headers=HX)
+    assert "dormitorios mínimo es mayor" in r.text

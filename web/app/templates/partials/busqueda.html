@@ -27,6 +27,7 @@
       <label style="flex-direction:column;align-items:stretch;gap:.2rem">Ambientes mín.<input name="amb_min" inputmode="numeric" value="{{ v('amb_min', com.amb_min) }}"></label>
       <label style="flex-direction:column;align-items:stretch;gap:.2rem">Ambientes máx.<input name="amb_max" inputmode="numeric" value="{{ v('amb_max', com.amb_max) }}"></label>
       <label style="flex-direction:column;align-items:stretch;gap:.2rem">Dormitorios mín.<input name="dorm_min" inputmode="numeric" value="{{ v('dorm_min', com.dorm_min) }}"></label>
+      <label style="flex-direction:column;align-items:stretch;gap:.2rem" title="No va en la URL del portal: se filtra al recibir la página">Dormitorios máx.<input name="dorm_max" inputmode="numeric" value="{{ v('dorm_max', com.dorm_max) }}"></label>
       <label style="flex-direction:column;align-items:stretch;gap:.2rem" title="El listado de los portales casi siempre informa los m² totales">m² totales mín.<input name="m2_tot_min" inputmode="numeric" value="{{ v('m2_tot_min', com.m2_tot_min) }}"></label>
       <label style="flex-direction:column;align-items:stretch;gap:.2rem" title="Casi nunca figura en el listado: si falta el dato, el aviso no se descarta">m² cubiertos mín.<input name="m2_cub_min" inputmode="numeric" value="{{ v('m2_cub_min', com.m2_cub_min) }}"></label>
     </div>
@@ -47,7 +48,7 @@
           <small class="mut">Para partir una zona con más de 150 resultados (el tope de páginas), agregá un rango de precio: «almagro -110000» y «almagro 110000-».</small></label>
         <div class="mut" style="font-size:.85rem">Ajustes sólo para {{ nombre }} (vacío = usa el de arriba):</div>
         <div class="grid" style="padding:0">
-          {% for k, l in [('precio_min', 'Precio mín.'), ('precio_max', 'Precio máx.'), ('amb_min', 'Ambientes mín.'), ('m2_tot_min', 'm² totales mín.')] %}
+          {% for k, l in [('precio_min', 'Precio mín.'), ('precio_max', 'Precio máx.'), ('amb_min', 'Ambientes mín.'), ('amb_max', 'Ambientes máx.'), ('dorm_max', 'Dormitorios máx.'), ('m2_tot_min', 'm² totales mín.')] %}
           <label style="flex-direction:column;align-items:stretch;gap:.2rem">{{ l }}<input name="{{ portal }}_{{ k }}" inputmode="numeric" value="{{ v(portal ~ '_' ~ k, pc.ajustes.get(k) if pc.ajustes else none) }}" placeholder="{{ com[k] if com[k] is not none else '' }}"></label>{% endfor %}
         </div>
         <details><summary class="mut" style="font-size:.85rem;cursor:pointer">Plantilla de URL avanzada</summary>
