@@ -39,7 +39,7 @@ def upsert(s: Session, l: Listing, now: datetime) -> tuple[Publicacion, str]:
     emp = _inmobiliaria(s, l, now)
     if p is None:
         p = Publicacion(portal=l.portal, id_externo=l.id_externo, fecha_primera_vista=now,
-                        fecha_ultima_vista=now, activa=True, consultas_sin_ver=0,
+                        fecha_ultima_vista=now, activa=True, consultas_sin_ver=0, fuera_filtro=False,
                         corredor=l.corredor, inmobiliaria_id=emp.id if emp else None,
                         **{k: data[k] for k in _FIELDS})
         p.categorizacion = Categorizacion(estado="nuevo", etiquetas=[], etiquetas_auto=[], fecha_modificacion=now)
@@ -62,6 +62,7 @@ def upsert(s: Session, l: Listing, now: datetime) -> tuple[Publicacion, str]:
     if l.corredor:
         p.corredor = l.corredor
     p.fecha_ultima_vista, p.activa, p.consultas_sin_ver = now, True, 0
+    p.fuera_filtro = False          # sólo se guarda lo que cumple los filtros de la búsqueda
     if changed:
         p.historial.append(HistorialPrecio(precio=l.precio, moneda=l.moneda, fecha=now,
                                            variacion_pct=_variation(prev_price, prev_cur, l.precio, l.moneda)))

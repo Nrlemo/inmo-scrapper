@@ -18,7 +18,8 @@ Actuá como desarrollador full-stack senior. Esta es una aplicación web self-ho
 - **MercadoLibre Inmuebles:** la API oficial **no trae resultados (está bloqueada)**, ya lo investigamos. Va por la extensión, leyendo el listado web.
 - **Argenprop:** corta enseguida las consultas agresivas. Va por la extensión con una cadencia bastante más prudente que Zonaprop (pausas largas, pocas páginas, cooldown largo).
 
-## Criterios de búsqueda (configurables en un archivo YAML, no hardcodeados)
+## Criterios de búsqueda (configurables desde la web, no hardcodeados)
+Se editan en *Estado → Búsqueda* (sólo administradores) y se guardan en la base (`inmo/filtros.py`, `web/app/busqueda.py`); `profiles.yaml` se importa una sola vez y sigue aportando la cortesía por portal y las etiquetas automáticas. Filtros comunes a todos los portales + por portal: activo, zonas, ajustes que pisan un filtro común y plantilla de URL avanzada. Cada conector arma su URL sólo con segmentos verificados; lo demás se filtra al recibir la página. Los avisos ya guardados que dejan de cumplir los filtros se ocultan (`fuera_filtro`), no se borran; los marcados (favorita/potencial/contactada) se ven siempre.
 - Operación: [compra / alquiler]
 - Tipo: [departamento / casa / PH]
 - Zonas: [barrios o localidades]

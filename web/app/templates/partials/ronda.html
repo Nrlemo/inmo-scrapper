@@ -12,8 +12,8 @@
       <span class="mut">· {{ ej.inicio|fecha }} {{ ej.inicio.strftime('%H:%M') }} · {{ ej.minutos }} min{% if ej.usuario %} · {{ ej.usuario }}{% endif %}</span></div>
       {% if ej.mensaje %}<pre class="log">{{ ej.mensaje }}</pre>{% endif %}
     {% else %}<div class="mut">Todavía no hubo ninguna ronda.</div>{% endif %}
-    {% if not zonas_por_portal %}
-    <p class="mut">No hay configuración de búsqueda: copiá <code>scrapper/config/profiles.example.yaml</code> a <code>scrapper/config/profiles.yaml</code> y ajustalo.</p>
+    {% if not (zonas_por_portal.values()|select|list) %}
+    <p class="mut">Todavía no hay zonas de búsqueda: cargalas en <a href="#busqueda">Búsqueda</a>, más abajo.</p>
     {% else %}
     <div class="mut" style="font-size:.85rem">Las rondas las corre la extensión del navegador una vez por día. Para correr una ahora: <b>Correr ronda ahora</b> en las opciones de la extensión.</div>
     {% endif %}

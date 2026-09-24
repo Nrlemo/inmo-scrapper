@@ -8,6 +8,7 @@
   <input name="pmin" type="number" placeholder="Precio mín"><input name="pmax" type="number" placeholder="Precio máx">
   <input name="mmin" type="number" placeholder="m² cub. mín">
   <label><input type="checkbox" name="baja" value="1"> Bajó de precio</label>
+  <label><input type="checkbox" name="fuera" value="1"> Incluir fuera de filtros</label>
   </div></details><div class="mut" id="cnt" style="padding:.2rem .5rem"></div>
 </form>
 {% if not con_coords %}<p class="empty">Todavía no hay coordenadas: se cargan en la próxima ronda (los avisos ya guardados se completan al volver a verse).</p>{% endif %}

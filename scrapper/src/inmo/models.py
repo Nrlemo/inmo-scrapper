@@ -56,6 +56,8 @@ class Publicacion(Base):
     fecha_ultima_vista: Mapped[datetime] = mapped_column(DateTime, index=True)
     activa: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     consultas_sin_ver: Mapped[int] = mapped_column(Integer, default=0)
+    # No cumple los filtros de búsqueda actuales (inmo.filtros.recalcular): la web la oculta, pero no se borra.
+    fuera_filtro: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", index=True)
     # Misma propiedad en distintos portales comparten grupo_id (id de la publicación "raíz").
     grupo_id: Mapped[int | None] = mapped_column(Integer, index=True)
     inmobiliaria_id: Mapped[int | None] = mapped_column(ForeignKey("inmobiliarias.id"), index=True)
@@ -172,6 +174,9 @@ def _migrate(engine: Engine) -> None:
         for col in ("lat", "lng"):
             if pub and col not in pub:
                 c.exec_driver_sql(f"ALTER TABLE publicaciones ADD COLUMN {col} FLOAT")
+        if pub and "fuera_filtro" not in pub:
+            c.exec_driver_sql("ALTER TABLE publicaciones ADD COLUMN fuera_filtro BOOLEAN NOT NULL DEFAULT 0")
+            c.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_publicaciones_fuera_filtro ON publicaciones(fuera_filtro)")
         cat = {r[1] for r in c.exec_driver_sql("PRAGMA table_info(categorizacion)")}
         if cat and "etiquetas_auto" not in cat:
             c.exec_driver_sql("ALTER TABLE categorizacion ADD COLUMN etiquetas_auto JSON")

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from fastapi import Depends, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from . import config, queries
@@ -76,13 +77,17 @@ def _dir(s: str | None) -> str:
 _portales_cache: tuple[float, bool] = (0.0, False)
 
 
-def varios_portales() -> bool:
-    """¿Hay más de un portal configurado? Si hay uno solo, no tiene sentido mostrar el nombre en cada aviso."""
+def _actualizar_portales(conn) -> None:
+    """¿Hay avisos de más de un portal? Se recalcula cada 60 s, en render()."""
     global _portales_cache
     ahora = time.monotonic()
     if ahora - _portales_cache[0] > 60:
-        from .rondas import portales_y_zonas
-        _portales_cache = (ahora, len(portales_y_zonas()) > 1)
+        n = conn.execute(text("SELECT COUNT(DISTINCT portal) FROM publicaciones")).scalar_one()
+        _portales_cache = (ahora, n > 1)
+
+
+def varios_portales() -> bool:
+    """Si hay un solo portal, no tiene sentido mostrar el nombre en cada aviso (global de plantilla: la usan macros)."""
     return _portales_cache[1]
 
 
@@ -125,6 +130,7 @@ def ctx(request: Request, user: User = Depends(current_user), s: Session = Depen
 
 def render(request: Request, name: str, c: dict, **kw):
     conn = c["s"].connection()
+    _actualizar_portales(conn)
     data = {"user": c["user"], "auth_mode": config.AUTH_MODE, "cont": queries.contadores(conn, c["desde"]), **kw}
     return templates.TemplateResponse(request, name, data)
 

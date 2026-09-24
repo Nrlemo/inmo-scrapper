@@ -238,6 +238,10 @@ def test_only_admin_can_manage_users(admin):
     assert beto.post("/usuarios/crear", data={"usuario": "x1x", "rol": "admin"}, headers=hx(beto)).status_code == 403
     assert "Usuarios</a>" not in beto.get("/estado").text                       # ni siquiera ve el enlace
     assert "Usuarios</a>" in admin.get("/estado").text
+    # filtros de búsqueda: el usuario común los ve pero no los cambia
+    assert "Sólo un administrador puede cambiar los filtros" in beto.get("/estado").text
+    assert beto.post("/busqueda/0", data={"nombre": "x"}, headers=hx(beto)).status_code == 403
+    assert "Guardar filtros" in admin.get("/estado").text
 
 
 def test_user_admin_rules(admin):
