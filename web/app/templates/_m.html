@@ -71,6 +71,7 @@
 {% if p.contactada %}<span class="st cont">☎ contactada</span>{% endif %}
 {% if p.votos %}<span class="badge" title="Promedio de {{ p.votos }} puntaje{{ 's' if p.votos > 1 }}">★ {{ '%.1f'|format(p.puntaje)|replace('.', ',') }}{% if p.votos > 1 %} ({{ p.votos }}){% endif %}</span>{% endif %}
 {% if not p.activa %}<span class="badge">dada de baja</span>{% endif %}
+{% if p.fuera_filtro %}<span class="badge" title="No cumple los filtros de búsqueda de Estado">fuera de filtros</span>{% endif %}
 {% if p.grupo_id %}<span class="badge" title="Publicada en más de un portal">dup.</span>{% endif %}
 {% endmacro %}
 

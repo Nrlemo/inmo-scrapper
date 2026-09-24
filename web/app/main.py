@@ -20,6 +20,7 @@ from . import auth
 from .auth import LoginRequired, PasswordChangeRequired, SetupRequired
 from .auth_routes import router as auth_router
 from .navegador_routes import router as navegador_router, token_de
+from .busqueda_routes import panel_ctx, router as busqueda_router
 from .core import ctx, headers, render, templates
 from .db import init_engine, sembrar_config
 from .models_web import BusquedaGuardada, Evento, Puntaje, Revision
@@ -48,6 +49,7 @@ app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None
 app.middleware("http")(headers)
 app.include_router(auth_router)
 app.include_router(navegador_router)
+app.include_router(busqueda_router)
 app.mount("/static", StaticFiles(directory=config.ROOT / "app" / "static"), name="static")
 def _filtros(request: Request, desde) -> Filtros:
     g = request.query_params.get
@@ -60,7 +62,7 @@ def _filtros(request: Request, desde) -> Filtros:
     return Filtros(q=(g("q") or "").strip(), barrio=g("barrio") or "", portal=g("portal") or "",
                    inmo=num("inmo", int), pmin=num("pmin"), pmax=num("pmax"), mmin=num("mmin"), amb=num("amb", int),
                    cochera=g("cochera") == "1", etiqueta=(g("etiqueta") or "").strip(), estado=g("estado") or "", baja=g("baja") == "1",
-                   nuevas=g("nuevas") == "1", inactivas=g("inactivas") == "1", orden=g("orden") or "nuevas",
+                   nuevas=g("nuevas") == "1", inactivas=g("inactivas") == "1", fuera=g("fuera") == "1", orden=g("orden") or "nuevas",
                    pagina=num("pagina", int) or 1, desde=desde)
 
 
@@ -283,7 +285,8 @@ def comparar(request: Request, ids: str = "", c=Depends(ctx)):
 
 @app.get("/mapa", response_class=HTMLResponse)
 def mapa(request: Request, c=Depends(ctx)):
-    n = c["s"].connection().execute(text("SELECT COUNT(*) FROM publicaciones WHERE lat IS NOT NULL AND activa=1")).scalar_one()
+    n = c["s"].connection().execute(text("SELECT COUNT(*) FROM publicaciones WHERE lat IS NOT NULL AND activa=1 "
+                                         "AND COALESCE(fuera_filtro,0)=0")).scalar_one()
     return render(request, "mapa.html", c, con_coords=n)
 
 
@@ -299,16 +302,16 @@ def _panel_ronda(c) -> dict:
     act = rondas.activa(s)
     e = act or s.scalar(select(Ejecucion).order_by(Ejecucion.id.desc()).limit(1))
     return {"ej": rondas.vista(e) if e else None, "activa": act is not None,
-            "zonas_por_portal": rondas.portales_y_zonas()}
+            "zonas_por_portal": rondas.portales_y_zonas(s)}
 
 
 @app.get("/estado", response_class=HTMLResponse)
 def estado(request: Request, c=Depends(ctx)):
     conn = c["s"].connection()
-    tot = conn.execute(text("SELECT COUNT(*), SUM(activa), SUM(lat IS NOT NULL) FROM publicaciones")).one()
+    tot = conn.execute(text("SELECT COUNT(*), SUM(activa), SUM(lat IS NOT NULL), SUM(activa AND fuera_filtro) FROM publicaciones")).one()
     hist = [rondas.vista(e) for e in c["s"].scalars(select(Ejecucion).order_by(Ejecucion.id.desc()).limit(10))]
     return render(request, "estado.html", c, consultas=queries.consultas(conn), tot=tot, hist=hist,
-                  tok=token_de(c["s"], c["user"].username), **_panel_ronda(c))
+                  tok=token_de(c["s"], c["user"].username), **_panel_ronda(c), **panel_ctx(c["s"], c["user"]))
 
 
 @app.get("/ronda/estado", response_class=HTMLResponse)

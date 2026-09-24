@@ -2,10 +2,11 @@
 {% block title %}Estado{% endblock %}
 {% block main %}
 <h1>Estado</h1>
-<p class="mut">{{ tot[0] }} publicaciones · {{ tot[1] or 0 }} activas · {{ tot[2] or 0 }} con coordenadas (mapa)</p>
+<p class="mut">{{ tot[0] }} publicaciones · {{ tot[1] or 0 }} activas{% if tot[3] %} ({{ tot[3] }} <a href="/lista?fuera=1">fuera de filtros</a>, ocultas){% endif %} · {{ tot[2] or 0 }} con coordenadas (mapa)</p>
 {% if auth_mode == 'none' %}<div class="card in" style="margin-bottom:1rem;border-color:var(--bad)"><b class="up">⚠ Autenticación desactivada</b>
   <div class="mut" style="font-size:.9rem">Cualquiera que llegue a esta URL puede ver y modificar todo. Usalo sólo en red privada o con otra protección delante.</div></div>{% endif %}
 {% include "partials/ronda.html" %}
+{% include "partials/busqueda.html" %}
 {% include "partials/navegador.html" %}
 <h2>Rondas</h2>
 <div class="scroll"><table><tr><th>Inicio</th><th>Estado</th><th>Zonas</th><th>Duración</th><th>Por</th><th>Detalle</th></tr>

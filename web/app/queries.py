@@ -24,6 +24,11 @@ LEFT JOIN historial_precios ch ON ch.id = (
 LEFT JOIN inmobiliarias i ON i.id = p.inmobiliaria_id
 """
 
+# Fuera de los filtros de búsqueda actuales (inmo.filtros): se oculta, salvo que ya la hayas marcado (favorita,
+# potencial o contactada): lo que marcaste no desaparece por cambiar los filtros.
+VISIBLE = ("(COALESCE(p.fuera_filtro,0) = 0 OR COALESCE(r.favorito,0) = 1 OR COALESCE(r.potencial,0) = 1"
+           " OR COALESCE(r.contactada,0) = 1)")
+
 ORDENES = {
     "nuevas": "p.fecha_primera_vista DESC, p.id DESC",
     "precio_asc": "p.precio ASC", "precio_desc": "p.precio DESC",
@@ -48,6 +53,7 @@ class Filtros:
     baja: bool = False     # bajó de precio
     nuevas: bool = False   # desde tu última visita
     inactivas: bool = False
+    fuera: bool = False    # incluir las que no cumplen los filtros de búsqueda
     orden: str = "nuevas"
     pagina: int = 1
     desde: datetime | None = field(default=None, repr=False)   # visita previa del usuario
@@ -90,6 +96,8 @@ class Filtros:
             w.append("p.fecha_primera_vista > :desde"); a["desde"] = self.desde
         if not self.inactivas:
             w.append("p.activa = 1")
+        if not self.fuera:
+            w.append(VISIBLE)
         return (" WHERE " + " AND ".join(w)) if w else "", a
 
 
@@ -131,7 +139,7 @@ def varios(c: Connection, ids: list[int]) -> list[dict]:
 
 def siguiente_pendiente(c: Connection, despues: int | None) -> tuple[dict | None, int]:
     """Cola de revisión: nuevas primero (id desc). `despues` = id ya visto (saltar)."""
-    cond = "COALESCE(r.revisada,0)=0 AND COALESCE(r.descartada,0)=0 AND p.activa=1"
+    cond = "COALESCE(r.revisada,0)=0 AND COALESCE(r.descartada,0)=0 AND p.activa=1 AND COALESCE(p.fuera_filtro,0)=0"
     total = c.execute(text(f"SELECT COUNT(*) FROM publicaciones p LEFT JOIN web_revision r ON r.publicacion_id=p.id WHERE {cond}")).scalar_one()
     extra = " AND p.id < :d" if despues else ""
     r = c.execute(text(f"{BASE} WHERE {cond}{extra} ORDER BY p.id DESC LIMIT 1"), {"d": despues}).mappings().first()
@@ -262,11 +270,12 @@ def contadores(c: Connection, desde: datetime | None) -> dict:
     q = lambda s, a=None: c.execute(text(s), a or {}).scalar_one()  # noqa: E731
     return {
         "pendientes": q("SELECT COUNT(*) FROM publicaciones p LEFT JOIN web_revision r ON r.publicacion_id=p.id "
-                        "WHERE p.activa=1 AND COALESCE(r.revisada,0)=0 AND COALESCE(r.descartada,0)=0"),
+                        "WHERE p.activa=1 AND COALESCE(p.fuera_filtro,0)=0 AND COALESCE(r.revisada,0)=0 AND COALESCE(r.descartada,0)=0"),
         "favoritas": q("SELECT COUNT(*) FROM web_revision WHERE favorito=1 AND descartada=0"),
         "potencial": q("SELECT COUNT(*) FROM web_revision WHERE potencial=1 AND descartada=0"),
         "corriendo": q("SELECT COUNT(*) FROM ejecuciones WHERE estado='corriendo'"),
-        "nuevas": q("SELECT COUNT(*) FROM publicaciones WHERE activa=1 AND fecha_primera_vista > :d", {"d": desde}) if desde else 0,
+        "nuevas": q("SELECT COUNT(*) FROM publicaciones WHERE activa=1 AND COALESCE(fuera_filtro,0)=0 AND fecha_primera_vista > :d",
+                    {"d": desde}) if desde else 0,
     }
 
 

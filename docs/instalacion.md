@@ -18,7 +18,7 @@ cp .env.example .env          # elegí AUTH_MODE y completá lo que corresponda
 docker compose -f docker-compose.yml -f docker-compose.local.yml up --build    # → http://127.0.0.1:8000
 ```
 
-La primera vez se crea `scrapper/config/profiles.yaml` a partir de `profiles.example.yaml`: editalo con tus zonas y presupuesto (no hace falta reiniciar; no se versiona).
+La primera vez se crea `scrapper/config/profiles.yaml` a partir de `profiles.example.yaml`. Las zonas y el presupuesto se ajustan después desde la web, en *Estado → Búsqueda*.
 
 > **Podman:** `podman build -t inmo-web .` y correrlo con `--userns=keep-id:uid=1000,gid=1000` y los volúmenes con `:Z`.
 
@@ -71,7 +71,6 @@ Sin clonar el repo: alcanza con [`docker-compose.hub.yml`](../docker-compose.hub
 mkdir -p data config                                   # en una carpeta de trabajo
 sudo chown 1000:1000 data config                       # el contenedor corre con UID 1000 (o usá PUID/PGID, ver abajo)
 docker compose -f docker-compose.hub.yml up -d         # → http://127.0.0.1:8000
-nano config/profiles.yaml                              # se creó solo: ajustá zonas y presupuesto (sin reiniciar)
 docker compose -f docker-compose.hub.yml logs web | grep INSTALACI    # código para crear el administrador
 ```
 
@@ -136,7 +135,9 @@ Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push 
 
 ## ⚙️ Configuración
 
-**Búsquedas** — `scrapper/config/profiles.yaml` (se crea sola a partir de `profiles.example.yaml` la primera vez; no se versiona porque contiene tu presupuesto y zonas): perfiles (operación, tipo, precio, ambientes, m², palabras a excluir), zonas por portal y parámetros de cortesía (pausas, páginas, intervalo entre rondas, cooldown).
+**Búsquedas** — en la web, *Estado → Búsqueda* (sólo administradores en modo `basic`): precio, ambientes, dormitorios, m² totales y cubiertos, apto crédito y palabras a excluir, comunes a todos los portales; y por portal, si se busca ahí, sus zonas (una por línea, como en la URL; `almagro -110000` parte una zona grande por precio), ajustes que pisan un filtro común y una plantilla de URL avanzada. Se guardan en la base. La URL de cada búsqueda se arma sola y se puede abrir desde ahí para probarla. Al guardar, los avisos que ya no cumplen los filtros se **ocultan** (no se borran; vuelven si se aflojan los filtros; lo marcado como favorita, potencial o contactada se ve siempre) y en *Todas* y el *Mapa* hay una opción para verlos.
+
+**`scrapper/config/profiles.yaml`** (se crea a partir de `profiles.example.yaml` la primera vez; no se versiona): parámetros de cortesía por portal (pausas, páginas, intervalo entre rondas, cooldown) y etiquetas automáticas. Sus `profiles` se importan como filtros de búsqueda **una sola vez**; después mandan los de la web.
 
 **Variables de entorno**
 

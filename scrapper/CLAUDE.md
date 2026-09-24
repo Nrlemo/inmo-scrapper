@@ -12,8 +12,11 @@ y las manda a la web (`/api/navegador/*`). Las reglas generales del proyecto est
   filtros del perfil (`matches_profile`) y la detección del desafío anti-bot (`es_desafio`); `base.py` define `Listing`.
 - `repo.py`: upsert con historial de precios, bajas (`mark_missing`) y vínculo entre portales (`link_duplicates`).
 - `models.py`: esquema SQLAlchemy y migraciones livianas (`_migrate`: agrega columnas a bases existentes).
+- `filtros.py`: filtros de búsqueda editables desde la web (documento JSON guardado por la web): importación desde
+  `profiles.yaml`, validación, conversión a los perfiles de la ronda y `recalcular()` (marca `fuera_filtro`).
 - `tags.py`: etiquetas automáticas (`auto_tags` del YAML). `__main__.py`: `python -m inmo retag`.
-- `config.py`: carga de `profiles.yaml` e `INMO_INACTIVE_AFTER`.
+- `config.py`: carga de `profiles.yaml` (cortesía y `auto_tags`; los perfiles sólo como importación inicial) e
+  `INMO_INACTIVE_AFTER`.
 
 ## Reglas
 - Un parser nuevo se prueba con **HTML real** guardado desde el navegador (`tests/fixtures/`), sin red. Si la

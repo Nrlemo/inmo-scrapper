@@ -1,0 +1,75 @@
+{# Estado → Búsqueda: filtros de la ronda por navegador y de lo que se muestra (inmo.filtros, busqueda_routes.py).
+   Con `bform` (guardado con error) los campos muestran lo que se escribió en lugar de lo guardado. #}
+{% set com = b.comunes %}
+{% macro v(nombre, guardado) %}{{ bform[nombre] if bform is defined and bform is not none else (guardado if guardado is not none else '') }}{% endmacro %}
+{% macro chk(nombre, guardado) %}{{ 'checked' if (bform is defined and bform is not none and bform.get(nombre) == '1') or ((bform is not defined or bform is none) and guardado) }}{% endmacro %}
+<section id="busqueda" class="card in" style="margin-bottom:1rem">
+  <div class="row" style="justify-content:space-between"><b>🔎 Búsqueda</b>
+    {% if bfila %}<span class="mut" style="font-size:.85rem">modificada {{ bfila.fecha.strftime('%d/%m %H:%M') }}{% if bfila.modificado_por %} · {{ bfila.modificado_por }}{% endif %}</span>{% endif %}</div>
+  <div class="mut" style="font-size:.9rem">Qué recorre la ronda del navegador y qué se muestra en la web. Al guardar, los avisos ya guardados
+    que no cumplen los filtros se ocultan (no se borran: si aflojás los filtros, vuelven). Los que marcaste como favorita, potencial o contactada se ven siempre.</div>
+  {% if not bpuede %}<div class="mut" style="font-size:.85rem">Sólo un administrador puede cambiar los filtros.</div>{% endif %}
+
+  {% if bdoc.busquedas|length > 1 or bpuede %}
+  <div class="row">
+    {% for x in bdoc.busquedas %}<button type="button" class="{{ 'pri' if loop.index0 == bsel }}" hx-get="/busqueda?b={{ loop.index0 }}" hx-target="#busqueda" hx-swap="outerHTML">{{ x.nombre }}</button>{% endfor %}
+    {% if bpuede %}<button type="button" hx-post="/busqueda/{{ bsel }}/copiar" hx-target="#busqueda" hx-swap="outerHTML" title="Otra búsqueda a la vez (p. ej. otra zona o tipo), partiendo de ésta">+ Copiar</button>
+    {% if bdoc.busquedas|length > 1 %}<button type="button" class="bad" hx-post="/busqueda/{{ bsel }}/borrar" hx-target="#busqueda" hx-swap="outerHTML" hx-confirm="¿Borrar la búsqueda «{{ b.nombre }}»?">Borrar</button>{% endif %}{% endif %}
+  </div>{% endif %}
+
+  <form hx-post="/busqueda/{{ bsel }}" hx-target="#busqueda" hx-swap="outerHTML">
+  <fieldset {{ 'disabled' if not bpuede }} style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:.6rem">
+    <label>Nombre <input name="nombre" value="{{ v('nombre', b.nombre) }}" maxlength="40" required style="max-width:20rem"></label>
+    <div class="mut" style="font-size:.85rem">Compra · Departamento · USD <span title="Es la combinación verificada en los portales; alquileres llegan en la etapa 3">(fijos por ahora)</span></div>
+    <div class="grid" style="padding:0">
+      <label style="flex-direction:column;align-items:stretch;gap:.2rem">Precio mín.<input name="precio_min" inputmode="numeric" value="{{ v('precio_min', com.precio_min) }}"></label>
+      <label style="flex-direction:column;align-items:stretch;gap:.2rem">Precio máx.<input name="precio_max" inputmode="numeric" value="{{ v('precio_max', com.precio_max) }}"></label>
+      <label style="flex-direction:column;align-items:stretch;gap:.2rem">Ambientes mín.<input name="amb_min" inputmode="numeric" value="{{ v('amb_min', com.amb_min) }}"></label>
+      <label style="flex-direction:column;align-items:stretch;gap:.2rem">Ambientes máx.<input name="amb_max" inputmode="numeric" value="{{ v('amb_max', com.amb_max) }}"></label>
+      <label style="flex-direction:column;align-items:stretch;gap:.2rem">Dormitorios mín.<input name="dorm_min" inputmode="numeric" value="{{ v('dorm_min', com.dorm_min) }}"></label>
+      <label style="flex-direction:column;align-items:stretch;gap:.2rem" title="El listado de los portales casi siempre informa los m² totales">m² totales mín.<input name="m2_tot_min" inputmode="numeric" value="{{ v('m2_tot_min', com.m2_tot_min) }}"></label>
+      <label style="flex-direction:column;align-items:stretch;gap:.2rem" title="Casi nunca figura en el listado: si falta el dato, el aviso no se descarta">m² cubiertos mín.<input name="m2_cub_min" inputmode="numeric" value="{{ v('m2_cub_min', com.m2_cub_min) }}"></label>
+    </div>
+    <label><input type="checkbox" name="apto_credito" value="1" {{ chk('apto_credito', com.apto_credito) }}> Apto crédito</label>
+    <label style="flex-direction:column;align-items:stretch;gap:.2rem">Excluir si el título o la descripción dicen (separadas por coma)
+      <input name="excluir" value="{{ v('excluir', com.excluir|join(', ')) }}" placeholder="pozo, sin escritura"></label>
+
+    <b style="margin-top:.4rem">Portales</b>
+    {% for portal, nombre in PORTALES.items() %}{% set pc = b.portales.get(portal, {}) %}
+    {% if portal in DISPONIBLES %}
+    <details class="filters" style="margin:0" open>
+      <summary>{{ nombre }}{% if not pc.activo %} · apagado{% endif %}</summary>
+      <div style="display:flex;flex-direction:column;gap:.5rem;padding:.25rem .5rem .5rem">
+        <label><input type="checkbox" name="{{ portal }}_activo" value="1" {{ chk(portal ~ '_activo', pc.activo) }}> Buscar en {{ nombre }}</label>
+        {% if pc.urls %}<div class="mut" style="font-size:.85rem">Usa una lista fija de URLs importada de profiles.yaml.</div>{% endif %}
+        <label style="flex-direction:column;align-items:stretch;gap:.2rem">Zonas, una por línea, como aparecen en la URL del portal
+          <textarea name="{{ portal }}_zonas" rows="5" placeholder="almagro&#10;villa-crespo&#10;palermo 50000-110000">{{ v(portal ~ '_zonas', zonas_a_texto(pc.zonas or [])) }}</textarea>
+          <small class="mut">Para partir una zona con más de 150 resultados (el tope de páginas), agregá un rango de precio: «almagro -110000» y «almagro 110000-».</small></label>
+        <div class="mut" style="font-size:.85rem">Ajustes sólo para {{ nombre }} (vacío = usa el de arriba):</div>
+        <div class="grid" style="padding:0">
+          {% for k, l in [('precio_min', 'Precio mín.'), ('precio_max', 'Precio máx.'), ('amb_min', 'Ambientes mín.'), ('m2_tot_min', 'm² totales mín.')] %}
+          <label style="flex-direction:column;align-items:stretch;gap:.2rem">{{ l }}<input name="{{ portal }}_{{ k }}" inputmode="numeric" value="{{ v(portal ~ '_' ~ k, pc.ajustes.get(k) if pc.ajustes else none) }}" placeholder="{{ com[k] if com[k] is not none else '' }}"></label>{% endfor %}
+        </div>
+        <details><summary class="mut" style="font-size:.85rem;cursor:pointer">Plantilla de URL avanzada</summary>
+          <label style="flex-direction:column;align-items:stretch;gap:.2rem;margin-top:.3rem">
+            <input name="{{ portal }}_plantilla" value="{{ v(portal ~ '_plantilla', pc.plantilla) }}" placeholder="vacío = se arma con los filtros">
+            <small class="mut">Para búsquedas que los filtros no cubren: armala en el navegador y pegá la URL cambiando la zona por <code>{zone}</code>
+              (opcional <code>{price_min}</code> y <code>{price_max}</code>).</small></label>
+        </details>
+        {% if burls.get(portal) %}
+        <details><summary class="mut" style="font-size:.85rem;cursor:pointer">{{ burls[portal]|length }} búsqueda{{ 's' if burls[portal]|length != 1 }} que recorre la ronda (probalas en el navegador)</summary>
+          <ul style="margin:.3rem 0 0;padding-left:1.1rem;font-size:.82rem;word-break:break-all">
+            {% for zona, url in burls[portal] %}<li><b>{{ zona }}</b>: <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ url }}</a></li>{% endfor %}</ul>
+        </details>{% endif %}
+      </div>
+    </details>
+    {% else %}
+    <div class="filters mut" style="margin:0;padding:.6rem .9rem;font-size:.9rem">{{ nombre }} · se incorpora en la etapa 2</div>
+    {% endif %}{% endfor %}
+
+    {% if berror is defined and berror %}<div class="up">{{ berror }}</div>{% endif %}
+    {% if bok is defined and bok %}<div class="down" style="font-weight:500">{{ bok }}</div>{% endif %}
+    {% if bpuede %}<div><button class="pri" type="submit">Guardar filtros</button></div>{% endif %}
+  </fieldset>
+  </form>
+</section>

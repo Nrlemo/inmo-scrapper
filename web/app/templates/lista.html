@@ -6,7 +6,7 @@
   {% for g in guardadas %}<a class="chip" href="/lista?{{ g.querystring }}">{{ g.nombre }}</a>{% endfor %}</div>{% endif %}
 <form class="filters" hx-get="/lista" hx-target="#resultados" hx-push-url="true" hx-trigger="change, keyup changed delay:400ms from:input[type=search], submit">
   <input type="search" name="q" placeholder="Buscar en título, dirección, descripción, notas…" value="{{ f.q }}">
-  <details id="fdet" {{ 'open' if f.barrio or f.portal or f.inmo or f.pmin or f.pmax or f.mmin or f.amb or f.cochera or f.etiqueta or f.baja or f.nuevas or f.inactivas }}><summary>Filtros y orden</summary><div class="grid">
+  <details id="fdet" {{ 'open' if f.barrio or f.portal or f.inmo or f.pmin or f.pmax or f.mmin or f.amb or f.cochera or f.etiqueta or f.baja or f.nuevas or f.inactivas or f.fuera }}><summary>Filtros y orden</summary><div class="grid">
   <select name="estado">
     {% for v, l in [('', 'Todas'), ('pendientes', 'Sin revisar'), ('activas', 'No descartadas'), ('favoritas', '★ Favoritas'), ('potencial', '◆ Potencial'), ('contactadas', 'Contactadas'), ('descartadas', 'Descartadas')] %}
     <option value="{{ v }}" {{ 'selected' if f.estado == v }}>{{ l }}</option>{% endfor %}</select>
@@ -29,6 +29,7 @@
   <label class="wide"><input type="checkbox" name="nuevas" value="1" {{ 'checked' if f.nuevas }}> Nuevas desde mi última visita ({{ cont.nuevas }})</label>
   <label><input type="checkbox" name="cochera" value="1" {{ 'checked' if f.cochera }}> Cochera</label>
   <label><input type="checkbox" name="inactivas" value="1" {{ 'checked' if f.inactivas }}> Incluir dadas de baja</label>
+  <label title="Avisos que no cumplen los filtros de búsqueda de Estado (los que marcaste se ven siempre)"><input type="checkbox" name="fuera" value="1" {{ 'checked' if f.fuera }}> Incluir fuera de filtros</label>
   </div></details>
 </form>
 <details class="filters"><summary>Guardar esta búsqueda</summary><form class="row" style="padding:.4rem" hx-post="/busquedas">

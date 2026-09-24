@@ -13,9 +13,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from inmo import navegador
-from inmo.config import load_config
 
-from . import config, security
+from . import busqueda, security
 from .core import ctx, get_session, render
 from .models_web import TokenApi
 
@@ -59,20 +58,20 @@ def ping(usuario: str = Depends(usuario_token)):
 
 @router.post("/api/navegador/ronda")
 def iniciar(body: PedidoRonda | None = None, usuario: str = Depends(usuario_token), s: Session = Depends(get_session)):
-    r = navegador.iniciar(s, load_config(config.CONFIG_PATH), usuario, forzar=bool(body and body.forzar))
+    r = navegador.iniciar(s, busqueda.config_efectiva(s), usuario, forzar=bool(body and body.forzar))
     log.info("ronda por navegador pedida por %s: %s", usuario, r.get("omitir") or f"ronda {r['ronda']}")
     return r
 
 
 @router.post("/api/navegador/pagina")
 def pagina(body: Pagina, usuario: str = Depends(usuario_token), s: Session = Depends(get_session)):
-    return navegador.pagina(s, load_config(config.CONFIG_PATH), body.ronda, body.url, body.html)
+    return navegador.pagina(s, busqueda.config_efectiva(s), body.ronda, body.url, body.html)
 
 
 @router.post("/api/navegador/error")
 def error(body: ErrorCarga, usuario: str = Depends(usuario_token), s: Session = Depends(get_session)):
     log.warning("ronda %d: %s no cargó (%s)", body.ronda, body.url, body.motivo)
-    return navegador.error(s, load_config(config.CONFIG_PATH), body.ronda, body.url, body.motivo)
+    return navegador.error(s, busqueda.config_efectiva(s), body.ronda, body.url, body.motivo)
 
 
 class Ronda(BaseModel):

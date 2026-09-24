@@ -4,21 +4,16 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from inmo import navegador
-from inmo.config import load_config
+from inmo import filtros, navegador
 from inmo.models import Ejecucion, RondaNavegador
 
-from . import config
+from . import busqueda
 
 
-def portales_y_zonas() -> dict[str, list[str]]:
-    """{portal: [zonas únicas]} según los perfiles del YAML (portales sin zonas -> lista vacía)."""
+def portales_y_zonas(s: Session) -> dict[str, list[str]]:
+    """{portal: [zonas únicas]} de los filtros de búsqueda (portales activos sin zonas -> lista vacía)."""
     out: dict[str, list[str]] = {}
-    try:
-        perfiles = load_config(config.CONFIG_PATH)["profiles"]
-    except (OSError, ValueError, KeyError):   # sin profiles.yaml (repo recién clonado) o mal formado
-        return out
-    for p in perfiles:
+    for p in filtros.perfiles(busqueda.obtener(s)):
         for portal, pc in p.get("portals", {}).items():
             zs = out.setdefault(portal, [])
             for z in pc.get("zones") or []:

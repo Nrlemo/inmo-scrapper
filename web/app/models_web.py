@@ -1,7 +1,7 @@
 """Tablas propias de la web (la SQLite las crea; el scrapper no las toca)."""
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -57,6 +57,16 @@ class BusquedaGuardada(WebBase):
     nombre: Mapped[str] = mapped_column(String(80))
     querystring: Mapped[str] = mapped_column(Text)
     usuario: Mapped[str] = mapped_column(String(128))
+
+
+class ConfigBusqueda(WebBase):
+    """Filtros de búsqueda editables en Estado (una sola fila, id=1). Formato en inmo.filtros; la primera vez se
+    importan de profiles.yaml."""
+    __tablename__ = "web_config_busqueda"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    datos: Mapped[dict] = mapped_column(JSON)
+    modificado_por: Mapped[str | None] = mapped_column(String(128))
+    fecha: Mapped[datetime] = mapped_column(DateTime)
 
 
 class TokenApi(WebBase):

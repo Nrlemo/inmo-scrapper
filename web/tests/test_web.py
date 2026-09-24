@@ -225,7 +225,7 @@ def test_other_errors_use_same_page_without_gif(client):
 def test_estado_without_profiles_yaml_shows_hint(client, monkeypatch, tmp_path):
     monkeypatch.setattr("app.config.CONFIG_PATH", str(tmp_path / "no-existe.yaml"))
     r = client.get("/estado")
-    assert r.status_code == 200 and "profiles.example.yaml" in r.text and "Correr ronda ahora" not in r.text
+    assert r.status_code == 200 and "Todavía no hay zonas de búsqueda" in r.text and "Correr ronda ahora" not in r.text
 
 
 def test_unwritable_data_dir_gives_clear_error(tmp_path, monkeypatch):
@@ -321,3 +321,52 @@ def test_api_ronda_por_navegador_con_token(client):
     assert "Ronda por navegador" in estado and "token activo" in estado and "ana (navegador)" in estado
     client.post("/navegador/token", headers={"HX-Request": "true"})         # regenerar invalida el anterior
     assert client.get("/api/navegador/ping", headers=auth).status_code == 401
+
+
+# ---------- filtros de búsqueda (Estado → Búsqueda) ----------
+FORM = {"nombre": "p", "precio_min": "95000", "precio_max": "200.000", "amb_min": "3", "excluir": "pozo, sin escritura",
+        "zonaprop_activo": "1", "zonaprop_zonas": "almagro\npalermo 100000-", "zonaprop_plantilla": ""}
+
+
+def test_busqueda_se_importa_del_yaml_y_se_ve_en_estado(client):
+    t = client.get("/estado").text
+    assert "🔎 Búsqueda" in t and "Guardar filtros" in t and "importado de profiles.yaml" in t
+    assert "almagro 1-" in t and "recoleta" in t                             # zonas del YAML de prueba
+    assert "Argenprop · se incorpora en la etapa 2" in t
+
+
+def test_guardar_filtros_oculta_lo_que_no_cumple_y_cambia_la_ronda(client):
+    r = client.post("/busqueda/0", data=FORM, headers=HX)
+    assert r.status_code == 200 and "Guardado. 1 aviso activo queda fuera" in r.text          # la 2 cuesta 90000 < 95000
+    assert "departamentos-venta-palermo-mas-de-3-ambientes-100000-200000-dolar.html" in r.text
+    lista = client.get("/lista").text
+    assert "/p/2" not in lista and "/p/1" in lista
+    assert "/p/2" in client.get("/lista?fuera=1").text and "fuera de filtros" in client.get("/lista?fuera=1").text
+    assert "<b>2</b> sin revisar" in client.get("/").text                       # la cola tampoco la muestra
+    client.post("/p/2/accion", data={"accion": "favorito", "vista": "fila"}, headers=HX)
+    assert "/p/2" in client.get("/lista").text                                   # lo que marcaste se ve siempre
+    # La ronda por navegador recorre las búsquedas nuevas
+    import re
+    token = re.search(r'id="tok-nuevo">([^<]+)<', client.post("/navegador/token", headers=HX).text).group(1)
+    r = client.post("/api/navegador/ronda", headers={"Authorization": f"Bearer {token}"}).json()
+    assert r["url"] == "https://www.zonaprop.com.ar/departamentos-venta-almagro-mas-de-3-ambientes-95000-200000-dolar.html"
+    # Aflojar los filtros la devuelve
+    client.post("/busqueda/0", data={**FORM, "precio_min": "50000"}, headers=HX)
+    assert "fuera de filtros" not in client.get("/estado").text.split("🔎")[0]
+
+
+def test_filtros_con_error_no_se_guardan_y_conservan_lo_escrito(client):
+    r = client.post("/busqueda/0", data={**FORM, "zonaprop_zonas": "almagro\nvilla crespo"}, headers=HX)
+    assert "Zona de la línea 2" in r.text and "villa crespo" in r.text
+    r = client.post("/busqueda/0", data={**FORM, "precio_min": "300000"}, headers=HX)
+    assert "mínimo es mayor que el máximo" in r.text
+    assert "importado de profiles.yaml" in client.get("/estado").text           # nada se guardó
+
+
+def test_copiar_y_borrar_busquedas(client):
+    client.post("/busqueda/0", data=FORM, headers=HX)
+    r = client.post("/busqueda/0/copiar", headers=HX)
+    assert "Búsqueda copiada" in r.text and ">p-2</button>" in r.text
+    r = client.post("/busqueda/1/borrar", headers=HX)
+    assert "«p-2» borrada" in r.text
+    assert "al menos una" in client.post("/busqueda/0/borrar", headers=HX).text

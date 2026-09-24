@@ -157,6 +157,48 @@ def page_url(search_url: str, n: int) -> str:
     return re.sub(r"\.html$", f"-pagina-{n}.html", search_url)
 
 
+# Segmentos de URL verificados contra búsquedas reales de Zonaprop. Otros tipos, operaciones o monedas no se generan:
+# para esos casos está la plantilla avanzada (se arma una búsqueda en el navegador y se pega su URL).
+TIPOS = {"departamento": "departamentos"}
+OPERACIONES = {"compra": "venta"}
+MONEDAS = {"USD": "dolar"}
+
+
+def armar_plantilla(f: dict[str, Any]) -> str:
+    """Filtros -> plantilla de URL de búsqueda con {zone}, {price_min} y {price_max}. Lo que no va en la URL (m²,
+    palabras a excluir, máximos) se filtra al recibir la página (matches_profile).
+
+    >>> armar_plantilla({"tipo": "departamento", "operacion": "compra", "moneda": "USD", "apto_credito": True,
+    ...                  "dorm_min": 2, "amb_min": 3})
+    'https://www.zonaprop.com.ar/departamentos-venta-{zone}-con-apto-credito-mas-de-2-habitaciones-mas-de-3-ambientes-{price_min}-{price_max}-dolar.html'
+    """
+    for clave, validos in (("tipo", TIPOS), ("operacion", OPERACIONES), ("moneda", MONEDAS)):
+        if f.get(clave) not in validos:
+            raise ValueError(f"Zonaprop: {clave} «{f.get(clave)}» no está verificado; usá la plantilla avanzada")
+    partes = [f"{TIPOS[f['tipo']]}-{OPERACIONES[f['operacion']]}-{{zone}}"]
+    if f.get("apto_credito"):
+        partes.append("con-apto-credito")
+    if f.get("dorm_min"):
+        partes.append(f"mas-de-{int(f['dorm_min'])}-habitaciones")
+    if f.get("amb_min"):
+        partes.append(f"mas-de-{int(f['amb_min'])}-ambientes")
+    partes.append(f"{{price_min}}-{{price_max}}-{MONEDAS[f['moneda']]}")
+    return f"{BASE}/" + "-".join(partes) + ".html"
+
+
+_PLANTILLA_RE = re.compile(r"^https://www\.zonaprop\.com\.ar/departamentos-venta-\{zone\}(-con-apto-credito)?"
+                           r"(?:-mas-de-(\d+)-habitaciones)?(?:-mas-de-(\d+)-ambientes)?-\{price_min\}-\{price_max\}-dolar\.html$")
+
+
+def leer_plantilla(tpl: str) -> dict[str, Any] | None:
+    """Inversa de armar_plantilla (para importar profiles.yaml). None si la plantilla no es una de las que se generan."""
+    m = _PLANTILLA_RE.match((tpl or "").strip())
+    if not m:
+        return None
+    return {"tipo": "departamento", "operacion": "compra", "moneda": "USD", "apto_credito": bool(m.group(1)),
+            "dorm_min": int(m.group(2)) if m.group(2) else None, "amb_min": int(m.group(3)) if m.group(3) else None}
+
+
 def search_urls(profile: dict[str, Any]) -> list[tuple[str, str]]:
     """[(etiqueta, url)]. Config: `search_urls` (lista explícita) o `zones` + `search_url_template`.
 
