@@ -26,12 +26,15 @@
   {% if p.m2_totales and p.m2_totales != p.m2_cubiertos %}<span>{{ '%g'|format(p.m2_totales) }} m² tot.</span>{% endif %}
   {% if p.ambientes %}<span>{{ p.ambientes }} amb.</span>{% endif %}
   {% if p.cocheras %}<span>{{ p.cocheras }} coch.</span>{% endif %}
-  {% if p.usd_m2 %}<span>{{ usd_m2(p) }}</span>{% endif %}
+  {% if p.usd_m2 %}<span>{{ usd_m2(p) }} {{ vs_barrio(p) }}</span>{% endif %}
   {% if p.expensas %}<span>exp. {{ p.expensas|money(p.moneda_expensas) }}</span>{% endif %}
 </div>
 {% endmacro %}
 
 {% macro usd_m2(p) %}USD {{ '{:,.0f}'.format(p.usd_m2).replace(',', '.') }}/m²{% endmacro %}
+
+{# USD/m² frente a la mediana del barrio (app/mercado.py): verde si es más barato, rojo si es más caro, gris si ±5 % #}
+{% macro vs_barrio(p) %}{% if p.vb_pct is not none %}{% set d = p.vb_pct %}<span class="badge vb {{ 'baja' if d <= -5 else ('alta' if d >= 5 else '') }}" title="USD/m² {{ 'menor' if d < 0 else 'mayor' }} que la mediana de {{ p.vb_ref }} ({{ p.vb_n }} avisos activos)">{% if -5 < d < 5 %}≈ {{ p.vb_ref }}{% else %}{{ ('−' if d < 0 else '+') ~ ('%.0f'|format(d|abs)) }} % vs {{ p.vb_ref }}{% endif %}</span>{% endif %}{% endmacro %}
 
 {# Datos principales como fichas (tarjeta de revisión) #}
 {% macro fichas(p) %}

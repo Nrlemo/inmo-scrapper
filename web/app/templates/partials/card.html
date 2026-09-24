@@ -1,4 +1,4 @@
-{% from "_m.html" import acciones, fichas, variacion, estados, etiquetas, usd_m2 %}
+{% from "_m.html" import acciones, fichas, variacion, estados, etiquetas, usd_m2, vs_barrio %}
 {% if not p %}
   <div class="card empty"><div style="font-size:2.2rem">🎉</div><p>No quedan publicaciones sin revisar.</p><a class="btn pri" href="/lista">Ver todas</a></div>
 {% else %}
@@ -19,7 +19,7 @@
     {% if varios_portales() %}<span class="h-portal">{{ p.portal }}</span>{% endif %}
     <div class="h-info">
       <span class="price">{{ p.precio|money(p.moneda) }}</span> {{ variacion(p) }}
-      <div class="h-sub">{% if p.usd_m2 %}{{ usd_m2(p) }}{% endif %}{% if p.usd_m2 and p.expensas %} · {% endif %}{% if p.expensas %}exp. {{ p.expensas|money(p.moneda_expensas) }}{% endif %}</div>
+      <div class="h-sub">{% if p.usd_m2 %}{{ usd_m2(p) }} {{ vs_barrio(p) }}{% endif %}{% if p.usd_m2 and p.expensas %} · {% endif %}{% if p.expensas %}exp. {{ p.expensas|money(p.moneda_expensas) }}{% endif %}</div>
     </div>
   </div>
   <div class="in">

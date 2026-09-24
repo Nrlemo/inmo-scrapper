@@ -1,7 +1,7 @@
 """Tablas propias de la web (la SQLite las crea; el scrapper no las toca)."""
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -57,6 +57,15 @@ class BusquedaGuardada(WebBase):
     nombre: Mapped[str] = mapped_column(String(80))
     querystring: Mapped[str] = mapped_column(Text)
     usuario: Mapped[str] = mapped_column(String(128))
+
+
+class VsBarrio(WebBase):
+    """USD/m² de cada aviso frente a la mediana de su barrio (app/mercado.py). Se recalcula cuando cambian los datos."""
+    __tablename__ = "web_vs_barrio"
+    publicacion_id: Mapped[int] = mapped_column(Integer, primary_key=True)   # FK lógica a publicaciones.id
+    pct: Mapped[float] = mapped_column(Float, index=True)       # negativo = más barato que la referencia
+    ref: Mapped[str] = mapped_column(String(80))                # «Almagro 3 amb.» o «Almagro»
+    n: Mapped[int] = mapped_column(Integer)                     # tamaño de la muestra
 
 
 class ConfigBusqueda(WebBase):

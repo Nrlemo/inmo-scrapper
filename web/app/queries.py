@@ -1,6 +1,5 @@
 """Consultas SQL de lectura (SQLite compartida)."""
 import json
-import statistics
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -12,7 +11,7 @@ SELECT p.*, COALESCE(r.favorito,0) favorito, COALESCE(r.potencial,0) potencial, 
   COALESCE(r.contactada,0) contactada, COALESCE(r.revisada,0) revisada, r.notas, r.modificado_por,
   r.fecha_contacto, pu.promedio puntaje, COALESCE(pu.votos,0) votos, c.etiquetas, c.etiquetas_auto,
   CASE WHEN COALESCE(p.m2_cubiertos, p.m2_totales) > 0 AND p.moneda = 'USD' THEN p.precio / COALESCE(p.m2_cubiertos, p.m2_totales) END usd_m2,
-  ch.variacion_pct, ch.fecha cambio_fecha, i.nombre inmo_nombre
+  ch.variacion_pct, ch.fecha cambio_fecha, i.nombre inmo_nombre, vb.pct vb_pct, vb.ref vb_ref, vb.n vb_n
 FROM publicaciones p
 LEFT JOIN web_revision r ON r.publicacion_id = p.id
 LEFT JOIN categorizacion c ON c.publicacion_id = p.id
@@ -22,6 +21,7 @@ LEFT JOIN historial_precios ch ON ch.id = (
   SELECT h.id FROM historial_precios h WHERE h.publicacion_id = p.id AND h.variacion_pct IS NOT NULL
   ORDER BY h.fecha DESC, h.id DESC LIMIT 1)
 LEFT JOIN inmobiliarias i ON i.id = p.inmobiliaria_id
+LEFT JOIN web_vs_barrio vb ON vb.publicacion_id = p.id
 """
 
 # Fuera de los filtros de búsqueda actuales (inmo.filtros): se oculta, salvo que ya la hayas marcado (favorita,
@@ -34,6 +34,7 @@ ORDENES = {
     "precio_asc": "p.precio ASC", "precio_desc": "p.precio DESC",
     "usd_m2": "usd_m2 ASC", "m2": "COALESCE(p.m2_cubiertos, p.m2_totales) DESC",
     "baja": "ch.variacion_pct ASC", "puntaje": "puntaje DESC NULLS LAST, votos DESC",
+    "oportunidad": "vb.pct ASC",
 }
 
 
@@ -51,6 +52,7 @@ class Filtros:
     etiqueta: str = ""     # manual o automática
     estado: str = ""       # pendientes | favoritas | potencial | contactadas | descartadas | activas (=no descartadas)
     baja: bool = False     # bajó de precio
+    bajo_barrio: bool = False  # USD/m² debajo de la mediana de su barrio (app/mercado.py)
     nuevas: bool = False   # desde tu última visita
     inactivas: bool = False
     fuera: bool = False    # incluir las que no cumplen los filtros de búsqueda
@@ -92,6 +94,8 @@ class Filtros:
             w.append(estados[self.estado])
         if self.baja:
             w.append("ch.variacion_pct < 0")
+        if self.bajo_barrio:
+            w.append("vb.pct < 0")
         if self.nuevas and self.desde:
             w.append("p.fecha_primera_vista > :desde"); a["desde"] = self.desde
         if not self.inactivas:
@@ -228,16 +232,9 @@ def inmobiliarias(c: Connection, n: int = 60) -> list[dict]:
 
 
 def stats_barrios(c: Connection) -> list[dict]:
-    """USD/m² por barrio (sólo activas, no descartadas, en USD con m² cubiertos)."""
-    rows = c.execute(text("""SELECT p.barrio, p.precio / COALESCE(p.m2_cubiertos, p.m2_totales) v FROM publicaciones p
-        LEFT JOIN web_revision r ON r.publicacion_id = p.id
-        WHERE p.activa=1 AND COALESCE(r.descartada,0)=0 AND p.moneda='USD' AND COALESCE(p.m2_cubiertos, p.m2_totales) > 0 AND p.barrio IS NOT NULL""")).all()
-    by: dict[str, list[float]] = {}
-    for b, v in rows:
-        by.setdefault(b, []).append(v)
-    out = [{"barrio": b, "n": len(v), "mediana": statistics.median(v), "min": min(v), "max": max(v)}
-           for b, v in by.items()]
-    return sorted(out, key=lambda x: x["mediana"])
+    """USD/m² por barrio con las publicaciones activas en USD (sub-barrios agrupados), el mismo cálculo que el badge."""
+    from .mercado import estadisticas
+    return estadisticas(c)
 
 
 def mapa(c: Connection, f: Filtros) -> list[dict]:
