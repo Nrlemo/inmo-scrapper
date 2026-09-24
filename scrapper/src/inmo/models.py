@@ -107,6 +107,7 @@ class Categorizacion(Base):
     puntaje: Mapped[int | None] = mapped_column(Integer)  # 1-5
     notas: Mapped[str | None] = mapped_column(Text)
     etiquetas: Mapped[list[str]] = mapped_column(JSON, default=list)
+    etiquetas_auto: Mapped[list[str] | None] = mapped_column(JSON, default=list)  # por palabras clave (tags.py)
     fecha_modificacion: Mapped[datetime] = mapped_column(DateTime)
 
     publicacion: Mapped[Publicacion] = relationship(back_populates="categorizacion")
@@ -162,6 +163,9 @@ def _migrate(engine: Engine) -> None:
         for col in ("lat", "lng"):
             if pub and col not in pub:
                 c.exec_driver_sql(f"ALTER TABLE publicaciones ADD COLUMN {col} FLOAT")
+        cat = {r[1] for r in c.exec_driver_sql("PRAGMA table_info(categorizacion)")}
+        if cat and "etiquetas_auto" not in cat:
+            c.exec_driver_sql("ALTER TABLE categorizacion ADD COLUMN etiquetas_auto JSON")
         cols = {r[1] for r in c.exec_driver_sql("PRAGMA table_info(historial_precios)")}
         if "variacion_pct" not in cols:
             c.exec_driver_sql("ALTER TABLE historial_precios ADD COLUMN variacion_pct FLOAT")

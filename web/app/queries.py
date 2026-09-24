@@ -10,7 +10,7 @@ from sqlalchemy.engine import Connection
 BASE = """
 SELECT p.*, COALESCE(r.favorito,0) favorito, COALESCE(r.potencial,0) potencial, COALESCE(r.descartada,0) descartada,
   COALESCE(r.contactada,0) contactada, COALESCE(r.revisada,0) revisada, r.notas, r.modificado_por,
-  r.fecha_contacto, pu.promedio puntaje, COALESCE(pu.votos,0) votos, c.etiquetas,
+  r.fecha_contacto, pu.promedio puntaje, COALESCE(pu.votos,0) votos, c.etiquetas, c.etiquetas_auto,
   CASE WHEN COALESCE(p.m2_cubiertos, p.m2_totales) > 0 AND p.moneda = 'USD' THEN p.precio / COALESCE(p.m2_cubiertos, p.m2_totales) END usd_m2,
   ch.variacion_pct, ch.fecha cambio_fecha, i.nombre inmo_nombre
 FROM publicaciones p
@@ -43,6 +43,7 @@ class Filtros:
     mmin: float | None = None
     amb: int | None = None
     cochera: bool = False
+    etiqueta: str = ""     # manual o automática
     estado: str = ""       # pendientes | favoritas | potencial | contactadas | descartadas | activas (=no descartadas)
     baja: bool = False     # bajó de precio
     nuevas: bool = False   # desde tu última visita
@@ -72,6 +73,10 @@ class Filtros:
             w.append("p.ambientes >= :amb"); a["amb"] = self.amb
         if self.cochera:
             w.append("p.cocheras > 0")
+        if self.etiqueta:
+            w.append("(EXISTS (SELECT 1 FROM json_each(COALESCE(c.etiquetas, '[]')) WHERE value = :et)"
+                     " OR EXISTS (SELECT 1 FROM json_each(COALESCE(c.etiquetas_auto, '[]')) WHERE value = :et))")
+            a["et"] = self.etiqueta
         estados = {
             "pendientes": "COALESCE(r.revisada,0) = 0 AND COALESCE(r.descartada,0) = 0",
             "favoritas": "r.favorito = 1", "potencial": "r.potencial = 1", "contactadas": "r.contactada = 1",
@@ -91,7 +96,8 @@ class Filtros:
 def _row(m) -> dict:
     d = dict(m)
     d["fotos"] = json.loads(d["fotos"]) if isinstance(d.get("fotos"), str) else (d.get("fotos") or [])
-    d["etiquetas"] = json.loads(d["etiquetas"]) if isinstance(d.get("etiquetas"), str) else (d.get("etiquetas") or [])
+    for k in ("etiquetas", "etiquetas_auto"):
+        d[k] = json.loads(d[k]) if isinstance(d.get(k), str) else (d.get(k) or [])
     return d
 
 
@@ -182,6 +188,20 @@ def cambios(c: Connection, dias: int, solo_favoritas: bool) -> list[dict]:
 
 def barrios(c: Connection) -> list[str]:
     return [r[0] for r in c.execute(text("SELECT DISTINCT barrio FROM publicaciones WHERE barrio IS NOT NULL AND activa=1 ORDER BY barrio"))]
+
+
+def etiquetas(c: Connection) -> list[dict]:
+    """Etiquetas en uso (manuales y automáticas) en publicaciones activas, con su cantidad."""
+    return [dict(r) for r in c.execute(text("""
+      SELECT nombre, COUNT(DISTINCT pid) n FROM (
+        SELECT c.publicacion_id pid, t.value nombre
+        FROM categorizacion c JOIN publicaciones p ON p.id = c.publicacion_id AND p.activa = 1,
+             json_each(COALESCE(c.etiquetas, '[]')) t
+        UNION ALL
+        SELECT c.publicacion_id, t.value
+        FROM categorizacion c JOIN publicaciones p ON p.id = c.publicacion_id AND p.activa = 1,
+             json_each(COALESCE(c.etiquetas_auto, '[]')) t)
+      GROUP BY nombre ORDER BY nombre""")).mappings()]
 
 
 def portales(c: Connection) -> list[str]:

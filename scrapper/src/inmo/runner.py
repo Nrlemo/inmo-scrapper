@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from .config import INACTIVE_AFTER
 from .connectors import REGISTRY
 from .models import Consulta
-from . import repo
+from . import repo, tags
 
 log = logging.getLogger(__name__)
 
@@ -60,4 +60,12 @@ def run(engine, cfg: dict[str, Any], portal: str, profile_name: str | None = Non
             summary[profile["name"]] = {**stats, "resultados": len(res.listings), "completa": res.completa,
                                         "bloqueada": res.bloqueada, "errores": res.errores}
             log.info("%s/%s: %s", portal, profile["name"], summary[profile["name"]])
+    if any(isinstance(v, dict) for v in summary.values()):   # hubo al menos una consulta: etiquetas automáticas
+        try:
+            with Session_() as s:
+                n = tags.aplicar(s, cfg.get("auto_tags"))
+                s.commit()
+            log.info("etiquetas automáticas: %d publicaciones actualizadas", n)
+        except ValueError as e:   # reglas mal escritas: los avisos ya quedaron guardados, sólo se avisa
+            log.error("etiquetas automáticas: %s", e)
     return summary

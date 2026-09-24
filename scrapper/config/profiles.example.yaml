@@ -17,6 +17,20 @@ profiles:
           https://www.zonaprop.com.ar/departamentos-venta-{zone}-con-apto-credito-mas-de-2-habitaciones-mas-de-3-ambientes-{price_min}-{price_max}-dolar.html
         zones: [palermo, recoleta, belgrano]
 
+# Etiquetas automáticas por palabras clave del título/descripción (sin tildes ni mayúsculas, palabra completa;
+# «sin cochera», «no tiene patio» o «ni balcón» no cuentan). No pisan las etiquetas que cargás a mano.
+auto_tags:
+  patio: ["patio"]
+  balcon: ["balcón"]
+  terraza: ["terraza"]
+  cochera: ["cochera", "garage"]
+  apto_credito: ["apto crédito", "apto credito", "apto banco"]
+  a_reciclar: ["a reciclar", "para reciclar", "a refaccionar"]
+  luminoso: ["luminoso", "luminosa"]
+  a_estrenar: ["a estrenar"]
+  amenities: ["amenities", "piscina", "pileta de natación", "pileta climatizada", "sum", "gimnasio", "solarium"]
+  mascotas: ["apto mascotas", "acepta mascotas"]
+
 # Cadencia prudente (por portal). Todos los valores en segundos salvo indicación.
 politeness:
   zonaprop:

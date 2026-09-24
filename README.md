@@ -251,6 +251,17 @@ su WebView — no hace falta abrir el formulario HTML desde la app.
 - **Cortesía:** respeta `robots.txt`, usa un User-Agent identificable, pausas aleatorias de 20 a 150 s y reintentos con backoff. Si el portal bloquea, se frena y entra en cooldown.
 - **Una corrida completa puede tardar 30 minutos o más**; los avisos se guardan al terminar.
 
+### Etiquetas automáticas
+En `profiles.yaml`, la sección `auto_tags` asigna etiquetas según palabras clave del título o la descripción (ver `profiles.example.yaml`):
+```yaml
+auto_tags:
+  patio: ["patio"]
+  apto_credito: ["apto crédito", "apto credito", "apto banco"]
+```
+- No distingue mayúsculas ni tildes y busca por palabra completa. No cuentan las menciones negadas («sin cochera», «no tiene patio», «ni balcón»).
+- Se guardan aparte de las etiquetas manuales: no las pisan. En la web se ven con borde punteado, y el listado tiene un filtro por etiqueta.
+- Se recalculan sobre todo lo guardado al final de cada corrida del scrapper, así que un cambio en las reglas se aplica solo. Para aplicarlo en el momento: `python -m inmo retag` (en Docker: `docker compose run --rm -e PYTHONPATH=/srv/scrapper_src web python -m inmo retag`).
+
 ### Si Zonaprop responde 403
 Zonaprop usa Cloudflare, que además de la IP mira **cómo se presenta el cliente**. Puede pasar que acepte a un cliente y rechace a otro desde la misma red (en las pruebas: `httpx` HTTP/2 recibía un desafío; `httpx` HTTP/1.1 pasaba en un lado y no en otro). Qué hacer:
 1. **Esperar.** Los bloqueos son temporales y cada intento nuevo los empeora: tras un `403` el scrapper entra en cooldown de 24 h. No lances varias corridas seguidas.

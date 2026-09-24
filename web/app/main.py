@@ -60,7 +60,7 @@ def _filtros(request: Request, desde) -> Filtros:
             return None
     return Filtros(q=(g("q") or "").strip(), barrio=g("barrio") or "", portal=g("portal") or "",
                    inmo=num("inmo", int), pmin=num("pmin"), pmax=num("pmax"), mmin=num("mmin"), amb=num("amb", int),
-                   cochera=g("cochera") == "1", estado=g("estado") or "", baja=g("baja") == "1",
+                   cochera=g("cochera") == "1", etiqueta=(g("etiqueta") or "").strip(), estado=g("estado") or "", baja=g("baja") == "1",
                    nuevas=g("nuevas") == "1", inactivas=g("inactivas") == "1", orden=g("orden") or "nuevas",
                    pagina=num("pagina", int) or 1, desde=desde)
 
@@ -234,7 +234,7 @@ def lista(request: Request, c=Depends(ctx)):
     conn = c["s"].connection()
     guardadas = [dict(r) for r in conn.execute(text("SELECT id, nombre, querystring FROM web_busquedas ORDER BY nombre")).mappings()]
     return render(request, "lista.html", c, **d, barrios=queries.barrios(conn), portales=queries.portales(conn),
-                  inmos=queries.inmobiliarias(conn), guardadas=guardadas)
+                  inmos=queries.inmobiliarias(conn), etiquetas=queries.etiquetas(conn), guardadas=guardadas)
 
 
 @app.post("/busquedas", response_class=HTMLResponse)

@@ -366,3 +366,18 @@ def test_seed_profiles_from_example(tmp_path, monkeypatch):
             assert sembrar_config() is False
         finally:
             ro.chmod(0o700)
+
+
+def test_etiquetas_automaticas_filtro_y_badges(client):
+    from sqlalchemy import text
+    from app.main import ENGINE
+    with ENGINE.begin() as c:
+        c.execute(text("""UPDATE categorizacion SET etiquetas_auto='["patio"]' WHERE publicacion_id=1"""))
+        c.execute(text("""UPDATE categorizacion SET etiquetas='["patio","ver"]' WHERE publicacion_id=2"""))
+    html = client.get("/lista").text
+    assert '<option value="patio"' in html and "#patio (2)" in html and "#ver (1)" in html
+    r = client.get("/lista?etiqueta=patio").text
+    assert "Calle 1" in r and "Calle 2" in r and "Calle 3" not in r
+    assert 'class="badge auto"' in r                                      # la 1 la tiene sólo automática
+    assert r.count('title="Automática') == 1                              # la 2 la tiene manual: no se repite
+    assert "Calle 1" not in client.get("/lista?etiqueta=ver").text

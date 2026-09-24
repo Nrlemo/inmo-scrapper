@@ -42,7 +42,7 @@ def upsert(s: Session, l: Listing, now: datetime) -> tuple[Publicacion, str]:
                         fecha_ultima_vista=now, activa=True, consultas_sin_ver=0,
                         corredor=l.corredor, inmobiliaria_id=emp.id if emp else None,
                         **{k: data[k] for k in _FIELDS})
-        p.categorizacion = Categorizacion(estado="nuevo", etiquetas=[], fecha_modificacion=now)
+        p.categorizacion = Categorizacion(estado="nuevo", etiquetas=[], etiquetas_auto=[], fecha_modificacion=now)
         if l.precio is not None and l.moneda:
             p.historial.append(HistorialPrecio(precio=l.precio, moneda=l.moneda, fecha=now))
         s.add(p)

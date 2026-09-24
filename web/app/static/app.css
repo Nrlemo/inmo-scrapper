@@ -62,6 +62,8 @@ label{display:flex;align-items:center;gap:.45rem;font-size:.92rem}
 /* ---- tarjetas ---- */
 .badge{display:inline-block;font-size:.7rem;line-height:1.5;padding:0 .5rem;border-radius:999px;background:var(--line);color:var(--mut);vertical-align:middle}
 .badge.n{background:var(--acc);color:var(--acc-fg)}
+a.badge:hover{text-decoration:none;filter:brightness(1.1)}
+.badge.auto{background:none;border:1px dashed var(--mut);line-height:1.35}
 .price{font-size:1.25rem;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .item{display:flex;gap:.8rem;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:.65rem;margin-bottom:.65rem;box-shadow:var(--sh)}
 .item.desc{opacity:.5}

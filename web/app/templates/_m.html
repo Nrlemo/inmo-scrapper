@@ -46,5 +46,6 @@
 {% if p.contactada %}<span class="badge n">contactada</span>{% endif %}
 {% if p.potencial %}<span class="badge pot">◆ potencial</span>{% endif %}
 {% if p.votos %}<span class="badge" title="Promedio de {{ p.votos }} puntaje{{ 's' if p.votos > 1 }}">★ {{ '%.1f'|format(p.puntaje) }}{% if p.votos > 1 %} ({{ p.votos }}){% endif %}</span>{% endif %}
-{% for t in p.etiquetas %}<span class="badge">#{{ t }}</span>{% endfor %}
+{% for t in p.etiquetas %}<a class="badge" href="/lista?etiqueta={{ t|urlencode }}">#{{ t }}</a>{% endfor %}
+{% for t in p.etiquetas_auto if t not in p.etiquetas %}<a class="badge auto" href="/lista?etiqueta={{ t|urlencode }}" title="Automática: palabra clave en la descripción">#{{ t }}</a>{% endfor %}
 {% endmacro %}
