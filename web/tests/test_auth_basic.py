@@ -242,6 +242,10 @@ def test_only_admin_can_manage_users(admin):
     assert "Sólo un administrador puede cambiar los filtros" in beto.get("/estado").text
     assert beto.post("/busqueda/0", data={"nombre": "x"}, headers=hx(beto)).status_code == 403
     assert "Guardar filtros" in admin.get("/estado").text
+    # backups: el usuario común no los baja ni los dispara
+    assert beto.post("/backups/ahora", headers=hx(beto)).status_code == 403
+    assert beto.get("/backups/inmo-20260101-000000.sqlite.gz").status_code == 403
+    assert "Hacer backup ahora" not in beto.get("/estado").text and "Hacer backup ahora" in admin.get("/estado").text
 
 
 def test_user_admin_rules(admin):

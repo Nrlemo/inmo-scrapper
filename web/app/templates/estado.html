@@ -8,6 +8,7 @@
 {% include "partials/ronda.html" %}
 {% include "partials/busqueda.html" %}
 {% include "partials/navegador.html" %}
+{% include "partials/backups.html" %}
 <h2>Rondas</h2>
 <div class="scroll"><table><tr><th>Inicio</th><th>Estado</th><th>Zonas</th><th>Duración</th><th>Por</th><th>Detalle</th></tr>
   {% for h in hist %}<tr><td>{{ h.inicio|fecha }} {{ h.inicio.strftime('%H:%M') }}</td><td>{{ h.estado }}</td>

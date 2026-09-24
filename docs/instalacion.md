@@ -157,6 +157,9 @@ Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push 
 | `AUTH_USER_HEADER`, `AUTH_EMAIL_HEADER` | Modo `authentik`: cabeceras de identidad (por defecto `X-authentik-username` y `X-authentik-email`) |
 | `PROXY_SECRET` | Modo `authentik`: exige `X-Proxy-Secret` igual en cada pedido |
 | `PUID`, `PGID` | Usuario/grupo con el que corre el contenedor (default `1000:1000`); debe poder escribir la carpeta de datos |
+| `BACKUP_ENABLED`, `BACKUP_HORA` | Backup diario de la base (default `true`, `05:00`), verificado y comprimido, en `BACKUP_DIR` (default `backups/` junto a la base) |
+| `BACKUP_DIR_EXTRA` | Carpeta para una segunda copia de cada backup (otro disco u otra máquina) |
+| `BACKUP_DIARIOS`, `BACKUP_SEMANALES`, `BACKUP_MENSUALES` | Retención (7 / 4 / 6). Restaurar: ver [`deploy/servidor.md`](../deploy/servidor.md#restaurar-un-backup) |
 | `PAGE_SIZE`, `TZ` | Paginación; zona horaria (las fechas se guardan locales, sin zona) |
 
 ## 📱 App Android

@@ -1,0 +1,24 @@
+{# Estado → Backups (app/backups.py, backup_routes.py) #}
+{% macro tam(b) %}{{ '%.1f'|format(b / 1048576)|replace('.', ',') }} MB{% endmacro %}
+<section id="backups" class="card in" style="margin-bottom:1rem">
+  <div class="row" style="justify-content:space-between"><b>💾 Backups</b>
+    <span class="mut" style="font-size:.85rem">{% if bk_activo %}todos los días a las {{ bk_hora }}{% else %}automáticos desactivados{% endif %}
+      · se guardan {{ bk_retencion[0] }} diarios, {{ bk_retencion[1] }} semanales y {{ bk_retencion[2] }} mensuales</span></div>
+  {% if bk.ultimo_intento %}
+    {% if bk.ok %}<div class="down" style="font-weight:500">✅ Último backup {{ bk.ultimo_ok[:16]|replace('T', ' ') }} · {{ tam(bk.bytes) }} · {{ bk.publicaciones }} publicaciones · verificado</div>
+    {% else %}<div class="up">❌ Falló el backup del {{ bk.ultimo_intento[:16]|replace('T', ' ') }}: {{ bk.error }}{% if bk.ultimo_ok %} (el último correcto es del {{ bk.ultimo_ok[:16]|replace('T', ' ') }}){% endif %}</div>{% endif %}
+  {% else %}<div class="mut">Todavía no se hizo ningún backup.</div>{% endif %}
+  {% if bk_extra %}
+    {% if bk.extra and bk.extra.ok %}<div class="mut" style="font-size:.88rem">Copia extra en <code>{{ bk_extra }}</code> ✔</div>
+    {% elif bk.extra %}<div class="up" style="font-size:.88rem">No se pudo copiar a <code>{{ bk_extra }}</code>: {{ bk.extra.error }}</div>
+    {% else %}<div class="mut" style="font-size:.88rem">Copia extra: <code>{{ bk_extra }}</code></div>{% endif %}
+  {% else %}<div class="mut" style="font-size:.85rem">Sin segunda copia: definí <code>BACKUP_DIR_EXTRA</code> (otro disco u otra máquina) para no depender de un solo disco.</div>{% endif %}
+  {% if bk_puede %}
+  <div class="row"><button hx-post="/backups/ahora" hx-target="#backups" hx-swap="outerHTML" hx-disabled-elt="this">Hacer backup ahora</button></div>
+  {% if bk_lista %}<details><summary class="mut" style="cursor:pointer;font-size:.88rem">{{ bk_lista|length }} backup{{ 's' if bk_lista|length != 1 }} guardado{{ 's' if bk_lista|length != 1 }} (descargar)</summary>
+    <ul style="margin:.3rem 0 0;padding-left:1.1rem;font-size:.85rem">
+      {% for b in bk_lista %}<li><a href="/backups/{{ b.nombre }}" download>{{ b.fecha.strftime('%d/%m/%Y %H:%M') }}</a> <span class="mut">· {{ tam(b.bytes) }}</span></li>{% endfor %}</ul>
+    <div class="mut" style="font-size:.8rem;margin-top:.3rem">Incluyen usuarios y sesiones: guardalos en un lugar seguro. Cómo restaurar: <code>deploy/servidor.md</code>.</div>
+  </details>{% endif %}
+  {% endif %}
+</section>

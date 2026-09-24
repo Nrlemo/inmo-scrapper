@@ -101,6 +101,12 @@ def get_session(request: Request):
         yield s
 
 
+def puede_administrar(user) -> bool:
+    """Tareas de administración (filtros de búsqueda, backups): con login propio sólo administradores; en
+    authentik/none no hay roles, así que cualquiera."""
+    return config.AUTH_MODE != "basic" or user.es_admin
+
+
 SEGUROS = ("GET", "HEAD", "OPTIONS")
 
 

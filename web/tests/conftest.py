@@ -15,6 +15,9 @@ def _build(tmp_path, monkeypatch, mode, headers=None, base_url="http://testserve
                    "        zones: [almagro, {zone: almagro, price_min: 1}, palermo, recoleta]\n")
     monkeypatch.setenv("INMO_CONFIG", str(cfg))
     monkeypatch.setenv("AUTH_MODE", mode)
+    monkeypatch.setenv("BACKUP_ENABLED", "false")                  # el programador no corre en los tests
+    monkeypatch.setenv("BACKUP_DIR", str(tmp_path / "backups"))
+    monkeypatch.delenv("BACKUP_DIR_EXTRA", raising=False)
     monkeypatch.setenv("SETUP_TOKEN", "TEST-CODE-1234")
     monkeypatch.delenv("PROXY_SECRET", raising=False)
     for m in [m for m in sys.modules if m == "app" or m.startswith("app.")]:

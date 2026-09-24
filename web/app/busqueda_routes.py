@@ -8,15 +8,10 @@ from fastapi.responses import HTMLResponse
 from inmo import filtros
 from inmo.connectors.zonaprop import search_urls
 
-from . import busqueda, config
-from .core import ctx, render
+from . import busqueda
+from .core import ctx, puede_administrar as puede_editar, render
 
 router = APIRouter()
-
-
-def puede_editar(user) -> bool:
-    """Con login propio, sólo administradores. En authentik/none no hay roles: cualquiera."""
-    return config.AUTH_MODE != "basic" or user.es_admin
 
 
 def panel_ctx(s, user, sel: int = 0, doc: dict | None = None, **extra) -> dict:

@@ -61,7 +61,7 @@ cd ~/.docker/inmo
 sed -i 's/^INMO_TAG=.*/INMO_TAG=1.0.3/' .env      # la versión nueva (ver Releases)
 docker compose pull                               # baja la imagen sin cortar el servicio
 docker compose stop && cp data/inmo.sqlite "data/inmo.antes-$(date +%F).sqlite"   # copia con la web parada
-docker compose up -d
+docker compose up -d                              # (o antes: Estado → Backups → Hacer backup ahora)
 ```
 Las migraciones de la base corren solas al arrancar.
 
@@ -72,6 +72,31 @@ Las migraciones de la base corren solas al arrancar.
    (`sudo systemctl enable --now cloudflared`).
 4. Devolverle el dominio: `cloudflared tunnel route dns --overwrite-dns <túnel-de-esa-máquina> inmo.tudominio.com`.
 
+## Backups
+La web hace **un backup por día** (`BACKUP_HORA`, por defecto 05:00, después de la ronda de la extensión) con la API
+de backup de SQLite, lo verifica (`integrity_check`), lo comprime y lo guarda en `data/backups/` como
+`inmo-AAAAMMDD-HHMMSS.sqlite.gz`. Se conservan 7 diarios, 4 semanales y 6 mensuales (`BACKUP_DIARIOS`,
+`BACKUP_SEMANALES`, `BACKUP_MENSUALES`). Con `BACKUP_EXTRA` en el `.env` (una carpeta del host en otro disco u otra
+máquina, escribible por el usuario del contenedor) cada backup se copia también ahí, con la misma rotación.
+
+En **Estado → Backups**: el último backup y si se verificó, si se pudo copiar a la carpeta extra, **Hacer backup ahora**
+y la lista para descargar (sólo administradores: incluyen usuarios y sesiones).
+
+Si la web estuvo apagada a esa hora, el backup del día se hace al arrancar. Si falla, se reintenta a la hora y el error
+queda a la vista en Estado.
+
+### Restaurar un backup
+```bash
+cd ~/.docker/inmo
+docker compose stop                                           # ninguna conexión abierta a la base
+cp data/inmo.sqlite data/inmo.antes-de-restaurar.sqlite       # por las dudas
+gunzip -c data/backups/inmo-20260924-050000.sqlite.gz > data/inmo.sqlite
+rm -f data/inmo.sqlite-wal data/inmo.sqlite-shm               # imprescindible: un -wal viejo corrompería la base restaurada
+docker compose start
+```
+Se pierde lo que se cargó después de ese backup: avisos, pero también cambios de estado, notas y puntajes. Probado en
+`web/tests/test_backups.py`.
+
 ## Qué respaldar
-`~/.docker/inmo/data/inmo.sqlite` (avisos, categorización, usuarios, sesiones, filtros) y `~/.docker/inmo/config/profiles.yaml`. Los
-backups automáticos están pendientes en [#15](https://github.com/Nrlemo/inmo-scrapper/issues/15).
+`~/.docker/inmo/data/inmo.sqlite` (avisos, categorización, usuarios, sesiones, filtros; ver *Backups*, arriba) y
+`~/.docker/inmo/config/profiles.yaml`.
