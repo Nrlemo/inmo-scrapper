@@ -6,8 +6,9 @@ robots.txt (2026-09, grupo `User-agent: *`) prohíbe, entre otros, los filtros `
 precio y superficie no pueden ir en la URL y se filtran al recibir la página (matches_profile). La tarjeta no trae
 expensas, coordenadas ni inmobiliaria, y sólo una foto.
 
-Paginación: **sin verificar** (la página de prueba tenía 34 resultados, menos de una página). Se usa el formato
-habitual del sitio (`_Desde_49`, 48 avisos por página) hasta confirmarlo con una URL real de la página 2.
+URLs verificadas en el portal: búsqueda `/departamentos/venta/propiedades-individuales/capital-federal/san-nicolas/`
+(«propiedades-individuales» deja afuera los emprendimientos; la zona es el barrio como lo nombra MercadoLibre) y su
+página 2 `…/san-nicolas/_Desde_49_NoIndex_True` (48 avisos por página).
 """
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ from .base import Listing, Portal
 from .common import _clean, _num
 
 BASE = "https://inmuebles.mercadolibre.com.ar"
-PAGE_SIZE = 48               # sin verificar (ver docstring)
+PAGE_SIZE = 48               # verificado: la página 2 empieza en el aviso 49
 MAX_PAGES = 5                # tope propio: robots.txt no limita la paginación, pero una ronda cortés tampoco la necesita
 _PROHIBIDOS = ("_PriceRange_", "_PriceMin_", "_PriceMax_", "_TOTAL*AREA_", "_TOTAL%2AAREA_", "_COVERED*AREA_",
                "_COVERED%2AAREA_", "_FULL*BATHROOMS_", "_PARKING*LOTS_", "_Banos_", "_Cocheras_", "_OrderId_",
@@ -90,11 +91,24 @@ def parse_listing_page(text: str) -> tuple[list[Listing], int | None]:
 
 
 def page_url(search_url: str, n: int) -> str:
-    """Página n: `…/_Desde_49` (48 por página). SIN VERIFICAR: ver el docstring del módulo."""
+    """Página n, con el formato verificado: `…/san-nicolas/_Desde_49_NoIndex_True`."""
     if n <= 1:
         return search_url
     base = search_url.split("#", 1)[0].rstrip("/")
-    return f"{base}/_Desde_{(n - 1) * PAGE_SIZE + 1}"
+    return f"{base}/_Desde_{(n - 1) * PAGE_SIZE + 1}_NoIndex_True"
+
+
+def armar_plantilla(f: dict) -> str:
+    """Filtros -> plantilla con {zone}. Precio y superficie no pueden ir en la URL (robots.txt): se filtran al recibir."""
+    if (f.get("tipo"), f.get("operacion")) != ("departamento", "compra"):
+        raise ValueError("MercadoLibre: sólo está verificada la búsqueda de departamentos en venta; usá la plantilla avanzada")
+    return f"{BASE}/departamentos/venta/propiedades-individuales/capital-federal/{{zone}}/"
+
+
+def leer_plantilla(tpl: str) -> dict | None:
+    if (tpl or "").strip() == f"{BASE}/departamentos/venta/propiedades-individuales/capital-federal/{{zone}}/":
+        return {"tipo": "departamento", "operacion": "compra"}
+    return None
 
 
 def problema_robots(url: str) -> str | None:
@@ -111,6 +125,12 @@ class MercadoLibre(Portal):
     nombre, etiqueta = "mercadolibre", "MercadoLibre"
     host = BASE + "/"
     page_size, max_pages = PAGE_SIZE, MAX_PAGES
+
+    def armar_plantilla(self, filtros: dict) -> str:
+        return armar_plantilla(filtros)
+
+    def leer_plantilla(self, plantilla: str) -> dict | None:
+        return leer_plantilla(plantilla)
 
     def page_url(self, url: str, n: int) -> str:
         return page_url(url, n)
