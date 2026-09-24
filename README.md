@@ -62,7 +62,9 @@ varias personas.
 Con una extensión para Vivaldi/Chrome ([`inmo-extension`](https://github.com/Nrlemo/inmo-extension)): una vez por
 día abre tus búsquedas en una ventana minimizada de tu propio navegador y manda cada página a Inmo. Es tu navegador
 real, así que no la frena la protección anti-bots del portal. El servidor no pide páginas a los portales: sólo
-decide qué página sigue y procesa lo que recibe.
+decide qué página sigue y procesa lo que recibe. Se descarga desde las
+[releases de inmo-extension](https://github.com/Nrlemo/inmo-extension/releases/latest) y se vincula con un token
+que se genera en *Estado*.
 
 - Recorre una búsqueda por zona y lee el listado de resultados, con todas las fotos y la ubicación de cada aviso.
 - Guarda cada publicación con la fecha en que se vio por primera y última vez; si cambia el precio, lo registra en
@@ -112,5 +114,7 @@ decide qué página sigue y procesa lo que recibe.
 
 ---
 
-Instalación, configuración y operación: [`docs/instalacion.md`](docs/instalacion.md). Uso personal y de bajo
-volumen: respetá los términos de cada portal.
+Instalación, configuración y operación: [`docs/instalacion.md`](docs/instalacion.md). Versiones y novedades:
+[releases de la web](https://github.com/Nrlemo/inmo-scrapper/releases) (imagen de Docker) y
+[de la extensión](https://github.com/Nrlemo/inmo-extension/releases) (`.zip`). Uso personal y de bajo volumen:
+respetá los términos de cada portal.

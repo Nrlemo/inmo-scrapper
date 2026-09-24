@@ -9,7 +9,7 @@ Actuá como desarrollador full-stack senior. Esta es una aplicación web self-ho
 ## Cómo se traen los avisos: ronda por navegador
 - **La única vía es la extensión del navegador** (Vivaldi/Chrome), en su propio repo: [Nrlemo/inmo-extension](https://github.com/Nrlemo/inmo-extension). Abre las búsquedas en el navegador real del usuario, página por página, y manda el HTML a la web (`/api/navegador/*`, token por usuario).
 - **El servidor conduce la ronda** (`scrapper/src/inmo/navegador.py`): decide qué página sigue, cuánto esperar, guarda y da de baja. La extensión sólo abre, espera, lee y envía; los cambios de reglas no deberían requerir tocarla.
-- **El scrapper HTTP (httpx/curl) está deprecado** (Cloudflare lo bloquea). No agregar código que pida páginas a los portales desde el servidor. Se quita en la etapa 1.
+- **El scrapper HTTP (httpx/curl) se quitó** en la etapa 1 (Cloudflare lo bloqueaba). No agregar código que pida páginas a los portales desde el servidor.
 - **Conectores = parsers por página con interfaz común** (un módulo por portal en `connectors/`): URLs de búsqueda por zona, paginación, parseo de la página, detección de bloqueo. Agregar un portal no debería tocar ni la ronda ni la API de la extensión.
 - **Scraping responsable, aunque sea desde el navegador:** respetar `robots.txt` (tope de páginas), pausas aleatorias entre páginas y zonas, cooldown tras un bloqueo, una ronda por día como máximo. Un portal que falla o bloquea no corta a los demás.
 
@@ -52,7 +52,8 @@ Reglas: clave única (portal, id_externo); si una publicación reaparece, actual
 - Diseño responsive (lo uso también desde el celular). Stack: HTMX + Jinja2, CSS propio.
 
 ## Despliegue
-- Docker + docker-compose, con volumen persistente para la SQLite y el YAML de configuración.
+- Docker + docker-compose, con volumen persistente para la SQLite y el YAML de configuración. Imagen pública `nrlemo/inmo-web` (tags `latest`, versión de release y hash corto del commit).
+- Releases versionadas en ambos repos (web: imagen de Docker; extensión: `.zip` para cargar descomprimida).
 - Variables de entorno para credenciales y parámetros.
 - README con instalación, configuración y cómo agregar un conector nuevo.
 
@@ -60,7 +61,7 @@ Reglas: clave única (portal, id_externo); si una publicación reaparece, actual
 Las fases originales (esquema + conector, scheduler, web, Docker y documentación) están cumplidas. Sigue esto, en orden; el detalle de cada punto está en los issues (label `etapa-N` en ambos repos).
 
 **Etapa 1: sólo extensión.** Deprecar el scrapper HTTP y dejar la web funcionando únicamente con la ronda por navegador.
-- inmo-scrapper: [#16](https://github.com/Nrlemo/inmo-scrapper/issues/16) deprecar el scrapper HTTP · [#17](https://github.com/Nrlemo/inmo-scrapper/issues/17) limpieza · [#18](https://github.com/Nrlemo/inmo-scrapper/issues/18) separar `main.py` en routers · [#19](https://github.com/Nrlemo/inmo-scrapper/issues/19) rendimiento
+- inmo-scrapper: ~~[#16](https://github.com/Nrlemo/inmo-scrapper/issues/16) deprecar el scrapper HTTP~~ ✅ · ~~[#17](https://github.com/Nrlemo/inmo-scrapper/issues/17) limpieza~~ ✅ · [#18](https://github.com/Nrlemo/inmo-scrapper/issues/18) separar `main.py` en routers · [#19](https://github.com/Nrlemo/inmo-scrapper/issues/19) rendimiento
 - inmo-extension: [#1](https://github.com/Nrlemo/inmo-extension/issues/1) la extensión como única vía (README, avisos de falla)
 
 **Etapa 2: MercadoLibre y Argenprop en la extensión.**

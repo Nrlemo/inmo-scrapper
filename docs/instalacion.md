@@ -53,7 +53,7 @@ Sin usuarios ni contraseñas: la pantalla Estado muestra un aviso y el log lo ad
 
 <table>
 <tr><td><b>Imagen</b></td><td><a href="https://hub.docker.com/r/nrlemo/inmo-web"><code>nrlemo/inmo-web</code></a> en Docker Hub (pública)</td></tr>
-<tr><td><b>Etiquetas</b></td><td><code>latest</code> (la última) y una por versión, con el hash corto del commit (por ejemplo <code>51fe5e2</code>). Para producción conviene fijar una versión.</td></tr>
+<tr><td><b>Etiquetas</b></td><td><code>latest</code> (la última), una por release (por ejemplo <code>1.0.0</code>, ver <a href="https://github.com/Nrlemo/inmo-scrapper/releases">Releases</a>) y una por commit publicado, con el hash corto (por ejemplo <code>51fe5e2</code>). Para producción conviene fijar una versión.</td></tr>
 <tr><td><b>Plataforma</b></td><td><code>linux/amd64</code> (no hay build para ARM todavía)</td></tr>
 <tr><td><b>Tamaño</b></td><td>~68 MB comprimida al descargar (~290 MB en disco)</td></tr>
 <tr><td><b>Base</b></td><td><code>python:3.12-slim</code>, corre como usuario sin privilegios (UID 1000)</td></tr>
@@ -126,7 +126,7 @@ Las variables de entorno están descritas en la sección Configuración, más ab
 ```bash
 docker compose -f docker-compose.hub.yml pull && docker compose -f docker-compose.hub.yml up -d
 ```
-Los datos viven en `./data`, así que sobreviven a la actualización. Para volver a una versión anterior: `INMO_TAG=51fe5e2 docker compose -f docker-compose.hub.yml up -d`.
+Los datos viven en `./data`, así que sobreviven a la actualización. Para fijar o volver a una versión: `INMO_TAG=1.0.0 docker compose -f docker-compose.hub.yml up -d`.
 
 ### Construir tu propia imagen
 ```bash
@@ -187,7 +187,8 @@ esperar, guarda los avisos y, al terminar una ronda completa, da de baja los que
 - **Endpoints** (autenticados con `Authorization: Bearer <token>`, sin cookies ni CSRF):
   `GET /api/navegador/ping`, `POST /api/navegador/ronda`, `POST /api/navegador/pagina`,
   `POST /api/navegador/error` y `POST /api/navegador/cancelar`.
-- Con authentik delante, `/api/navegador/` necesita la misma excepción que `/api/login`.
+- Con authentik delante, `/api/navegador/` tiene que saltear el forward auth: `docker-compose.authentik.yml` ya lo hace
+  con un router aparte (ver [`deploy/authentik.md`](../deploy/authentik.md)). Con otro proxy delante, lo mismo.
 
 ### Etiquetas automáticas
 En `profiles.yaml`, la sección `auto_tags` asigna etiquetas según palabras clave del título o la descripción (ver `profiles.example.yaml`):

@@ -1,4 +1,4 @@
-<section id="ronda" class="card in" {% if activa %}hx-get="/ronda/estado?run={{ ej.id }}" hx-trigger="every 5s" hx-swap="outerHTML"{% endif %}>
+<section id="ronda" class="card in" style="margin-bottom:1rem" {% if activa %}hx-get="/ronda/estado?run={{ ej.id }}" hx-trigger="every 5s" hx-swap="outerHTML"{% endif %}>
   {% if activa %}
     <div class="row" style="justify-content:space-between"><b><i class="dot"></i> Ronda en curso · {{ ej.portal }}</b><span class="mut">{{ ej.minutos }} min</span></div>
     {% if ej.pct is not none %}<progress max="100" value="{{ ej.pct }}"></progress>{% else %}<progress></progress>{% endif %}
@@ -6,7 +6,7 @@
       {% if ej.zona_actual %}Zona {{ ej.zona_idx }}/{{ ej.zonas_total }} · <b>{{ ej.zona_actual }}</b>{% if ej.paginas %} · página {{ ej.pagina }}/{{ ej.paginas }}{% endif %}{% else %}Iniciando…{% endif %}
       · {{ ej.resultados }} avisos hallados{% if ej.usuario %} · {{ ej.usuario }}{% endif %}</div>
     <div class="mut" style="font-size:.85rem">La extensión espera entre páginas a propósito (30 s a 2,5 min) para no ser bloqueada: una ronda completa puede tardar 30 min o más. Los avisos se guardan a medida que llegan las páginas.</div>
-    <button class="bad" hx-post="/ronda/cancelar" hx-target="#ronda" hx-swap="outerHTML" hx-confirm="¿Cancelar la ronda? Lo recibido hasta ahora queda guardado, pero no se da de baja ningún aviso.">Cancelar</button>
+    <div><button class="bad" hx-post="/ronda/cancelar" hx-target="#ronda" hx-swap="outerHTML" hx-confirm="¿Cancelar la ronda? Lo recibido hasta ahora queda guardado, pero no se da de baja ningún aviso.">Cancelar</button></div>
   {% else %}
     {% if ej %}<div><b>Última ronda:</b> {{ {'ok':'✅ completa','parcial':'⚠ parcial','bloqueada':'⛔ bloqueada por el portal','omitida':'⏭ omitida','error':'❌ con error','cancelada':'✋ cancelada','interrumpida':'⚠ interrumpida'}.get(ej.estado, ej.estado) }}
       <span class="mut">· {{ ej.inicio|fecha }} {{ ej.inicio.strftime('%H:%M') }} · {{ ej.minutos }} min{% if ej.usuario %} · {{ ej.usuario }}{% endif %}</span></div>

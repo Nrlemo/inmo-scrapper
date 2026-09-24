@@ -81,7 +81,7 @@ a.badge:hover{text-decoration:none;filter:brightness(1.1)}
 .acts{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--sh)}
 .card .hero{display:block;width:100%;aspect-ratio:4/3;max-height:420px;object-fit:cover;background:var(--line)}
-.card .in{padding:.9rem 1rem 1rem;display:flex;flex-direction:column;gap:.5rem}
+.card .in,.card.in{padding:.9rem 1rem 1rem;display:flex;flex-direction:column;gap:.5rem}
 #card article{animation:in .22s ease-out}
 @keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
