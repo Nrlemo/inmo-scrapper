@@ -4,6 +4,10 @@ robots.txt (2026-09): sólo se permiten las páginas `?pagina-1..3` y siempre qu
 (`Allow: /*?pagina-2$`, `Disallow: /*?pagina-`) => máx. 3 páginas (60 avisos) por búsqueda y los filtros van en la ruta,
 no en `?...`. Además `Disallow: /*-o-*-o-*`: una URL con dos o más «-o-» (p. ej. `casas-o-departamentos-o-ph`) no se
 puede pedir. El listado no trae coordenadas.
+
+URL de búsqueda verificada en el portal: `/departamentos/venta/tribunales/dolares-hasta-125000/apto-credito` (la zona
+es el barrio o sub-barrio como lo nombra Argenprop). Lo demás (precio mínimo, ambientes, dormitorios, m²) se filtra al
+recibir la página.
 """
 from __future__ import annotations
 
@@ -89,6 +93,28 @@ def page_url(search_url: str, n: int) -> str:
     return search_url if n <= 1 else f"{search_url.split('?', 1)[0]}?pagina-{n}"
 
 
+TIPOS = {"departamento": "departamentos"}
+OPERACIONES = {"compra": "venta"}
+MONEDAS = {"USD": "dolares"}
+
+
+def armar_plantilla(f: dict) -> str:
+    """Filtros -> plantilla con {zone} y {price_max}, sólo con segmentos verificados (ver docstring del módulo)."""
+    for clave, validos in (("tipo", TIPOS), ("operacion", OPERACIONES), ("moneda", MONEDAS)):
+        if f.get(clave) not in validos:
+            raise ValueError(f"Argenprop: {clave} «{f.get(clave)}» no está verificado; usá la plantilla avanzada")
+    url = f"{BASE}/{TIPOS[f['tipo']]}/{OPERACIONES[f['operacion']]}/{{zone}}/{MONEDAS[f['moneda']]}-hasta-{{price_max}}"
+    return url + ("/apto-credito" if f.get("apto_credito") else "")
+
+
+_PLANTILLA_RE = re.compile(r"^https://www\.argenprop\.com/departamentos/venta/\{zone\}/dolares-hasta-\{price_max\}(/apto-credito)?$")
+
+
+def leer_plantilla(tpl: str) -> dict | None:
+    m = _PLANTILLA_RE.match((tpl or "").strip())
+    return {"tipo": "departamento", "operacion": "compra", "moneda": "USD", "apto_credito": bool(m.group(1))} if m else None
+
+
 def problema_robots(url: str) -> str | None:
     """Por qué robots.txt no permite pedir esta búsqueda (None si se puede)."""
     partes = urlsplit(url.replace("{zone}", "zona").replace("{price_min}", "0").replace("{price_max}", "0"))
@@ -104,6 +130,12 @@ class Argenprop(Portal):
     nombre, etiqueta = "argenprop", "Argenprop"
     host = BASE + "/"
     page_size, max_pages = PAGE_SIZE, ROBOTS_MAX_PAGES
+
+    def armar_plantilla(self, filtros: dict) -> str:
+        return armar_plantilla(filtros)
+
+    def leer_plantilla(self, plantilla: str) -> dict | None:
+        return leer_plantilla(plantilla)
 
     def page_url(self, url: str, n: int) -> str:
         return page_url(url, n)

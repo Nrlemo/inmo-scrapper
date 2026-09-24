@@ -61,7 +61,7 @@ def test_mercadolibre_robots():
     assert ml.problema_robots(u) is None
     assert "PriceRange" in ml.problema_robots(u + "_PriceRange_0USD-125000USD_NoIndex_True")
     assert "TOTAL*AREA" in ml.problema_robots(u + "_TOTAL*AREA_*-150m²")
-    assert ml.page_url(u, 2).endswith("/san-nicolas/_Desde_49")
+    assert ml.page_url(u, 2).endswith("/san-nicolas/_Desde_49_NoIndex_True")
 
 
 # ---------- en una ronda (registrados sólo en el test) ----------
@@ -121,3 +121,18 @@ def test_todavia_no_estan_en_la_ronda():
     from inmo.connectors import PROXIMOS
     assert "argenprop" in PROXIMOS and "mercadolibre" in PROXIMOS
     assert "argenprop" not in REGISTRO and "mercadolibre" not in REGISTRO
+
+
+def test_urls_verificadas_en_los_portales():
+    """Las que armó el usuario en el navegador (2026-09-24). A la de Argenprop se le quitan los filtros de la consulta
+    (?con-permitemascotas&…): robots.txt no permite paginar con ellos."""
+    f = {"tipo": "departamento", "operacion": "compra", "moneda": "USD", "apto_credito": True}
+    assert ap.armar_plantilla(f).format(zone="tribunales", price_max=125000) == \
+        "https://www.argenprop.com/departamentos/venta/tribunales/dolares-hasta-125000/apto-credito"
+    assert ap.leer_plantilla(ap.armar_plantilla(f))["apto_credito"] and ap.problema_robots(ap.armar_plantilla(f)) is None
+    base_ml = ml.armar_plantilla(f).format(zone="san-nicolas")
+    assert ml.page_url(base_ml, 2) == \
+        "https://inmuebles.mercadolibre.com.ar/departamentos/venta/propiedades-individuales/capital-federal/san-nicolas/_Desde_49_NoIndex_True"
+    assert ml.problema_robots(ml.armar_plantilla(f)) is None
+    with pytest.raises(ValueError, match="no está verificado"):
+        ap.armar_plantilla({**f, "moneda": "ARS"})
