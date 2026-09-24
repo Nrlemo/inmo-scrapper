@@ -56,6 +56,11 @@ class Portal:
     def page_url(self, url: str, n: int) -> str:
         raise NotImplementedError
 
+    def problema_url(self, url: str) -> str | None:
+        """Por qué no se puede pedir esta URL de búsqueda (p. ej. robots.txt del portal), o None si se puede.
+        Recibe la plantilla con {zone}/{price_min}/{price_max} sin reemplazar."""
+        return None
+
     def search_urls(self, profile: dict[str, Any]) -> list[tuple[str, str]]:
         """[(etiqueta, url)] de un perfil. Config del portal: `search_urls` (lista explícita) o `zones` +
         `search_url_template`. Cada zona es un string («almagro») o un dict con overrides ({zone, price_min,

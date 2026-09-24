@@ -159,10 +159,11 @@ def validar(doc: dict[str, Any]) -> dict[str, Any]:
             if pc.get("activo") and portal in REGISTRO and not pc.get("urls"):
                 if not pc["zonas"]:
                     raise ValueError(f"{etiqueta(portal)} está activo pero no tiene zonas")
-                if not pc["plantilla"]:
-                    REGISTRO[portal].armar_plantilla(efectivos)   # combinación verificada (ValueError si no)
-                    if efectivos["precio_min"] is None or efectivos["precio_max"] is None:
-                        raise ValueError(f"{etiqueta(portal)} necesita precio mínimo y máximo (van en la URL)")
+                plantilla = pc["plantilla"] or REGISTRO[portal].armar_plantilla(efectivos)   # verificada (ValueError si no)
+                if problema := REGISTRO[portal].problema_url(plantilla):                    # p. ej. robots.txt
+                    raise ValueError(problema)
+                if not pc["plantilla"] and (efectivos["precio_min"] is None or efectivos["precio_max"] is None):
+                    raise ValueError(f"{etiqueta(portal)} necesita precio mínimo y máximo (van en la URL)")
             b.setdefault("portales", {})[portal] = pc
     return doc
 
