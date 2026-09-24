@@ -24,6 +24,14 @@ def test_selector_de_tema(client):
     assert 'class="logo logo-c"' in t and 'class="logo logo-o"' in t   # el logo sigue al tema elegido, no sólo al dispositivo
 
 
+def test_revision_mini_mapa_o_sin_geolocalizacion(client):
+    t = client.get("/").text                                      # la cola empieza por la 3, que no tiene coordenadas
+    assert "/static/leaflet.js" in t and "Sin geolocalización" in t and 'class="mini-mapa"' not in t
+    t = client.get("/?despues=3", headers=HX).text                # la 2 sí tiene
+    assert 'data-lat="-34.61" data-lng="-58.4"' in t and "Sin geolocalización" not in t
+    assert "google.com/maps/search/?api=1&amp;query=-34.61,-58.4" in t
+
+
 def test_review_flow_and_discard(client):
     assert "<b>3</b> sin revisar" in client.get("/").text
     r = client.post("/p/3/accion", data={"accion": "descartar", "vista": "card"}, headers=HX)
