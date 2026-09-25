@@ -419,3 +419,38 @@ def test_contadores_del_header_solo_en_paginas_completas(client, monkeypatch):
     client.get("/lista", headers={**HX, "HX-Target": "resultados"})         # resultados (parcial)
     assert llamadas == []
     assert "Revisión" in client.get("/lista").text and len(llamadas) == 1   # página completa: header con contadores
+
+
+def test_vista_rapida_desde_los_listados(client):
+    """#3: visor de decisión (galería, descripción completa, acciones) separado de la ficha completa."""
+    import json
+    from sqlalchemy import text
+    from app.main import ENGINE
+    fotos = [f"https://img/avisos/1/720x532/{i}.jpg" for i in range(3)]
+    with ENGINE.begin() as c:
+        c.execute(text("UPDATE publicaciones SET fotos=:f, descripcion=:d WHERE id=1"),
+                  {"f": json.dumps(fotos), "d": "Descripción larga " * 60})
+    lista = client.get("/lista").text
+    assert 'hx-get="/p/1/rapida"' in lista and "?panel=1" not in lista      # la miniatura abre el visor
+    r = client.get("/p/1/rapida").text
+    assert 'id="rapida"' in r and ">1/3<" in r and "Ver ficha completa" in r
+    assert r.count("Descripción larga") == 60                               # descripción completa, sin cortar
+    assert "Historial de precio" not in r and "Actividad" not in r          # eso queda en la ficha completa
+    assert 'data-key="f"' in r                                             # atajos dentro del panel
+    completa = client.get("/p/1").text
+    assert "Historial de precio" in completa and "Actividad" in completa
+    assert client.get("/p/999/rapida").status_code == 404
+
+
+def test_accion_desde_vista_rapida_actualiza_la_fila(client):
+    r = client.post("/p/2/accion", data={"accion": "favorito", "vista": "rapida"}, headers={"HX-Request": "true"}).text
+    assert 'id="rapida"' in r and 'class="fav on"' in r
+    assert 'id="p2" hx-swap-oob="true"' in r and "e-fav" in r               # la fila de fondo, fuera de banda
+
+
+def test_revision_sin_vista_rapida_pero_con_mas(client):
+    html = client.get("/").text
+    assert "Vista rápida" not in html and "?panel=1" not in html
+    assert 'class="mas"' in html and "Mi puntaje" in html and 'name="etiquetas"' in html and "Ver ficha completa" in html
+    r = client.post("/p/3/accion", data={"accion": "potencial", "vista": "card"}, headers={"HX-Request": "true"}).text
+    assert "Mi puntaje" in r                                               # la tarjeta siguiente también trae «Más»

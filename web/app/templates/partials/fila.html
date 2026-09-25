@@ -1,8 +1,8 @@
 {% from "_m.html" import acciones, variacion, estados, etiquetas, usd_m2, vs_barrio %}
 {# La franja de color a la izquierda indica el estado: descartada > favorita > potencial > contactada #}
 {% set est = 'desc' if p.descartada else 'fav' if p.favorito else 'pot' if p.potencial else 'cont' if p.contactada else '' %}
-<article class="item {{ 'desc' if p.descartada }} {{ 'e-' ~ est if est }}" id="p{{ p.id }}">
-  <a class="ph" hx-get="/p/{{ p.id }}?panel=1" hx-target="#panel-body" href="/p/{{ p.id }}">
+<article class="item {{ 'desc' if p.descartada }} {{ 'e-' ~ est if est }}" id="p{{ p.id }}"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <a class="ph" hx-get="/p/{{ p.id }}/rapida" hx-target="#panel-body" href="/p/{{ p.id }}" title="Vista rápida">
     <img class="th" loading="lazy" referrerpolicy="no-referrer" src="{{ p.fotos[0]|chica if p.fotos }}" alt="">{{ variacion(p) }}</a>
   <div class="b">
     <div class="top-l"><span class="price">{{ p.precio|money(p.moneda) }}</span>{{ acciones(p, 'fila', rapidas=True) }}</div>

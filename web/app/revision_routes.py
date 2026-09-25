@@ -56,7 +56,12 @@ def revision(request: Request, despues: int | None = None, c=Depends(ctx)):
     conn = c["s"].connection()
     p, total = queries.siguiente_pendiente(conn, despues)
     tpl = "partials/card.html" if request.headers.get("HX-Request") else "revision.html"
-    return render(request, tpl, c, p=p, total=total, hoy=queries.revisadas_hoy(conn, c["user"].username))
+    return render(request, tpl, c, p=p, total=total, **_card_ctx(conn, p, c["user"].username))
+
+
+def _card_ctx(conn, p, user: str) -> dict:
+    """Lo que la tarjeta de Revisión necesita además del aviso: progreso de hoy y puntajes («Más»)."""
+    return {"hoy": queries.revisadas_hoy(conn, user), **(_puntajes_ctx(conn, p["id"], user) if p else {})}
 
 
 @router.post("/p/{pid}/accion", response_class=HTMLResponse)
@@ -89,8 +94,10 @@ def accion(request: Request, pid: int, accion: str = Form(...), vista: str = For
         p, total = queries.siguiente_pendiente(s.connection(), pid)
         if p and p["id"] == pid:
             p = None
-        return render(request, "partials/card.html", c, p=p, total=total, hoy=queries.revisadas_hoy(s.connection(), user))
+        return render(request, "partials/card.html", c, p=p, total=total, **_card_ctx(s.connection(), p, user))
     p = queries.uno(s.connection(), pid)
+    if vista == "rapida":  # el visor se actualiza y, fuera de banda, también la fila del listado que quedó detrás
+        return render(request, "partials/rapida_accion.html", c, p=p)
     return render(request, "partials/detalle.html" if vista == "detalle" else "partials/fila.html", c,
                   p=p, **_detalle_extra(s, p, vista, user))
 
@@ -139,6 +146,15 @@ def etiquetas(pid: int, etiquetas: str = Form(""), c=Depends(ctx)):
     _log(s, pid, user, "etiquetas", ",".join(tags))
     s.commit()
     return Response(status_code=204)
+
+
+@router.get("/p/{pid}/rapida", response_class=HTMLResponse)
+def rapida(request: Request, pid: int, c=Depends(ctx)):
+    """Vista rápida (visor de decisión) para el panel de los listados."""
+    p = queries.uno(c["s"].connection(), pid)
+    if not p:
+        raise HTTPException(404)
+    return render(request, "partials/rapida.html", c, p=p)
 
 
 @router.get("/p/{pid}", response_class=HTMLResponse)
