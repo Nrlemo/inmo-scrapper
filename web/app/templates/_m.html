@@ -1,6 +1,6 @@
-{# Botones de acción; `vista` = card | fila | detalle. `rapidas`: sólo favorita y potencial (o restaurar), para las filas #}
+{# Botones de acción; `vista` = card | fila | detalle | rapida. `rapidas`: sólo favorita y potencial (o restaurar), para las filas #}
 {% macro acciones(p, vista, rapidas=False) %}
-{% set tgt = {'card':'#card','fila':'#p'~p.id,'detalle':'#det'}[vista] %}
+{% set tgt = {'card':'#card','fila':'#p'~p.id,'detalle':'#det','rapida':'#rapida'}[vista] %}
 {% set sw = 'innerHTML' if vista == 'card' else 'outerHTML' %}
 <div class="acts {{ 'main' if vista == 'card' }}" hx-target="{{ tgt }}" hx-swap="{{ sw }}">
   {% if rapidas and p.descartada %}
@@ -35,6 +35,37 @@
 
 {# USD/m² frente a la mediana del barrio (app/mercado.py): verde si es más barato, rojo si es más caro, gris si ±5 % #}
 {% macro vs_barrio(p) %}{% if p.vb_pct is not none %}{% set d = p.vb_pct %}<span class="badge vb {{ 'baja' if d <= -5 else ('alta' if d >= 5 else '') }}" title="USD/m² {{ 'menor' if d < 0 else 'mayor' }} que la mediana de {{ p.vb_ref }} ({{ p.vb_n }} avisos activos)">{% if -5 < d < 5 %}≈ {{ p.vb_ref }}{% else %}{{ ('−' if d < 0 else '+') ~ ('%.0f'|format(d|abs)) }} % vs {{ p.vb_ref }}{% endif %}</span>{% endif %}{% endmacro %}
+
+{# Galería (tarjeta de Revisión y visor): tocar el costado izquierdo/derecho o deslizar la foto (o las flechas en la
+   compu) cambia de foto; ver galeria() en app.js #}
+{% macro galeria(p) %}
+{% set n = p.fotos|length %}
+<div class="hero-w"{% if n > 1 %} data-fotos='{{ p.fotos|tojson }}'{% endif %}>
+  <img class="hero" referrerpolicy="no-referrer" src="{{ p.fotos[0] if p.fotos }}" alt="">
+  {% if n > 1 %}
+  <div class="h-dots">{% for f in p.fotos %}<i class="{{ 'on' if loop.first }}"></i>{% endfor %}</div>
+  <span class="h-fotos">1/{{ n }}</span>
+  <button class="g-nav g-prev" aria-label="Foto anterior" onclick="galeria(this, -1)">‹</button>
+  <button class="g-nav g-next" aria-label="Foto siguiente" onclick="galeria(this, 1)">›</button>
+  {% endif %}
+  {% if varios_portales() %}<span class="h-portal">{{ p.portal }}</span>{% endif %}
+  {{ caller() if caller }}
+</div>
+{% endmacro %}
+
+{# Ubicación: mapa estático (no toma gestos); lo arma miniMapa() en app.js. Necesita leaflet en el <head> de la página #}
+{% macro mini_mapa(p) %}
+{% if p.lat is not none and p.lng is not none %}
+<div class="mini-mapa-w">
+  <div class="mini-mapa" data-lat="{{ p.lat }}" data-lng="{{ p.lng }}" role="img" aria-label="Ubicación en el mapa"></div>
+  <div class="row" style="justify-content:space-between;gap:.5rem">
+    {% if p.geo_fuente == 'direccion' %}<span class="mut" style="font-size:.8rem" title="El portal no publica la ubicación: se ubicó por la dirección (altura de cuadra)">Ubicación aproximada</span>{% else %}<span></span>{% endif %}
+    <a class="mini-mapa-link" href="https://www.google.com/maps/search/?api=1&amp;query={{ p.lat }},{{ p.lng }}" target="_blank" rel="noopener noreferrer">Abrir en Google Maps ↗</a></div>
+</div>
+{% else %}
+<div class="mini-mapa sin-geo">Sin geolocalización</div>
+{% endif %}
+{% endmacro %}
 
 {# Datos principales como fichas (tarjeta de revisión) #}
 {% macro fichas(p) %}

@@ -1,0 +1,4 @@
+{# Respuesta a una acción desde la vista rápida: el visor actualizado + la fila del listado (fuera de banda). Si la
+   fila no está en la página (otro listado, otra página), htmx simplemente no la encuentra. #}
+{% include "partials/rapida.html" %}
+{% set oob = True %}{% include "partials/fila.html" %}

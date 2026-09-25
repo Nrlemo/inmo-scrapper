@@ -1,0 +1,33 @@
+{# Vista rápida: «visor de decisión» que se abre desde los listados (miniatura de cada fila) en el <dialog id="panel">.
+   Lo esencial para decidir; lo demás (historial, «también publicada en», actividad, embebido) queda en la ficha completa.
+   Anterior/siguiente recorre las filas visibles del listado (app.js, sin pasar ids al servidor). #}
+{% from "_m.html" import acciones, fichas, variacion, estados, etiquetas, usd_m2, vs_barrio, galeria, mini_mapa %}
+<div id="rapida" class="rapida" data-id="{{ p.id }}">
+  <div class="r-top">
+    <div class="r-nav">
+      <button type="button" class="r-prev" aria-label="Aviso anterior (←)" title="Anterior (←)" onclick="rapidaIr(-1)">‹</button>
+      <span class="r-pos mut"></span>
+      <button type="button" class="r-next" aria-label="Aviso siguiente (→)" title="Siguiente (→)" onclick="rapidaIr(1)">›</button>
+    </div>
+    <div class="r-precio">
+      <span class="price">{{ p.precio|money(p.moneda) }}</span> {{ variacion(p) }}
+      <div class="mut r-sub">{% if p.usd_m2 %}{{ usd_m2(p) }} {{ vs_barrio(p) }}{% endif %}{% if p.usd_m2 and p.expensas %} · {% endif %}{% if p.expensas %}exp. {{ p.expensas|money(p.moneda_expensas) }}{% endif %}</div>
+    </div>
+    {{ acciones(p, 'rapida') }}
+  </div>
+  {{ galeria(p) }}
+  <div class="in">
+    <div>
+      <div class="addr-l">{{ p.direccion|dir or p.titulo }}</div>
+      <div class="mut">{{ p.barrio }}{% if p.inmo_nombre %} · {{ p.inmo_nombre }}{% endif %}</div>
+    </div>
+    {{ fichas(p) }}
+    <div class="chips">{{ estados(p) }}{{ etiquetas(p) }}</div>
+    {{ mini_mapa(p) }}
+    <p class="desc-full">{{ p.descripcion or p.titulo or '—' }}</p>
+    <div class="acts">
+      <a class="btn pri" href="/p/{{ p.id }}">Ver ficha completa ↗</a>
+      <a class="btn" data-key="o" href="{{ p.url }}" target="_blank" rel="noopener noreferrer">Abrir aviso ↗</a>
+    </div>
+  </div>
+</div>

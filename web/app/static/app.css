@@ -170,6 +170,22 @@ td,th{min-width:96px}
 dialog{width:min(900px,96vw);max-height:92vh;border:0;border-radius:18px;padding:0;background:var(--bg);color:var(--fg);box-shadow:0 20px 60px #0007}
 dialog::backdrop{background:#0009;backdrop-filter:blur(2px)}
 dialog .x{position:sticky;top:.5rem;float:right;margin:.5rem;z-index:2;width:40px;padding:0;border-radius:50%}
+/* ---- vista rápida (visor de decisión desde los listados) ---- */
+.rapida .r-top{position:sticky;top:0;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .8rem;padding:.6rem 3.4rem .6rem .8rem;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+#panel-body:focus{outline:none}
+.rapida .r-nav{display:flex;align-items:center;gap:.35rem}.rapida .r-nav[hidden]{display:none}
+.rapida .r-nav button{width:38px;min-height:38px;padding:0;border-radius:50%;font-size:1.3rem}
+.rapida .r-nav button:disabled{opacity:.35;cursor:default}.rapida .r-pos{font-size:.85rem;min-width:4.5rem;text-align:center}
+.rapida .r-precio{flex:1;min-width:10rem}.rapida .r-sub{font-size:.85rem}
+.rapida .r-top .acts button{min-height:38px}
+.rapida .hero{display:block;width:100%;aspect-ratio:4/3;max-height:460px;object-fit:cover;background:var(--line)}
+.rapida .in{padding:.9rem 1rem 1.2rem;display:flex;flex-direction:column;gap:.6rem}
+.desc-full{white-space:pre-line;margin:.2rem 0;color:var(--fg);font-size:.95rem}
+/* «Más» de la tarjeta de Revisión: puntaje, etiquetas propias y descripción completa */
+details.mas{border:1px solid var(--line);border-radius:12px;padding:.1rem .7rem}
+details.mas[open]{padding-bottom:.7rem;display:flex;flex-direction:column;gap:.5rem}
+details.mas summary{cursor:pointer;padding:.45rem 0;color:var(--acc);font-weight:600;font-size:.92rem}
+details.mas .desc-full{color:var(--mut)}
 iframe.emb{width:100%;height:70vh;border:1px solid var(--line);border-radius:12px}
 #map{height:calc(100dvh - 250px);min-height:340px;border-radius:var(--r);border:1px solid var(--line)}
 .leaflet-popup-content{margin:.6rem .7rem}
@@ -206,6 +222,8 @@ iframe.emb{width:100%;height:70vh;border:1px solid var(--line);border-radius:12p
   .fab .acts .cont.on .ic{background:var(--blue-fill);color:#fff;border-color:var(--blue-fill)}
   .fab .acts .bad .ic{width:62px;height:62px;font-size:1.7rem;background:var(--bad-fill);color:#fff;border-color:var(--bad-fill)}
   dialog{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
+  .rapida .r-top .acts .lbl{display:none}.rapida .r-top .acts button{width:42px;padding:0;border-radius:50%}
+  .rapida .hero{max-height:none}
   #map{height:calc(100dvh - 300px)}
   h1{font-size:1.15rem}
 }

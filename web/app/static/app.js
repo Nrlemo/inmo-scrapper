@@ -3,11 +3,17 @@ document.addEventListener('htmx:configRequest', e => {
   const m = document.querySelector('meta[name=csrf-token]');
   if (m) e.detail.headers['X-CSRF-Token'] = m.content;
 });
-// Atajos de teclado (revisión): f favorita, p potencial, d descartar, c contactada, → / n siguiente, o abrir aviso
+// Atajos de teclado: f favorita, p potencial, d descartar, c contactada, → / n siguiente, o abrir aviso.
+// Con la vista rápida abierta actúan sólo sobre ella (no sobre lo que quedó detrás) y ← → recorren el listado.
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+  const abierto = document.querySelector('dialog[open]');
+  if (abierto && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+    e.preventDefault();
+    return rapidaIr(e.key === 'ArrowRight' ? 1 : -1);
+  }
   const k = e.key === 'ArrowRight' ? 'n' : e.key.toLowerCase();
-  const el = document.querySelector('[data-key="' + k + '"]');
+  const el = (abierto || document).querySelector('[data-key="' + k + '"]');
   if (el) { e.preventDefault(); el.click(); }
 });
 // Galería de la tarjeta de Revisión: `paso` = -1 / +1 (con vuelta). Precarga la foto siguiente.
@@ -42,7 +48,7 @@ document.addEventListener('htmx:afterSwap', e => { if (e.detail.target.id === 'c
     art.dataset.swipe = d <= -umbral() ? 'izq' : d >= umbral() ? 'der' : '';
   };
   document.addEventListener('touchstart', e => {
-    art = e.touches.length === 1 && !e.target.closest('textarea,button,a,input') && e.target.closest('#card article.card');
+    art = e.touches.length === 1 && !e.target.closest('textarea,button,a,input,select,summary') && e.target.closest('#card article.card');
     if (!art) return;
     x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; eje = null;
     heroW = e.target.closest('.hero-w[data-fotos]');
@@ -89,10 +95,85 @@ document.addEventListener('htmx:afterSwap', e => { if (e.detail.target.id === 'c
     if (!e.detail.successful && a) { a.style.transform = ''; a.dataset.swipe = ''; }
   });
 })();
-// Abrir el panel de vista rápida cuando llega su contenido
+// ---------- Vista rápida (panel de los listados) ----------
+// Se abre desde la miniatura de una fila. Anterior/siguiente recorre las filas visibles del listado, en su orden y con
+// sus filtros. Abrirla agrega una entrada al historial, así el botón/gesto Atrás (también en la app Android) la cierra.
+let rapidaIds = [], cerrandoPorAtras = false, volviendo = false;
+const panel = () => document.getElementById('panel');
+const filasVisibles = () => [...document.querySelectorAll('#resultados article.item[id^="p"]')].map(a => a.id.slice(1));
+
+function rapidaIr(paso) {
+  const r = document.getElementById('rapida');
+  if (!r) return;
+  const j = rapidaIds.indexOf(r.dataset.id) + paso;
+  if (j < 0 || j >= rapidaIds.length || rapidaIds.indexOf(r.dataset.id) < 0) return;
+  htmx.ajax('GET', `/p/${rapidaIds[j]}/rapida`, { target: '#panel-body', swap: 'innerHTML' });
+}
+
+function prepararRapida() {
+  const r = document.getElementById('rapida');
+  if (!r) return;
+  const i = rapidaIds.indexOf(r.dataset.id), n = rapidaIds.length, nav = r.querySelector('.r-nav');
+  nav.hidden = i < 0 || n < 2;
+  r.querySelector('.r-pos').textContent = i < 0 ? '' : `${i + 1} de ${n}`;
+  r.querySelector('.r-prev').disabled = i <= 0;
+  r.querySelector('.r-next').disabled = i < 0 || i >= n - 1;
+  const w = r.querySelector('.hero-w[data-fotos]');
+  if (w) new Image().src = JSON.parse(w.dataset.fotos)[1];
+  miniMapa(r);
+}
+
 document.addEventListener('htmx:afterSwap', e => {
-  if (e.detail.target.id === 'panel-body') document.getElementById('panel').showModal();
+  if (e.detail.target.id !== 'panel-body') return;
+  const d = panel();
+  if (!d.open) {
+    rapidaIds = e.detail.requestConfig?.elt?.closest?.('#resultados article.item') ? filasVisibles() : [];
+    d.showModal();
+    history.pushState({ panel: 1 }, '');
+  }
+  d.scrollTop = 0;
+  prepararRapida();
 });
+// Una acción dentro del visor lo reemplaza entero (hx-swap outerHTML): volver a armar navegación, galería y mapa
+document.addEventListener('htmx:afterSettle', () => { if (panel()?.open) prepararRapida(); });
+
+// Atrás con el panel abierto: cerrarlo. Se escucha en captura para cortar el popstate antes que htmx (window.onpopstate),
+// que si no restauraría su copia vieja del listado y pisaría los cambios recién hechos en las filas.
+window.addEventListener('popstate', e => {
+  const d = panel();
+  if (d?.open) {
+    cerrandoPorAtras = true;
+    d.close();
+    e.stopImmediatePropagation();
+  } else if (volviendo) {
+    volviendo = false;
+    e.stopImmediatePropagation();
+  }
+}, true);
+document.addEventListener('DOMContentLoaded', () => panel()?.addEventListener('close', () => {
+  // Cerrado con ✕ o Esc: sacar la entrada que agregó la apertura (su popstate no debe restaurar nada)
+  if (!cerrandoPorAtras && history.state?.panel) { volviendo = true; history.back(); }
+  cerrandoPorAtras = false;
+}));
+
+// Deslizar la foto del visor cambia de foto (en la tarjeta de Revisión deslizar descarta/salta; ver más arriba)
+(() => {
+  let x0 = 0, y0 = 0, w = null;
+  document.addEventListener('touchstart', e => {
+    w = e.touches.length === 1 && e.target.closest('#rapida .hero-w[data-fotos]');
+    if (w) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (!w || e.target.closest('button')) return (w = null);
+    const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) galeria(w, dx < 0 ? 1 : -1);
+    else if (Math.hypot(dx, dy) < 10) {                          // toque: costado izquierdo = anterior
+      const r = w.getBoundingClientRect();
+      galeria(w, x0 - r.left < r.width * 0.35 ? -1 : 1);
+    }
+    w = null;
+  });
+})();
 // Aviso embebido (puede ser bloqueado por el portal; se carga sólo a pedido)
 function loadFrame(btn) {
   const f = document.createElement('iframe');
@@ -145,10 +226,10 @@ document.addEventListener('DOMContentLoaded', () => {
   pintarTema();
   document.getElementById('tema')?.addEventListener('click', cambiarTema);
 });
-// Mini mapa de la tarjeta de Revisión con la ubicación del aviso. Estático: no se arrastra ni hace zoom (los gestos
+// Mini mapa (tarjeta de Revisión o vista rápida) con la ubicación del aviso. Estático: no se arrastra ni hace zoom (los gestos
 // de la tarjeta, deslizar y doble toque, siguen andando encima). Se arma de nuevo cada vez que htmx trae otra tarjeta.
-function miniMapa() {
-  const el = document.querySelector('#card .mini-mapa[data-lat]');
+function miniMapa(raiz) {
+  const el = (raiz instanceof Element ? raiz : document.getElementById('card'))?.querySelector('.mini-mapa[data-lat]');
   if (!el || !window.L || el.dataset.listo) return;
   el.dataset.listo = '1';
   const ll = [+el.dataset.lat, +el.dataset.lng];
