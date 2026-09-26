@@ -16,6 +16,7 @@ def _build(tmp_path, monkeypatch, mode, headers=None, base_url="http://testserve
     monkeypatch.setenv("INMO_CONFIG", str(cfg))
     monkeypatch.setenv("AUTH_MODE", mode)
     monkeypatch.setenv("BACKUP_ENABLED", "false")                  # el programador no corre en los tests
+    monkeypatch.setenv("GEOCODIFICAR", "false")                    # sin pedidos a servicios externos en los tests
     monkeypatch.setenv("BACKUP_DIR", str(tmp_path / "backups"))
     monkeypatch.delenv("BACKUP_DIR_EXTRA", raising=False)
     monkeypatch.setenv("SETUP_TOKEN", "TEST-CODE-1234")

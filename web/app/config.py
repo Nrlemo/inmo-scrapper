@@ -50,3 +50,6 @@ BACKUP_DIR_EXTRA = os.environ.get("BACKUP_DIR_EXTRA", "").strip() or None
 BACKUP_DIARIOS = int(os.environ.get("BACKUP_DIARIOS", "7"))
 BACKUP_SEMANALES = int(os.environ.get("BACKUP_SEMANALES", "4"))
 BACKUP_MENSUALES = int(os.environ.get("BACKUP_MENSUALES", "6"))
+# Geolocalización de avisos sin coordenadas (app/geocodificacion.py): copiar del duplicado en otro portal y
+# geocodificar la dirección con el normalizador de la Ciudad de Buenos Aires (USIG). Sólo CABA.
+GEOCODIFICAR = os.environ.get("GEOCODIFICAR", "true").strip().lower() not in ("0", "false", "no", "off")

@@ -31,7 +31,9 @@
     {% if p.lat is not none and p.lng is not none %}
     <div class="mini-mapa-w">
       <div class="mini-mapa" data-lat="{{ p.lat }}" data-lng="{{ p.lng }}" role="img" aria-label="Ubicación en el mapa"></div>
-      <a class="mini-mapa-link" href="https://www.google.com/maps/search/?api=1&amp;query={{ p.lat }},{{ p.lng }}" target="_blank" rel="noopener noreferrer">Abrir en Google Maps ↗</a>
+      <div class="row" style="justify-content:space-between;gap:.5rem">
+        {% if p.geo_fuente == 'direccion' %}<span class="mut" style="font-size:.8rem" title="El portal no publica la ubicación: se ubicó por la dirección (altura de cuadra)">Ubicación aproximada</span>{% else %}<span></span>{% endif %}
+        <a class="mini-mapa-link" href="https://www.google.com/maps/search/?api=1&amp;query={{ p.lat }},{{ p.lng }}" target="_blank" rel="noopener noreferrer">Abrir en Google Maps ↗</a></div>
     </div>
     {% else %}
     <div class="mini-mapa sin-geo">Sin geolocalización</div>

@@ -59,6 +59,16 @@ class BusquedaGuardada(WebBase):
     usuario: Mapped[str] = mapped_column(String(128))
 
 
+class Geocache(WebBase):
+    """Direcciones ya consultadas al geocodificador (app/geocodificacion.py): cada una se pide una sola vez."""
+    __tablename__ = "web_geocache"
+    direccion: Mapped[str] = mapped_column(String(200), primary_key=True)   # normalizada, lo que se consultó
+    lat: Mapped[float | None] = mapped_column(Float)                        # None: no se encontró (en CABA)
+    lng: Mapped[float | None] = mapped_column(Float)
+    resultado: Mapped[str | None] = mapped_column(String(200))              # dirección normalizada que devolvió
+    fecha: Mapped[datetime] = mapped_column(DateTime)
+
+
 class VsBarrio(WebBase):
     """USD/m² de cada aviso frente a la mediana de su barrio (app/mercado.py). Se recalcula cuando cambian los datos."""
     __tablename__ = "web_vs_barrio"

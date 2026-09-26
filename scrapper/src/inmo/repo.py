@@ -40,6 +40,7 @@ def upsert(s: Session, l: Listing, now: datetime) -> tuple[Publicacion, str]:
     if p is None:
         p = Publicacion(portal=l.portal, id_externo=l.id_externo, fecha_primera_vista=now,
                         fecha_ultima_vista=now, activa=True, consultas_sin_ver=0, fuera_filtro=False,
+                        geo_fuente="portal" if l.lat is not None else None,
                         corredor=l.corredor, inmobiliaria_id=emp.id if emp else None,
                         **{k: data[k] for k in _FIELDS})
         p.categorizacion = Categorizacion(estado="nuevo", etiquetas=[], etiquetas_auto=[], fecha_modificacion=now)
@@ -62,6 +63,8 @@ def upsert(s: Session, l: Listing, now: datetime) -> tuple[Publicacion, str]:
     if l.corredor:
         p.corredor = l.corredor
     p.fecha_ultima_vista, p.activa, p.consultas_sin_ver = now, True, 0
+    if l.lat is not None:
+        p.geo_fuente = "portal"     # las del portal reemplazan a las copiadas o geocodificadas
     p.fuera_filtro = False          # sólo se guarda lo que cumple los filtros de la búsqueda
     if changed:
         p.historial.append(HistorialPrecio(precio=l.precio, moneda=l.moneda, fecha=now,
@@ -118,7 +121,17 @@ def link_duplicates(s: Session, p: Publicacion) -> None:
                 and _close(o.m2_totales or o.m2_cubiertos, p.m2_totales or p.m2_cubiertos, 0.03)):
             p.grupo_id = o.grupo_id or o.id
             o.grupo_id = p.grupo_id
+            copiar_coordenadas(p, o)
             return
+
+
+def copiar_coordenadas(a: Publicacion, b: Publicacion) -> bool:
+    """Mismo inmueble en dos portales: el que no tiene coordenadas toma las que publicó el otro portal."""
+    for sin, con in ((a, b), (b, a)):
+        if sin.lat is None and con.lat is not None and con.geo_fuente in (None, "portal"):
+            sin.lat, sin.lng, sin.geo_fuente = con.lat, con.lng, "duplicado"
+            return True
+    return False
 
 
 def last_query(s: Session, portal: str) -> Consulta | None:

@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from . import auth, backups, config, errores, rondas
+from . import auth, backups, config, errores, geocodificacion, rondas
 from .auth_routes import router as auth_router
 from .backup_routes import router as backup_router
 from .busqueda_routes import router as busqueda_router
@@ -39,6 +39,8 @@ async def lifespan(app: FastAPI):
         threading.Thread(target=backups.run_forever, args=(stop,), daemon=True, name="backups").start()
         log.info("Backups diarios a las %s en %s%s", config.BACKUP_HORA, config.BACKUP_DIR,
                  f" (copia extra en {config.BACKUP_DIR_EXTRA})" if config.BACKUP_DIR_EXTRA else "")
+    if config.GEOCODIFICAR:
+        threading.Thread(target=geocodificacion.run_forever, args=(ENGINE, stop), daemon=True, name="geo").start()
     yield
     stop.set()
 
