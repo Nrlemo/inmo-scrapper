@@ -32,6 +32,11 @@ svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stro
 .sec{margin-left:auto;display:flex;gap:.9rem;align-items:center;font-size:.9rem;min-width:0;overflow-x:auto;scrollbar-width:none;white-space:nowrap}.sec a{color:var(--mut)}.sec a.on{color:var(--acc);font-weight:600}
 .tema{display:inline-flex;align-items:center;justify-content:center;flex:none;width:34px;height:34px;min-height:0;padding:0;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--mut);cursor:pointer}
 .tema:hover{color:var(--acc);border-color:var(--acc);background:transparent}.tema svg.i{width:18px;height:18px}
+.menu-btn{position:relative}.menu-btn .dot{position:absolute;top:-2px;right:-2px;margin:0;border:2px solid var(--card);box-sizing:content-box}
+.menu{position:fixed;inset:auto;top:3.4rem;right:.75rem;margin:0;min-width:12rem;padding:.35rem;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--fg);box-shadow:0 8px 28px #0000002a}
+.menu:popover-open{display:flex;flex-direction:column}
+.menu a,.menu .user{padding:.55rem .8rem;border-radius:10px;color:var(--fg)}.menu a:hover{background:var(--acc-soft);text-decoration:none}
+.menu a.on{color:var(--acc);font-weight:600}.menu .runlink{color:var(--ok-txt);background:var(--ok-soft);margin-bottom:.25rem}
 /* Pantallas medianas (celular apaisado, tablet): las pestañas y los links secundarios no entran en una fila */
 @media(min-width:701px) and (max-width:1100px){.top{flex-wrap:wrap;row-gap:.3rem}.sec{margin-left:0;flex-basis:100%}}
 @media(max-width:700px){
@@ -46,7 +51,6 @@ svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stro
   .tabs .n{position:absolute;top:0;left:55%;font-size:.62rem}
   .tabs a svg.i{box-sizing:content-box;padding:3px 16px;border-radius:999px}
   .tabs a.on svg.i{background:var(--acc-soft)}   /* pestaña activa: píldora detrás del ícono (Material 3) */
-  .sec .user{display:none}
   main{padding:.75rem .75rem 1.5rem}
 }
 
