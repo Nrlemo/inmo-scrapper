@@ -64,6 +64,9 @@ class Publicacion(Base):
     corredor: Mapped[str | None] = mapped_column(Text)
     lat: Mapped[float | None] = mapped_column(Float)
     lng: Mapped[float | None] = mapped_column(Float)
+    # De dónde salen lat/lng: «portal» (publicadas por el portal), «duplicado» (copiadas del mismo inmueble en otro
+    # portal) o «direccion» (geocodificadas por la dirección: aproximadas, por altura de cuadra).
+    geo_fuente: Mapped[str | None] = mapped_column(String(12))
 
     historial: Mapped[list[HistorialPrecio]] = relationship(
         back_populates="publicacion", order_by="HistorialPrecio.fecha", cascade="all, delete-orphan"
@@ -177,6 +180,9 @@ def _migrate(engine: Engine) -> None:
         for col in ("lat", "lng"):
             if pub and col not in pub:
                 c.exec_driver_sql(f"ALTER TABLE publicaciones ADD COLUMN {col} FLOAT")
+        if pub and "geo_fuente" not in pub:
+            c.exec_driver_sql("ALTER TABLE publicaciones ADD COLUMN geo_fuente VARCHAR(12)")
+            c.exec_driver_sql("UPDATE publicaciones SET geo_fuente = 'portal' WHERE lat IS NOT NULL")
         if pub and "fuera_filtro" not in pub:
             c.exec_driver_sql("ALTER TABLE publicaciones ADD COLUMN fuera_filtro BOOLEAN NOT NULL DEFAULT 0")
             c.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_publicaciones_fuera_filtro ON publicaciones(fuera_filtro)")

@@ -212,3 +212,33 @@ def test_parse_pictures_sin_estado_precargado_y_con_barras_escapadas():
     assert parse_pictures("<html></html>") == {}
     t = '"postingId":"1","url730x532":"https:\\/\\/img\\/a.jpg","url730x532":"https:\\/\\/img\\/a.jpg","postingId":"2","url730x532":"https://img/b.jpg"'
     assert parse_pictures(t) == {"1": ["https://img/a.jpg"], "2": ["https://img/b.jpg"]}
+
+
+def test_coordenadas_del_portal_y_del_duplicado(engine):
+    """#38: el inmueble publicado sin coordenadas (Argenprop, MercadoLibre) toma las del mismo en otro portal."""
+    now = datetime(2026, 9, 25)
+    with Session(engine) as s:
+        zp, _ = repo.upsert(s, Listing("zonaprop", "1", "u", direccion="Entre Rios al 1600", barrio="Balvanera",
+                                       precio=118000, moneda="USD", m2_totales=80, lat=-34.62, lng=-58.39), now)
+        assert zp.geo_fuente == "portal"
+        ml, _ = repo.upsert(s, Listing("mercadolibre", "MLA1", "u", direccion="Entre Rios al 1600", barrio="Balvanera",
+                                       precio=118000, moneda="USD", m2_totales=80), now)
+        assert ml.grupo_id == zp.id and (ml.lat, ml.lng, ml.geo_fuente) == (-34.62, -58.39, "duplicado")
+        repo.upsert(s, Listing("mercadolibre", "MLA1", "u", precio=118000, moneda="USD"), now)   # sin coordenadas:
+        assert ml.geo_fuente == "duplicado" and ml.lat == -34.62                                # no se pisan
+        repo.upsert(s, Listing("mercadolibre", "MLA1", "u", precio=118000, moneda="USD", lat=-34.6, lng=-58.4), now)
+        assert (ml.lat, ml.geo_fuente) == (-34.6, "portal")                                     # las del portal mandan
+
+
+def test_migracion_marca_como_portal_las_coordenadas_existentes(tmp_path):
+    import sqlite3
+    db = tmp_path / "vieja.sqlite"
+    make_engine(str(db)).dispose()
+    con = sqlite3.connect(db)
+    con.execute("ALTER TABLE publicaciones DROP COLUMN geo_fuente")
+    con.execute("INSERT INTO publicaciones (portal, id_externo, url, fecha_primera_vista, fecha_ultima_vista, activa, "
+                "consultas_sin_ver, fuera_filtro, fotos, lat, lng) VALUES ('zonaprop', '1', 'u', '2026-01-01', '2026-01-01', 1, 0, 0, '[]', -34.6, -58.4)")
+    con.commit()
+    con.close()
+    make_engine(str(db)).dispose()
+    assert sqlite3.connect(db).execute("SELECT geo_fuente FROM publicaciones").fetchone() == ("portal",)

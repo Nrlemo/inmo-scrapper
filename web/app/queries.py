@@ -259,7 +259,8 @@ def mapa(c: Connection, f: Filtros) -> list[dict]:
         out.append({"id": d["id"], "lat": d["lat"], "lng": d["lng"], "precio": d["precio"], "moneda": d["moneda"],
                     "m2": d["m2_cubiertos"], "amb": d["ambientes"], "dir": d["direccion"], "barrio": d["barrio"],
                     "foto": foto_chica((d["fotos"] or [None])[0]), "fav": bool(d["favorito"]), "pot": bool(d["potencial"]), "desc": bool(d["descartada"]),
-                    "cont": bool(d["contactada"]), "baja": (d["variacion_pct"] or 0) < 0})
+                    "cont": bool(d["contactada"]), "baja": (d["variacion_pct"] or 0) < 0,
+                    "aprox": d.get("geo_fuente") == "direccion"})
     return out
 
 

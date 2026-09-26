@@ -13,7 +13,7 @@
 </form>
 {% if not con_coords %}<p class="empty">Todavía no hay coordenadas: se cargan en la próxima ronda (los avisos ya guardados se completan al volver a verse).</p>{% endif %}
 <div id="map"></div>
-<p class="mut" style="font-size:.85rem">● roja: normal · ● amarilla: favorita · ● violeta: potencial · ● azul: contactada · ● gris: descartada · borde verde: bajó de precio</p>
+<p class="mut" style="font-size:.85rem">● roja: normal · ● amarilla: favorita · ● violeta: potencial · ● azul: contactada · ● gris: descartada · borde verde: bajó de precio · punteado: ubicación aproximada (por dirección)</p>
 <script src="/static/leaflet.js"></script><script src="/static/leaflet.markercluster.js"></script>
 <script>
 const map = L.map('map').setView([-34.6, -58.44], 12);
@@ -36,7 +36,9 @@ async function load() {
   layer = L.markerClusterGroup({iconCreateFunction: c => L.divIcon({html: c.getChildCount(), className: 'marker-cluster', iconSize: [34, 34]})});
   data.forEach(d => {
     const col = d.desc ? '#999' : d.fav ? '#e0a800' : d.pot ? '#8e44ad' : d.cont ? '#2b7de9' : '#d9534f';
-    layer.addLayer(L.circleMarker([d.lat, d.lng], {radius: 8, color: d.baja ? '#1f8a4c' : '#fff', weight: d.baja ? 3 : 1, fillColor: col, fillOpacity: .9}).bindPopup(() => popup(d)));
+    // aprox: geocodificada por la dirección (altura de cuadra), no publicada por el portal
+    layer.addLayer(L.circleMarker([d.lat, d.lng], {radius: 8, color: d.baja ? '#1f8a4c' : (d.aprox ? '#333' : '#fff'), weight: d.baja ? 3 : (d.aprox ? 1.5 : 1),
+                                                   dashArray: d.aprox ? '3 3' : null, fillColor: col, fillOpacity: d.aprox ? .55 : .9}).bindPopup(() => popup(d)));
   });
   map.addLayer(layer);
   document.getElementById('cnt').textContent = data.length + ' en el mapa';
