@@ -100,8 +100,11 @@ def page_url(search_url: str, n: int) -> str:
 
 def armar_plantilla(f: dict) -> str:
     """Filtros -> plantilla con {zone}. Precio y superficie no pueden ir en la URL (robots.txt): se filtran al recibir."""
-    if (f.get("tipo"), f.get("operacion")) != ("departamento", "compra"):
-        raise ValueError("MercadoLibre: sólo está verificada la búsqueda de departamentos en venta; usá la plantilla avanzada")
+    if (f.get("tipo"), f.get("operacion")) not in (("departamento", "compra"), ("departamento", "alquiler")):
+        raise ValueError("MercadoLibre: sólo están verificadas las búsquedas de departamentos en venta y en alquiler; "
+                         "usá la plantilla avanzada")
+    if f["operacion"] == "alquiler":     # verificado: «/departamentos/alquiler/capital-federal/caballito/»
+        return f"{BASE}/departamentos/alquiler/capital-federal/{{zone}}/"
     return f"{BASE}/departamentos/venta/propiedades-individuales/capital-federal/{{zone}}/"
 
 
@@ -128,6 +131,10 @@ class MercadoLibre(Portal):
 
     def armar_plantilla(self, filtros: dict) -> str:
         return armar_plantilla(filtros)
+
+    def precios_requeridos(self, filtros: dict) -> tuple[str, ...]:
+        # El precio no va en la URL (robots.txt): en alquiler no hace falta. En compra se sigue pidiendo (como antes).
+        return () if filtros.get("operacion") == "alquiler" else ("precio_min", "precio_max")
 
     def leer_plantilla(self, plantilla: str) -> dict | None:
         return leer_plantilla(plantilla)

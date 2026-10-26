@@ -22,7 +22,7 @@ La primera vez se crea `scrapper/config/profiles.yaml` a partir de `profiles.exa
 
 > **Podman:** `podman build -t inmo-web .` y correrlo con `--userns=keep-id:uid=1000,gid=1000` y los volúmenes con `:Z`.
 
-Los datos viven en `scrapper/data/` (SQLite, que incluye usuarios y sesiones) y la configuración en `scrapper/config/profiles.yaml`.
+Los datos viven en `scrapper/data/` (tres SQLite: `inmo.sqlite` con los avisos de compra, `alquiler.sqlite` con los de alquiler y `auth.sqlite` con usuarios, sesiones y tokens) y la configuración en `scrapper/config/profiles.yaml`.
 El contenedor corre con UID 1000: si tu usuario es otro, hacé `chown` de `scrapper/data`.
 
 ### Modo `basic`: primer inicio
@@ -146,7 +146,8 @@ Para publicarla: `docker tag inmo-web TU_USUARIO/inmo-web:latest && docker push 
 
 | Variable | Uso |
 |---|---|
-| `INMO_DB`, `INMO_CONFIG` | Rutas de la SQLite y del YAML (en la imagen: `/data/inmo.sqlite`, `/config/profiles.yaml`) |
+| `INMO_DB`, `INMO_CONFIG` | Rutas de la SQLite de **compra** y del YAML (en la imagen: `/data/inmo.sqlite`, `/config/profiles.yaml`) |
+| `INMO_DB_ALQUILER`, `INMO_DB_AUTH` | SQLite de **alquiler** y de **autenticación** (cuentas, sesiones y tokens de la extensión, compartida). Por defecto, junto a `INMO_DB`: `alquiler.sqlite` y `auth.sqlite` |
 | `AUTH_MODE` | `basic` (default), `authentik` o `none` |
 | `SETUP_TOKEN` | Modo `basic`: código de instalación (vacío = aleatorio, en el log) |
 | `SESSION_IDLE_HOURS`, `SESSION_MAX_DAYS` | Modo `basic`: cierre por inactividad (8) y duración máxima de la sesión (7) |

@@ -73,6 +73,16 @@ auto_tags:
   bajas_expensas: ["bajas expensas", "expensas bajas", "sin expensas", "expensas mínimas"]
   cerca_subte: ["subte", "estación de subte", "premetro"]
 
+# Etiquetas automáticas que se suman a las de arriba sólo en la base de alquiler (si una se llama igual, pisa a la de
+# arriba). Recordá que una mención negada («sin muebles», «no acepta mascotas») no cuenta.
+auto_tags_alquiler:
+  amoblado: ["amoblado", "amueblado", "con muebles", "totalmente equipado"]
+  garantia_propietaria: ["garantía propietaria", "garantia propietaria", "garantía de propietario"]
+  seguro_caucion: ["seguro de caución", "seguro de caucion", "caución"]
+  expensas_incluidas: ["expensas incluidas", "incluye expensas"]
+  temporario: ["temporario", "temporal", "por temporada", "alquiler temporario"]
+  servicios_incluidos: ["servicios incluidos", "gastos incluidos"]
+
 # Cadencia prudente de la ronda por navegador (por portal). Todos los valores en segundos salvo indicación.
 politeness:
   zonaprop:

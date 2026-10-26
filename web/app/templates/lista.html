@@ -17,6 +17,8 @@
     {% for b in portales %}<option {{ 'selected' if f.portal == b }}>{{ b }}</option>{% endfor %}</select>
   <select name="inmo"><option value="">Toda inmobiliaria</option>
     {% for i in inmos %}<option value="{{ i.id }}" {{ 'selected' if f.inmo == i.id }}>{{ i.nombre }} ({{ i.n }})</option>{% endfor %}</select>
+  {% if es_alquiler %}<select name="moneda" title="Los precios sólo se comparan dentro de una moneda"><option value="">ARS y USD</option>
+    {% for m in ('ARS', 'USD') %}<option {{ 'selected' if f.moneda == m }}>{{ m }}</option>{% endfor %}</select>{% endif %}
   <input name="pmin" type="number" placeholder="Precio mín" value="{{ f.pmin|int if f.pmin is not none }}">
   <input name="pmax" type="number" placeholder="Precio máx" value="{{ f.pmax|int if f.pmax is not none }}">
   <input name="mmin" type="number" placeholder="m² cub. mín" value="{{ f.mmin|int if f.mmin is not none }}">
@@ -24,13 +26,13 @@
     {% for t in etiquetas %}<option value="{{ t.nombre }}" {{ 'selected' if f.etiqueta == t.nombre }}>#{{ t.nombre }} ({{ t.n }})</option>{% endfor %}</select>
   <select name="amb"><option value="">Ambientes</option>{% for n in range(1, 7) %}<option value="{{ n }}" {{ 'selected' if f.amb == n }}>{{ n }}+</option>{% endfor %}</select>
   <select name="orden">
-    {% for v, l in [('nuevas', 'Más nuevas'), ('precio_asc', 'Precio ↑'), ('precio_desc', 'Precio ↓'), ('usd_m2', 'USD/m² ↑'), ('oportunidad', 'Más barato vs barrio'), ('m2', 'Más m²'), ('baja', 'Mayor baja'), ('puntaje', 'Puntaje promedio')] %}
+    {% for v, l in [('nuevas', 'Más nuevas'), ('precio_asc', 'Precio ↑'), ('precio_desc', 'Precio ↓'), ('usd_m2', 'Precio/m² ↑'), ('oportunidad', 'Más barato vs barrio'), ('m2', 'Más m²'), ('baja', 'Mayor baja'), ('puntaje', 'Puntaje promedio')] %}
     <option value="{{ v }}" {{ 'selected' if f.orden == v }}>{{ l }}</option>{% endfor %}</select>
   <label><input type="checkbox" name="baja" value="1" {{ 'checked' if f.baja }}> Bajó de precio</label>
   <label class="wide"><input type="checkbox" name="nuevas" value="1" {{ 'checked' if f.nuevas }}> Nuevas desde mi última visita ({{ cont.nuevas }})</label>
   <label><input type="checkbox" name="cochera" value="1" {{ 'checked' if f.cochera }}> Cochera</label>
   <label><input type="checkbox" name="inactivas" value="1" {{ 'checked' if f.inactivas }}> Incluir dadas de baja</label>
-  <label title="USD/m² menor que la mediana de su barrio (y cantidad de ambientes, si hay muestra)"><input type="checkbox" name="bajo" value="1" {{ 'checked' if f.bajo_barrio }}> Debajo del precio del barrio</label>
+  <label title="Precio/m² menor que la mediana de su barrio (y cantidad de ambientes, si hay muestra)"><input type="checkbox" name="bajo" value="1" {{ 'checked' if f.bajo_barrio }}> Debajo del precio del barrio</label>
   <label title="Avisos que no cumplen los filtros de búsqueda de Estado (los que marcaste se ven siempre)"><input type="checkbox" name="fuera" value="1" {{ 'checked' if f.fuera }}> Incluir fuera de filtros</label>
   </div></details>
 </form>

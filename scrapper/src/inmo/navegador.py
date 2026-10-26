@@ -63,9 +63,28 @@ def _etiqueta_zona(d: dict[str, Any], z: dict[str, Any]) -> str:
     return z["zona"] if len(d["portales"]) == 1 else f"{REGISTRO[_portal_de(z)].etiqueta} · {z['zona']}"
 
 
+def en_curso(s: Session, now: datetime | None = None) -> bool:
+    """¿Hay una ronda corriendo en esta base? Una sin noticias de la extensión por ABANDONO no cuenta."""
+    now = now or datetime.now()
+    return any(now - e.actualizado <= ABANDONO
+               for e in s.scalars(select(Ejecucion).where(Ejecucion.estado == "corriendo")))
+
+
+def bloqueos(s: Session, cfg: dict[str, Any]) -> dict[str, datetime]:
+    """{portal: hasta cuándo no se le pide nada} por bloqueos registrados en esta base (cooldown de politeness)."""
+    out = {}
+    for nombre in REGISTRO:
+        until = repo.blocked_until(s, nombre, _pol(cfg, nombre).get("cooldown_hours_on_block", 24))
+        if until:
+            out[nombre] = until
+    return out
+
+
 def iniciar(s: Session, cfg: dict[str, Any], usuario: str, now: datetime | None = None,
-            forzar: bool = False) -> dict[str, Any]:
-    """`forzar` (ronda pedida a mano): ignora el intervalo mínimo entre rondas, pero nunca el cooldown por bloqueo."""
+            forzar: bool = False, bloqueos_externos: dict[str, datetime] | None = None) -> dict[str, Any]:
+    """`forzar` (ronda pedida a mano): ignora el intervalo mínimo entre rondas, pero nunca el cooldown por bloqueo.
+    `bloqueos_externos` ({portal: hasta}): bloqueos registrados en otra base (compra/alquiler) — el portal es el mismo y
+    ve la misma IP, así que su cooldown vale para todas las bases."""
     now = now or datetime.now()
     for e in s.scalars(select(Ejecucion).where(Ejecucion.estado == "corriendo")):
         if s.get(RondaNavegador, e.id) and now - e.actualizado > ABANDONO:   # navegador cerrado a mitad de ronda
@@ -81,7 +100,8 @@ def iniciar(s: Session, cfg: dict[str, Any], usuario: str, now: datetime | None 
         if not perfiles:
             continue
         pol = _pol(cfg, nombre)
-        until = repo.blocked_until(s, nombre, pol.get("cooldown_hours_on_block", 24))
+        until = max(filter(None, [repo.blocked_until(s, nombre, pol.get("cooldown_hours_on_block", 24)),
+                                  (bloqueos_externos or {}).get(nombre)]), default=None)
         if until and now < until:
             omitidos.append(f"{p.etiqueta}: cooldown por bloqueo hasta {until:%d/%m %H:%M}")
             continue

@@ -28,7 +28,7 @@ def estado(request: Request, c=Depends(ctx)):
     tot = conn.execute(text("SELECT COUNT(*), SUM(activa), SUM(lat IS NOT NULL), SUM(activa AND fuera_filtro) FROM publicaciones")).one()
     hist = [rondas.vista(e) for e in c["s"].scalars(select(Ejecucion).order_by(Ejecucion.id.desc()).limit(10))]
     return render(request, "estado.html", c, consultas=queries.consultas(conn), tot=tot, hist=hist,
-                  tok=token_de(c["s"], c["user"].username), **_panel_ronda(c), **busqueda_ctx(c["s"], c["user"]),
+                  tok=token_de(c["sa"], c["user"].username), **_panel_ronda(c), **busqueda_ctx(c["s"], c["user"]),
                   **backups_ctx(c["user"]))
 
 

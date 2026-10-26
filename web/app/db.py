@@ -3,13 +3,13 @@ import os
 import shutil
 from pathlib import Path
 
-from sqlalchemy import text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 
 from inmo.models import make_engine
 
 from . import config
-from .models_web import WebBase
+from .models_web import AuthBase, Cuenta, Sesion, TokenApi, WebBase
 
 
 def verificar_datos(ruta: str) -> None:
@@ -50,9 +50,29 @@ def sembrar_config() -> bool:
     return True
 
 
-def init_engine() -> Engine:
-    verificar_datos(config.DB_PATH)
-    engine = make_engine(config.DB_PATH)  # crea/migra el esquema del scrapper (incluye lat/lng)
+def _motor_auth(ruta: str) -> Engine:
+    """Motor de la base de autenticación (sólo las tablas de AuthBase, sin el esquema de avisos)."""
+    engine = create_engine(f"sqlite:///{ruta}")
+
+    @event.listens_for(engine, "connect")
+    def _pragmas(dbapi_conn, _):
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.close()
+
+    AuthBase.metadata.create_all(engine)
+    with engine.begin() as c:
+        c.execute(text("PRAGMA busy_timeout=5000"))
+        if "base" not in {r[1] for r in c.execute(text("PRAGMA table_info(web_sesiones)"))}:
+            c.execute(text("ALTER TABLE web_sesiones ADD COLUMN base VARCHAR(8) NOT NULL DEFAULT 'compra'"))
+    return engine
+
+
+def _motor_avisos(ruta: str) -> Engine:
+    """Motor de una base de avisos (compra o alquiler): esquema del scrapper + tablas de la web."""
+    verificar_datos(ruta)
+    engine = make_engine(ruta)  # crea/migra el esquema del scrapper (incluye lat/lng)
     with engine.connect() as c:
         habia_puntajes = c.execute(text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='web_puntajes'")).first()
     WebBase.metadata.create_all(engine)
@@ -62,13 +82,53 @@ def init_engine() -> Engine:
     return engine
 
 
+def migrar_auth(auth: Engine, compra: Engine) -> dict[str, int]:
+    """Antes de las bases separadas, cuentas, sesiones y tokens vivían en la base de compra. Una sola vez (marcado con
+    `PRAGMA user_version` de la base de autenticación) las COPIA a la base de autenticación, con sus ids. No toca la
+    base de compra: las tablas viejas quedan ahí, así que volver a una versión anterior sigue andando. Devuelve
+    cuántas filas copió por tabla ({} si no había nada que hacer)."""
+    with auth.connect() as c:
+        if c.execute(text("PRAGMA user_version")).scalar_one() >= 1:
+            return {}
+    copiadas: dict[str, int] = {}
+    with compra.connect() as origen, auth.begin() as destino:
+        for tabla in (Cuenta.__table__, Sesion.__table__, TokenApi.__table__):
+            viejas = [r[1] for r in origen.execute(text(f"PRAGMA table_info({tabla.name})"))]
+            cols = [c.name for c in tabla.columns if c.name in viejas]
+            if not cols:
+                continue
+            # Las columnas que la tabla vieja no tenía (p. ej. `base`) toman su valor por defecto. Se copia con SQL
+            # directo: las fechas pasan tal cual, sin convertirlas a datetime y volver.
+            extra = {c.name: c.default.arg for c in tabla.columns
+                     if c.name not in viejas and c.default is not None and c.default.is_scalar}
+            nombres = cols + list(extra)
+            filas = [{**dict(r), **extra} for r in origen.execute(text(f"SELECT {', '.join(cols)} FROM {tabla.name}")).mappings()]
+            if filas:
+                destino.execute(text(f"INSERT INTO {tabla.name} ({', '.join(nombres)}) "
+                                     f"VALUES ({', '.join(':' + n for n in nombres)})"), filas)
+            copiadas[tabla.name] = len(filas)
+        destino.execute(text("PRAGMA user_version = 1"))
+    if any(copiadas.values()):
+        logging.getLogger("uvicorn.error").info(
+            "Cuentas, sesiones y tokens copiados a la base de autenticación: %s", copiadas)
+    return copiadas
+
+
+def init_engines() -> dict[str, Engine]:
+    """{"compra", "alquiler", "auth"}: una SQLite por cada una."""
+    compra = _motor_avisos(config.DB_PATHS["compra"])
+    alquiler = _motor_avisos(config.DB_PATHS["alquiler"])
+    verificar_datos(config.DB_PATH_AUTH)
+    auth = _motor_auth(config.DB_PATH_AUTH)
+    migrar_auth(auth, compra)
+    return {"compra": compra, "alquiler": alquiler, "auth": auth}
+
+
 def _migrar(c, primera_vez_puntajes: bool) -> None:
     """create_all no altera tablas existentes: agrega columnas nuevas y pasa datos al esquema nuevo."""
     rev = {r[1] for r in c.execute(text("PRAGMA table_info(web_revision)"))}
     if "potencial" not in rev:
         c.execute(text("ALTER TABLE web_revision ADD COLUMN potencial BOOLEAN NOT NULL DEFAULT 0"))
-    if "recordar" not in {r[1] for r in c.execute(text("PRAGMA table_info(web_sesiones)"))}:
-        c.execute(text("ALTER TABLE web_sesiones ADD COLUMN recordar BOOLEAN NOT NULL DEFAULT 0"))
     # El programador diario del scrapper HTTP ya no existe (la extensión programa su propia ronda).
     c.execute(text("DROP TABLE IF EXISTS web_programacion"))
     if primera_vez_puntajes:

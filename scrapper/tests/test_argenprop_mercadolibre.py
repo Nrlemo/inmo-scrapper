@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from inmo import filtros, navegador
 from inmo.connectors import REGISTRO
+from inmo.connectors.common import matches_profile
 from inmo.connectors import argenprop as ap
 from inmo.connectors import mercadolibre as ml
 from inmo.models import Consulta, Publicacion, make_engine
@@ -129,3 +130,70 @@ def test_registrados_pero_apagados_hasta_configurarlos():
                             "portales": {"zonaprop": pc["zonaprop"]}}]}              # guardado cuando sólo existía Zonaprop
     nuevo = filtros.validar(viejo)["busquedas"][0]["portales"]
     assert not nuevo["argenprop"]["activo"] and not nuevo["mercadolibre"]["activo"]
+
+
+# ---------- alquiler ----------
+def test_plantillas_de_alquiler_y_precios_requeridos():
+    from inmo import filtros
+    from inmo.connectors import REGISTRO
+    f = {"tipo": "departamento", "operacion": "alquiler", "moneda": "ARS", "apto_credito": True}
+    assert REGISTRO["zonaprop"].armar_plantilla(f) == \
+        "https://www.zonaprop.com.ar/departamentos-alquiler-{zone}-menos-{price_max}-pesos.html"
+    assert REGISTRO["argenprop"].armar_plantilla(f) == \
+        "https://www.argenprop.com/departamentos/alquiler/{zone}/pesos-hasta-{price_max}"
+    assert REGISTRO["mercadolibre"].armar_plantilla(f) == \
+        "https://inmuebles.mercadolibre.com.ar/departamentos/alquiler/capital-federal/{zone}/"
+    assert [REGISTRO[p].precios_requeridos(f) for p in ("zonaprop", "argenprop", "mercadolibre")] == \
+        [("precio_max",), ("precio_max",), ()]
+    for p in ("zonaprop", "argenprop"):                       # alquiler en dólares: sin formato verificado
+        with pytest.raises(ValueError, match="verificad"):
+            REGISTRO[p].armar_plantilla({**f, "moneda": "USD"})
+    # nada de lo de compra cambia
+    fc = {"tipo": "departamento", "operacion": "compra", "moneda": "USD"}
+    assert REGISTRO["argenprop"].precios_requeridos(fc) == ("precio_min", "precio_max")
+    assert REGISTRO["argenprop"].armar_plantilla(fc).endswith("/venta/{zone}/dolares-hasta-{price_max}")
+    for portal in ("zonaprop", "argenprop", "mercadolibre"):  # robots.txt: ninguna URL generada lo viola
+        assert REGISTRO[portal].problema_url(REGISTRO[portal].armar_plantilla(f)) is None
+
+
+def test_busqueda_de_alquiler_valida_con_solo_el_precio_maximo():
+    from inmo import filtros
+    b = filtros.nueva_busqueda("alq", "alquiler")
+    b["comunes"]["precio_max"] = 900000
+    for portal in ("zonaprop", "argenprop", "mercadolibre"):
+        b["portales"][portal].update(activo=True, zonas=[{"zona": "san-nicolas"}])
+    doc = filtros.validar({"busquedas": [b]}, "alquiler")
+    urls = {p["portals"] and next(iter(p["portals"])): REGISTRO[next(iter(p["portals"]))].search_urls(p)
+            for p in filtros.perfiles(doc)}
+    assert urls["zonaprop"] == [("san-nicolas", "https://www.zonaprop.com.ar/departamentos-alquiler-san-nicolas-menos-900000-pesos.html")]
+    assert urls["argenprop"] == [("san-nicolas", "https://www.argenprop.com/departamentos/alquiler/san-nicolas/pesos-hasta-900000")]
+    assert urls["mercadolibre"] == [("san-nicolas", "https://inmuebles.mercadolibre.com.ar/departamentos/alquiler/capital-federal/san-nicolas/")]
+    b["comunes"]["precio_max"] = None
+    with pytest.raises(ValueError, match="Zonaprop necesita precio máximo"):
+        filtros.validar({"busquedas": [b]}, "alquiler")
+
+
+@pytest.mark.parametrize("portal, esperados, total, ars, usd", [
+    ("zonaprop", 30, 241, 26, 4), ("argenprop", 20, 141, 19, 0), ("mercadolibre", 48, 478, 47, 1)])
+def test_parser_lee_las_paginas_de_alquiler(portal, esperados, total, ars, usd):
+    html = (Path(__file__).parent / "fixtures" / f"{portal}_alquiler_listado.html").read_text(encoding="utf-8")
+    p = REGISTRO[portal]
+    assert not p.es_desafio(html)
+    avisos, n = p.parse_page(html)
+    assert (len(avisos), n) == (esperados, total)
+    assert sum(a.moneda == "ARS" for a in avisos) == ars and sum(a.moneda == "USD" for a in avisos) == usd
+    assert len({a.id_externo for a in avisos}) == esperados and all(a.url and a.fotos and a.barrio for a in avisos)
+    # filtros de una búsqueda en pesos hasta $900.000: los avisos en dólares y los que se pasan se descartan al recibir
+    perfil = {"currency": "ARS", "price": {"min": None, "max": 900000}}
+    quedan = [a for a in avisos if matches_profile(a, perfil)]
+    assert all(a.moneda in (None, "ARS") and (a.precio or 0) <= 900000 for a in quedan) and len(quedan) >= ars - 1
+
+
+def test_alquiler_zonaprop_y_argenprop_traen_expensas_y_mercadolibre_no():
+    def cargar(portal):
+        html = (Path(__file__).parent / "fixtures" / f"{portal}_alquiler_listado.html").read_text(encoding="utf-8")
+        return REGISTRO[portal].parse_page(html)[0]
+    for portal in ("zonaprop", "argenprop"):
+        con = [a for a in cargar(portal) if a.expensas]
+        assert len(con) >= 15 and all(a.moneda_expensas == "ARS" for a in con)
+    assert not any(a.expensas for a in cargar("mercadolibre"))

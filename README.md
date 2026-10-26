@@ -2,7 +2,7 @@
 
 # 🏠 Inmo
 
-**Monitor personal de propiedades en venta: junta las publicaciones, detecta cambios de precio y te ayuda a decidir.**
+**Monitor personal de propiedades en venta y alquiler: junta las publicaciones, detecta cambios de precio y te ayuda a decidir.**
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
@@ -101,10 +101,17 @@ que se genera en *Estado*.
    │  ronda + parsers (inmo)      │
    └──────────────┬───────────────┘
                   ▼
-            ┌───────────┐
-            │  SQLite   │
-            └───────────┘
+   ┌─────────────┬─────────────┬─────────────┐
+   │ inmo.sqlite │alquiler.sql.│ auth.sqlite │
+   │   compra    │  alquiler   │ cuentas,    │
+   │             │             │ sesiones,   │
+   │             │             │ tokens      │
+   └─────────────┴─────────────┴─────────────┘
 ```
+
+Compra y alquiler viven en **bases separadas** con el mismo esquema; la autenticación es una tercera base compartida.
+Al ingresar (web o app Android) se elige **Compra** o **Alquiler**, y desde el menú se cambia sin volver a entrar.
+La extensión corre una ronda por base cada día.
 
 - **`scrapper/`** (paquete `inmo`): parsers por portal, la ronda por navegador (qué página sigue, pausas, bloqueos),
   historial de precios, duplicados entre portales, bajas y etiquetas automáticas.

@@ -58,6 +58,10 @@ def matches_profile(l: Listing, profile: dict[str, Any]) -> bool:
             return False
         if rooms.get("max") is not None and l.ambientes > rooms["max"]:
             return False
+    exp_max = profile.get("expenses_max")             # sólo se compara si las expensas están en la moneda del perfil
+    if exp_max is not None and l.expensas is not None and l.expensas > exp_max \
+            and (not l.moneda_expensas or l.moneda_expensas == profile.get("currency")):
+        return False
     dorm = profile.get("bedrooms", {})
     if l.dormitorios is not None:
         if dorm.get("min") is not None and l.dormitorios < dorm["min"]:

@@ -40,17 +40,22 @@ def disponibles() -> set[str]:
     return set(REGISTRO)
 
 NUMERICOS = ("precio_min", "precio_max", "amb_min", "amb_max", "dorm_min", "dorm_max", "m2_tot_min", "m2_tot_max",
-             "m2_cub_min", "m2_cub_max")
+             "m2_cub_min", "m2_cub_max", "expensas_max")
 AJUSTABLES = ("precio_min", "precio_max", "amb_min", "amb_max", "dorm_max", "m2_tot_min", "m2_tot_max")   # los que un portal puede pisar
 
 COMUNES_VACIOS: dict[str, Any] = {"operacion": "compra", "tipo": "departamento", "moneda": "USD",
                                   **{k: None for k in NUMERICOS}, "apto_credito": False, "excluir": []}
 
 
-def nueva_busqueda(nombre: str = "busqueda") -> dict[str, Any]:
-    return {"nombre": nombre, "comunes": copy.deepcopy(COMUNES_VACIOS),
-            # sólo el portal original arranca activo: los demás se prenden a mano, cuando se cargan sus zonas
-            "portales": {p: {"activo": p == PORTAL_HISTORICO, "zonas": [], "ajustes": {}, "plantilla": None} for p in portales()}}
+def nueva_busqueda(nombre: str = "busqueda", operacion: str = "compra") -> dict[str, Any]:
+    comunes = copy.deepcopy(COMUNES_VACIOS)
+    comunes["operacion"] = operacion
+    if operacion == "alquiler":
+        comunes["moneda"] = "ARS"       # los alquileres se publican en pesos (o en dólares: se cambia desde Estado)
+    # en compra sólo el portal original arranca activo: los demás se prenden a mano, cuando se cargan sus zonas
+    return {"nombre": nombre, "comunes": comunes,
+            "portales": {p: {"activo": operacion == "compra" and p == PORTAL_HISTORICO, "zonas": [], "ajustes": {},
+                             "plantilla": None} for p in portales()}}
 
 
 # ---------- importación desde profiles.yaml ----------
@@ -129,8 +134,9 @@ def zonas_desde_texto(texto: str) -> list[dict[str, Any]]:
 
 
 # ---------- validación ----------
-def validar(doc: dict[str, Any]) -> dict[str, Any]:
-    """Normaliza y valida el documento. ValueError con un mensaje para mostrar en la web."""
+def validar(doc: dict[str, Any], operacion: str | None = None) -> dict[str, Any]:
+    """Normaliza y valida el documento. ValueError con un mensaje para mostrar en la web. Con `operacion`, todas las
+    búsquedas tienen que ser de esa operación (cada base —compra o alquiler— guarda las suyas)."""
     busquedas = doc.get("busquedas") or []
     if not busquedas:
         raise ValueError("Tiene que haber al menos una búsqueda")
@@ -143,6 +149,8 @@ def validar(doc: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"Hay dos búsquedas con el nombre «{b['nombre']}»")
         nombres.add(b["nombre"])
         c = {**COMUNES_VACIOS, **(b.get("comunes") or {})}
+        if operacion and c["operacion"] != operacion:
+            raise ValueError(f"«{b['nombre']}»: la operación tiene que ser «{operacion}» en esta base")
         for k in NUMERICOS:
             c[k] = _numero(c[k], k)
         c["excluir"] = [x.strip() for x in c["excluir"] if str(x).strip()]
@@ -163,8 +171,10 @@ def validar(doc: dict[str, Any]) -> dict[str, Any]:
                 plantilla = pc["plantilla"] or REGISTRO[portal].armar_plantilla(efectivos)   # verificada (ValueError si no)
                 if problema := REGISTRO[portal].problema_url(plantilla):                    # p. ej. robots.txt
                     raise ValueError(problema)
-                if not pc["plantilla"] and (efectivos["precio_min"] is None or efectivos["precio_max"] is None):
-                    raise ValueError(f"{etiqueta(portal)} necesita precio mínimo y máximo (van en la URL)")
+                requeridos = REGISTRO[portal].precios_requeridos(efectivos)
+                if not pc["plantilla"] and any(efectivos[k] is None for k in requeridos):
+                    nombres = "precio mínimo y máximo" if len(requeridos) == 2 else "precio máximo"
+                    raise ValueError(f"{etiqueta(portal)} necesita {nombres} (van en la URL)")
             b.setdefault("portales", {})[portal] = pc
     return doc
 
@@ -213,12 +223,14 @@ def perfiles(doc: dict[str, Any]) -> list[dict[str, Any]]:
                         "rooms": {"min": f["amb_min"], "max": f["amb_max"]}, "bedrooms": {"min": f["dorm_min"], "max": f["dorm_max"]},
                         "total_m2_min": f["m2_tot_min"], "total_m2_max": f["m2_tot_max"],
                         "covered_m2_min": f["m2_cub_min"], "covered_m2_max": f["m2_cub_max"],
+                        "expenses_max": f["expensas_max"],
                         "exclude_keywords": list(f["excluir"]), "portals": {portal: conf}})
     return out
 
 
 # ---------- lo ya guardado ----------
-_CAMPOS = ("titulo", "descripcion", "precio", "moneda", "ambientes", "dormitorios", "m2_totales", "m2_cubiertos")
+_CAMPOS = ("titulo", "descripcion", "precio", "moneda", "expensas", "moneda_expensas", "ambientes", "dormitorios",
+           "m2_totales", "m2_cubiertos")
 
 
 def recalcular(s: Session, perfiles_: list[dict[str, Any]]) -> int:

@@ -55,6 +55,17 @@ Corte de unos minutos. Con `ssh server1` configurado en `~/.ssh/config`.
 8. **Una sola vez:** con el túnel delante se detecta HTTPS (`TRUSTED_PROXY_HOPS=1`), la cookie de sesión pasa a llamarse
    `__Host-…` y todos (navegadores y app Android) inician sesión de nuevo.
 
+## Bases de datos (compra, alquiler y autenticación)
+Desde la versión con alquileres hay **tres** SQLite en `data/`: `inmo.sqlite` (avisos de compra, la de siempre),
+`alquiler.sqlite` (avisos de alquiler, vacía al empezar) y `auth.sqlite` (usuarios, sesiones y tokens de la extensión).
+Al arrancar por primera vez, las cuentas, sesiones y tokens que estaban en `inmo.sqlite` se **copian** a `auth.sqlite`
+(con sus ids: nadie tiene que volver a ingresar ni regenerar el token). Es una copia, no un traslado: las tablas viejas
+quedan en `inmo.sqlite`, así que volver a la imagen anterior sigue andando (con las cuentas, sesiones y tokens que
+había al actualizar: lo creado después se pierde). Se hace una sola vez; las tablas viejas se borrarán en una versión
+posterior. **Antes de actualizar, hacé el backup** (ver abajo) y, con la web ya levantada, comprobá en Estado que los
+usuarios y el token siguen ahí. No hay nada que cambiar en `docker-compose.yml`: las dos bases nuevas viven en el mismo
+volumen `./data`.
+
 ## Actualizar
 ```bash
 cd ~/.docker/inmo
@@ -75,7 +86,7 @@ Las migraciones de la base corren solas al arrancar.
 ## Backups
 La web hace **un backup por día** (`BACKUP_HORA`, por defecto 05:00, después de la ronda de la extensión) con la API
 de backup de SQLite, lo verifica (`integrity_check`), lo comprime y lo guarda en `data/backups/` como
-`inmo-AAAAMMDD-HHMMSS.sqlite.gz`. Se conservan 7 diarios, 4 semanales y 6 mensuales (`BACKUP_DIARIOS`,
+`inmo-AAAAMMDD-HHMMSS.sqlite.gz` (compra) y, a la par, `alquiler-…` y `auth-…` (una copia por base, cada una rotada por separado). Se conservan 7 diarios, 4 semanales y 6 mensuales (`BACKUP_DIARIOS`,
 `BACKUP_SEMANALES`, `BACKUP_MENSUALES`). Con `BACKUP_EXTRA` en el `.env` (una carpeta del host en otro disco u otra
 máquina, escribible por el usuario del contenedor) cada backup se copia también ahí, con la misma rotación.
 

@@ -160,8 +160,8 @@ def page_url(search_url: str, n: int) -> str:
 # Segmentos de URL verificados contra búsquedas reales de Zonaprop. Otros tipos, operaciones o monedas no se generan:
 # para esos casos está la plantilla avanzada (se arma una búsqueda en el navegador y se pega su URL).
 TIPOS = {"departamento": "departamentos"}
-OPERACIONES = {"compra": "venta"}
-MONEDAS = {"USD": "dolar"}
+OPERACIONES = {"compra": "venta", "alquiler": "alquiler"}
+MONEDAS = {"USD": "dolar", "ARS": "pesos"}
 
 
 def armar_plantilla(f: dict[str, Any]) -> str:
@@ -175,6 +175,14 @@ def armar_plantilla(f: dict[str, Any]) -> str:
     for clave, validos in (("tipo", TIPOS), ("operacion", OPERACIONES), ("moneda", MONEDAS)):
         if f.get(clave) not in validos:
             raise ValueError(f"Zonaprop: {clave} «{f.get(clave)}» no está verificado; usá la plantilla avanzada")
+    if f["operacion"] == "alquiler":
+        # Verificado: «departamentos-alquiler-san-nicolas-menos-900000-pesos.html». Dormitorios, ambientes, mínimo de
+        # precio y alquileres en dólares no tienen un formato verificado: se filtran al recibir la página.
+        if f["moneda"] != "ARS":
+            raise ValueError("Zonaprop: de los alquileres sólo está verificada la búsqueda en pesos; usá la plantilla avanzada")
+        return f"{BASE}/{TIPOS[f['tipo']]}-alquiler-{{zone}}-menos-{{price_max}}-pesos.html"
+    if f["moneda"] != "USD":
+        raise ValueError("Zonaprop: en compra sólo está verificada la búsqueda en dólares; usá la plantilla avanzada")
     partes = [f"{TIPOS[f['tipo']]}-{OPERACIONES[f['operacion']]}-{{zone}}"]
     if f.get("apto_credito"):
         partes.append("con-apto-credito")
@@ -216,6 +224,9 @@ class Zonaprop(Portal):
 
     def leer_plantilla(self, plantilla: str) -> dict[str, Any] | None:
         return leer_plantilla(plantilla)
+
+    def precios_requeridos(self, filtros: dict[str, Any]) -> tuple[str, ...]:
+        return ("precio_max",) if filtros.get("operacion") == "alquiler" else ("precio_min", "precio_max")
 
     def page_url(self, url: str, n: int) -> str:
         return page_url(url, n)

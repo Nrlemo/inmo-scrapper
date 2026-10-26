@@ -15,6 +15,7 @@ from .models_web import Cuenta, Sesion
 
 log = logging.getLogger("inmo.auth")
 MAX_FALLOS = 5
+COOKIE_BASE = "inmo_base"
 
 
 class LoginRequired(Exception):
@@ -38,6 +39,7 @@ class User:
     debe_cambiar: bool = False
     cuenta_id: int | None = None
     sesion: str | None = None       # hash de la sesión actual
+    base: str = config.BASE_DEFECTO  # base de avisos que está viendo: compra | alquiler
 
     @property
     def es_admin(self) -> bool:
@@ -70,6 +72,11 @@ def _nombre(base: str, request: Request) -> str:
 
 def cookie_sesion(request: Request) -> str:
     return _nombre("inmo_session", request)
+
+
+def base_valida(base: str | None) -> str:
+    """Lo que no sea una base conocida cuenta como la de compra (los clientes viejos no mandan base)."""
+    return base if base in config.BASES else config.BASE_DEFECTO
 
 
 def cookie_pre(request: Request) -> str:
@@ -119,12 +126,13 @@ def duracion_sesion(recordar: bool) -> timedelta:
     return timedelta(days=config.SESSION_REMEMBER_DAYS if recordar else config.SESSION_MAX_DAYS)
 
 
-def crear_sesion(s: Session, cuenta: Cuenta, request: Request, recordar: bool = False) -> str:
+def crear_sesion(s: Session, cuenta: Cuenta, request: Request, recordar: bool = False,
+                 base: str = config.BASE_DEFECTO) -> str:
     now = datetime.now()
     s.execute(delete(Sesion).where(Sesion.expira < now))
     token = security.nuevo_token()
     s.add(Sesion(id_hash=security.hash_token(token), cuenta_id=cuenta.id, csrf=security.nuevo_token(24), creada=now,
-                 actividad=now, expira=now + duracion_sesion(recordar), recordar=recordar,
+                 actividad=now, expira=now + duracion_sesion(recordar), recordar=recordar, base=base_valida(base),
                  ip=client_ip(request)[:45],
                  agente=(request.headers.get("user-agent") or "")[:200]))
     cuenta.ultimo_login = now
@@ -167,7 +175,7 @@ def _usuario_por_cookie(request: Request) -> User | None:
     token = request.cookies.get(cookie_sesion(request))
     if not token:
         return None
-    engine = request.app.state.engine
+    engine = request.app.state.engines["auth"]
     now = datetime.now()
     with Session(engine) as s:
         row = s.get(Sesion, security.hash_token(token))
@@ -186,15 +194,18 @@ def _usuario_por_cookie(request: Request) -> User | None:
         if now - row.actividad > timedelta(seconds=60):
             row.actividad = now
             s.commit()
-        return User(cuenta.username, None, cuenta.rol, row.csrf, cuenta.debe_cambiar, cuenta.id, row.id_hash)
+        return User(cuenta.username, None, cuenta.rol, row.csrf, cuenta.debe_cambiar, cuenta.id, row.id_hash,
+                    base_valida(row.base))
 
 
 # ---------- dependencia principal ----------
 def current_user(request: Request) -> User:
     mode = config.AUTH_MODE
+    # Sin sesiones propias (none/authentik), la base elegida se recuerda en una cookie que no es secreta
+    base = base_valida(request.cookies.get(COOKIE_BASE))
     if mode == "none":  # sin autenticación: no se exige identidad ni secreto del proxy
         return User(request.headers.get(config.USER_HEADER) or config.DEFAULT_USER,
-                    request.headers.get(config.EMAIL_HEADER))
+                    request.headers.get(config.EMAIL_HEADER), base=base)
     if mode == "authentik":
         if config.PROXY_SECRET and not hmac.compare_digest(
                 request.headers.get("X-Proxy-Secret", ""), config.PROXY_SECRET):
@@ -202,12 +213,12 @@ def current_user(request: Request) -> User:
         name = request.headers.get(config.USER_HEADER)
         if not name:
             raise HTTPException(401, "Sin identidad de authentik")
-        return User(name, request.headers.get(config.EMAIL_HEADER))
+        return User(name, request.headers.get(config.EMAIL_HEADER), base=base)
     # basic
     u = _usuario_por_cookie(request)
     if u:
         return u
-    with Session(request.app.state.engine) as s:
+    with Session(request.app.state.engines["auth"]) as s:
         if not hay_admin(s):
             raise SetupRequired()
     raise LoginRequired()

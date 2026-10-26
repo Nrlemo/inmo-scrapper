@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 
 from inmo import navegador
 
-from . import busqueda, security
-from .core import ctx, get_session, render
+from . import auth, busqueda, config, security
+from .core import ctx, get_auth_session, render, sesion_de
 from .models_web import TokenApi
 
 router = APIRouter()
@@ -23,7 +23,7 @@ log = logging.getLogger("inmo.navegador")
 MAX_HTML = 8 * 1024 * 1024          # una página de resultados de Zonaprop pesa ~1,5 MB
 
 
-def usuario_token(request: Request, s: Session = Depends(get_session)) -> str:
+def usuario_token(request: Request, s: Session = Depends(get_auth_session)) -> str:
     """Identidad por `Authorization: Bearer <token>`. Actualiza el último uso."""
     h = request.headers.get("authorization", "")
     token = h[7:].strip() if h.lower().startswith("bearer ") else ""
@@ -35,17 +35,22 @@ def usuario_token(request: Request, s: Session = Depends(get_session)) -> str:
     return t.usuario
 
 
+# `base` (compra | alquiler) es aditivo: la extensión 1.1.0, que no la manda, trabaja con la base de compra. Los ids de
+# ronda son de cada base, por eso viaja en todos los pedidos.
 class Pagina(BaseModel):
+    base: str = "compra"
     ronda: int
     url: str
     html: str = Field(max_length=MAX_HTML)
 
 
 class PedidoRonda(BaseModel):
+    base: str = "compra"
     forzar: bool = False          # «Correr ronda ahora»: ignora el intervalo mínimo (no el cooldown por bloqueo)
 
 
 class ErrorCarga(BaseModel):
+    base: str = "compra"
     ronda: int
     url: str
     motivo: str = Field(max_length=500)
@@ -56,31 +61,55 @@ def ping(usuario: str = Depends(usuario_token)):
     return {"ok": True, "usuario": usuario}
 
 
+def _otras_bases(request: Request, base: str, cfg: dict) -> tuple[bool, dict]:
+    """(¿hay una ronda corriendo en otra base?, bloqueos de portales registrados en las otras bases). Compra y alquiler
+    leen los mismos portales desde el mismo navegador: no se corren a la vez y el bloqueo de uno frena al otro."""
+    activa, bloqueos = False, {}
+    for otra in config.BASES:
+        if otra == base:
+            continue
+        with sesion_de(request, otra) as s:
+            activa = activa or navegador.en_curso(s)
+            for portal, hasta in navegador.bloqueos(s, cfg).items():
+                bloqueos[portal] = max(hasta, bloqueos.get(portal, hasta))
+    return activa, bloqueos
+
+
 @router.post("/api/navegador/ronda")
-def iniciar(body: PedidoRonda | None = None, usuario: str = Depends(usuario_token), s: Session = Depends(get_session)):
-    r = navegador.iniciar(s, busqueda.config_efectiva(s), usuario, forzar=bool(body and body.forzar))
-    log.info("ronda por navegador pedida por %s: %s", usuario, r.get("omitir") or f"ronda {r['ronda']}")
-    return r
+def iniciar(request: Request, body: PedidoRonda | None = None, usuario: str = Depends(usuario_token)):
+    base = auth.base_valida(body.base if body else None)
+    with sesion_de(request, base) as s:
+        cfg = busqueda.config_efectiva(s)
+        activa, bloqueos = _otras_bases(request, base, cfg)
+        if activa:
+            return {"base": base, "omitir": "hay una ronda en curso en la otra base (compra/alquiler): se espera a que termine"}
+        r = navegador.iniciar(s, cfg, usuario, forzar=bool(body and body.forzar), bloqueos_externos=bloqueos)
+    log.info("ronda por navegador (%s) pedida por %s: %s", base, usuario, r.get("omitir") or f"ronda {r['ronda']}")
+    return {**r, "base": base}       # una versión anterior del servidor no la repite: la extensión se da cuenta
 
 
 @router.post("/api/navegador/pagina")
-def pagina(body: Pagina, usuario: str = Depends(usuario_token), s: Session = Depends(get_session)):
-    return navegador.pagina(s, busqueda.config_efectiva(s), body.ronda, body.url, body.html)
+def pagina(request: Request, body: Pagina, usuario: str = Depends(usuario_token)):
+    with sesion_de(request, body.base) as s:
+        return navegador.pagina(s, busqueda.config_efectiva(s), body.ronda, body.url, body.html)
 
 
 @router.post("/api/navegador/error")
-def error(body: ErrorCarga, usuario: str = Depends(usuario_token), s: Session = Depends(get_session)):
-    log.warning("ronda %d: %s no cargó (%s)", body.ronda, body.url, body.motivo)
-    return navegador.error(s, busqueda.config_efectiva(s), body.ronda, body.url, body.motivo)
+def error(request: Request, body: ErrorCarga, usuario: str = Depends(usuario_token)):
+    log.warning("ronda %d (%s): %s no cargó (%s)", body.ronda, body.base, body.url, body.motivo)
+    with sesion_de(request, body.base) as s:
+        return navegador.error(s, busqueda.config_efectiva(s), body.ronda, body.url, body.motivo)
 
 
 class Ronda(BaseModel):
+    base: str = "compra"
     ronda: int
 
 
 @router.post("/api/navegador/cancelar")
-def cancelar(body: Ronda, usuario: str = Depends(usuario_token), s: Session = Depends(get_session)):
-    return navegador.cancelar(s, body.ronda)
+def cancelar(request: Request, body: Ronda, usuario: str = Depends(usuario_token)):
+    with sesion_de(request, body.base) as s:
+        return navegador.cancelar(s, body.ronda)
 
 
 # ---------------- token (pantalla Estado) ----------------
@@ -91,7 +120,7 @@ def token_de(s: Session, usuario: str) -> TokenApi | None:
 @router.post("/navegador/token", response_class=HTMLResponse)
 def generar_token(request: Request, c=Depends(ctx)):
     """Genera (o reemplaza) el token del usuario y lo muestra una sola vez."""
-    s, usuario = c["s"], c["user"].username
+    s, usuario = c["sa"], c["user"].username
     token = security.nuevo_token()
     t = token_de(s, usuario) or TokenApi(usuario=usuario)
     t.hash, t.creado, t.ultimo_uso = security.hash_token(token), datetime.now(), None
@@ -102,7 +131,7 @@ def generar_token(request: Request, c=Depends(ctx)):
 
 @router.post("/navegador/token/borrar", response_class=HTMLResponse)
 def borrar_token(request: Request, c=Depends(ctx)):
-    s = c["s"]
+    s = c["sa"]
     t = token_de(s, c["user"].username)
     if t:
         s.delete(t)

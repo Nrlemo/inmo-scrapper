@@ -20,10 +20,17 @@
   <form hx-post="/busqueda/{{ bsel }}" hx-target="#busqueda" hx-swap="outerHTML">
   <fieldset {{ 'disabled' if not bpuede }} style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:.6rem">
     <label>Nombre <input name="nombre" value="{{ v('nombre', b.nombre) }}" maxlength="40" required style="max-width:20rem"></label>
-    <div class="mut" style="font-size:.85rem">Compra · Departamento · USD <span title="Es la combinación verificada en los portales; alquileres llegan en la etapa 3">(fijos por ahora)</span></div>
+    {% if es_alquiler %}
+    <div class="mut" style="font-size:.85rem">Alquiler · Departamento</div>
+    <label style="flex-direction:column;align-items:stretch;gap:.2rem;max-width:12rem" title="Los avisos en otra moneda se descartan al recibirlos">Moneda
+      <select name="moneda">{% for m in ('ARS', 'USD') %}<option {{ 'selected' if v('moneda', com.moneda) == m }}>{{ m }}</option>{% endfor %}</select></label>
+    {% else %}
+    <div class="mut" style="font-size:.85rem">Compra · Departamento · USD <span title="Es la combinación verificada en los portales">(fijos por ahora)</span></div>
+    {% endif %}
     <div class="grid" style="padding:0">
       <label style="flex-direction:column;align-items:stretch;gap:.2rem">Precio mín.<input name="precio_min" inputmode="numeric" value="{{ v('precio_min', com.precio_min) }}"></label>
       <label style="flex-direction:column;align-items:stretch;gap:.2rem">Precio máx.<input name="precio_max" inputmode="numeric" value="{{ v('precio_max', com.precio_max) }}"></label>
+      {% if es_alquiler %}<label style="flex-direction:column;align-items:stretch;gap:.2rem" title="No va en la URL del portal: se filtra al recibir la página. Si el aviso no informa expensas, no se descarta">Expensas máx.<input name="expensas_max" inputmode="numeric" value="{{ v('expensas_max', com.expensas_max) }}"></label>{% endif %}
       <label style="flex-direction:column;align-items:stretch;gap:.2rem">Ambientes mín.<input name="amb_min" inputmode="numeric" value="{{ v('amb_min', com.amb_min) }}"></label>
       <label style="flex-direction:column;align-items:stretch;gap:.2rem" title="En Zonaprop va en la URL («hasta-N-ambientes») si no hay mínimo; con mínimo y máximo, el máximo se filtra al recibir la página">Ambientes máx.<input name="amb_max" inputmode="numeric" value="{{ v('amb_max', com.amb_max) }}"></label>
       <label style="flex-direction:column;align-items:stretch;gap:.2rem">Dormitorios mín.<input name="dorm_min" inputmode="numeric" value="{{ v('dorm_min', com.dorm_min) }}"></label>
@@ -33,7 +40,7 @@
       <label style="flex-direction:column;align-items:stretch;gap:.2rem" title="Casi nunca figura en el listado: si falta el dato, el aviso no se descarta">m² cubiertos mín.<input name="m2_cub_min" inputmode="numeric" value="{{ v('m2_cub_min', com.m2_cub_min) }}"></label>
       <label style="flex-direction:column;align-items:stretch;gap:.2rem" title="Casi nunca figura en el listado: si falta el dato, el aviso no se descarta">m² cubiertos máx.<input name="m2_cub_max" inputmode="numeric" value="{{ v('m2_cub_max', com.m2_cub_max) }}"></label>
     </div>
-    <label><input type="checkbox" name="apto_credito" value="1" {{ chk('apto_credito', com.apto_credito) }}> Apto crédito</label>
+    {% if not es_alquiler %}<label><input type="checkbox" name="apto_credito" value="1" {{ chk('apto_credito', com.apto_credito) }}> Apto crédito</label>{% endif %}
     <label style="flex-direction:column;align-items:stretch;gap:.2rem">Excluir si el título o la descripción dicen (separadas por coma)
       <input name="excluir" value="{{ v('excluir', com.excluir|join(', ')) }}" placeholder="pozo, sin escritura"></label>
 

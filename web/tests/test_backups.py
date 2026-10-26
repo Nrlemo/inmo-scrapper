@@ -41,14 +41,15 @@ def test_si_falla_la_copia_extra_el_backup_queda(client, monkeypatch, tmp_path):
     (tmp_path / "archivo").write_text("x")
     monkeypatch.setattr(config, "BACKUP_DIR_EXTRA", str(tmp_path / "archivo" / "no-es-carpeta"))
     e = backups.hacer_backup(datetime(2026, 9, 24, 5, 0))
-    assert e["ok"] and not e["extra"]["ok"] and len(backups.listar()) == 1
+    assert e["ok"] and not e["extra"]["ok"] and len(backups.listar()) == 3      # compra, alquiler y autenticación
 
 
 def test_backup_fallido_queda_registrado(client, monkeypatch):
     from app import backups, config
     monkeypatch.setattr(config, "DB_PATH", "/no/existe/inmo.sqlite")
     e = backups.hacer_backup(datetime(2026, 9, 24, 5, 0))
-    assert e["ok"] is False and "OperationalError" in e["error"] and backups.listar() == []
+    # la de compra falla, pero las otras dos igual se copian
+    assert e["ok"] is False and "OperationalError" in e["error"] and backups.listar(prefijo="inmo") == []
     # tras un fallo no se reintenta en cada minuto, sino a la hora
     assert backups.tick(datetime(2026, 9, 24, 5, 30)) is None
 

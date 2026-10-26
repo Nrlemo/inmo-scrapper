@@ -25,10 +25,21 @@ def _yaml() -> dict:
         return {"profiles": [], "politeness": {}}
 
 
+def operacion(s: Session) -> str:
+    """Operación de la base de la sesión (la pone core.sesion_de): «compra» o «alquiler». Cada base guarda sólo la suya."""
+    return s.info.get("base", "compra")
+
+
 def obtener(s: Session) -> dict:
     """Documento de filtros (ver inmo.filtros). Si todavía no hay, lo importa de profiles.yaml y lo guarda."""
     fila = s.get(ConfigBusqueda, 1)
-    if fila is None:
+    if fila is None and operacion(s) == "alquiler":
+        # profiles.yaml describe las búsquedas de compra: alquiler arranca con una búsqueda vacía, para completar en Estado
+        fila = ConfigBusqueda(id=1, datos={"busquedas": [filtros.nueva_busqueda("alquiler", "alquiler")]},
+                              modificado_por="inicial", fecha=datetime.now())
+        s.add(fila)
+        s.commit()
+    elif fila is None:
         perfiles = _yaml().get("profiles") or []
         try:
             doc = filtros.desde_yaml(perfiles)
@@ -48,7 +59,7 @@ def info(s: Session) -> ConfigBusqueda | None:
 
 def guardar(s: Session, doc: dict, usuario: str) -> int:
     """Valida, guarda y recalcula qué avisos quedan fuera de filtros. Devuelve cuántos. ValueError si no valida."""
-    doc = filtros.validar(copy.deepcopy(doc))
+    doc = filtros.validar(copy.deepcopy(doc), operacion(s))
     fila = s.get(ConfigBusqueda, 1) or ConfigBusqueda(id=1)
     fila.datos, fila.modificado_por, fila.fecha = doc, usuario, datetime.now()
     s.add(fila)
@@ -62,4 +73,6 @@ def config_efectiva(s: Session) -> dict:
     """La configuración que usa la ronda: profiles.yaml con los perfiles reemplazados por los filtros de la base."""
     cfg = _yaml()
     cfg["profiles"] = filtros.perfiles(obtener(s))
+    if operacion(s) == "alquiler":      # etiquetas propias del alquiler, además de las comunes (las propias pisan)
+        cfg["auto_tags"] = {**(cfg.get("auto_tags") or {}), **(cfg.get("auto_tags_alquiler") or {})}
     return cfg

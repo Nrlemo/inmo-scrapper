@@ -19,7 +19,11 @@ from pathlib import Path
 from . import config
 
 log = logging.getLogger("inmo.backups")
-NOMBRE_RE = re.compile(r"^inmo-(\d{8})-(\d{6})\.sqlite\.gz$")
+# Una copia por base: la de compra conserva su nombre de siempre («inmo-…»); alquiler y autenticación llevan el suyo.
+BASES_RESPALDO = (("inmo", "DB_PATH", "publicaciones"), ("alquiler", "DB_PATH_ALQUILER", "publicaciones"),
+                  ("auth", "DB_PATH_AUTH", "web_cuentas"))
+PREFIJOS = tuple(p for p, _, _ in BASES_RESPALDO)
+NOMBRE_RE = re.compile(r"^(inmo|alquiler|auth)-(\d{8})-(\d{6})\.sqlite\.gz$")
 _lock = threading.Lock()
 
 
@@ -50,18 +54,20 @@ def _guardar_estado(e: dict) -> None:
 
 def fecha_de(nombre: str) -> datetime | None:
     m = NOMBRE_RE.match(nombre)
-    return datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S") if m else None
+    return datetime.strptime(m.group(2) + m.group(3), "%Y%m%d%H%M%S") if m else None
 
 
-def listar(carpeta: Path | str | None = None) -> list[dict]:
-    """Backups de la carpeta, del más nuevo al más viejo: [{nombre, fecha, bytes}]."""
+def listar(carpeta: Path | str | None = None, prefijo: str | None = None) -> list[dict]:
+    """Backups de la carpeta (de una base si se indica el prefijo), del más nuevo al más viejo:
+    [{nombre, base, fecha, bytes}]."""
     d = Path(carpeta) if carpeta else _dir()
     out = []
     try:
         for p in d.iterdir():
             f = fecha_de(p.name)
-            if f and p.is_file():
-                out.append({"nombre": p.name, "fecha": f, "bytes": p.stat().st_size})
+            base = p.name.split("-", 1)[0]
+            if f and p.is_file() and prefijo in (None, base):
+                out.append({"nombre": p.name, "base": base, "fecha": f, "bytes": p.stat().st_size})
     except OSError:
         return []
     return sorted(out, key=lambda x: x["fecha"], reverse=True)
@@ -86,72 +92,92 @@ def a_conservar(fechas: list[datetime], diarios: int, semanales: int, mensuales:
 
 
 def rotar(carpeta: Path | str) -> list[str]:
-    """Borra los backups que no entran en la retención. Devuelve los nombres borrados."""
-    todos = listar(carpeta)
-    quedan = a_conservar([b["fecha"] for b in todos], config.BACKUP_DIARIOS, config.BACKUP_SEMANALES,
-                         config.BACKUP_MENSUALES)
+    """Borra los backups que no entran en la retención (cada base se rota por separado). Devuelve los nombres borrados."""
     borrados = []
-    for b in todos:
-        if b["fecha"] not in quedan:
-            try:
-                (Path(carpeta) / b["nombre"]).unlink()
-                borrados.append(b["nombre"])
-            except OSError:
-                log.warning("no se pudo borrar %s", b["nombre"], exc_info=True)
+    for prefijo in PREFIJOS:
+        todos = listar(carpeta, prefijo)
+        quedan = a_conservar([b["fecha"] for b in todos], config.BACKUP_DIARIOS, config.BACKUP_SEMANALES,
+                             config.BACKUP_MENSUALES)
+        for b in todos:
+            if b["fecha"] not in quedan:
+                try:
+                    (Path(carpeta) / b["nombre"]).unlink()
+                    borrados.append(b["nombre"])
+                except OSError:
+                    log.warning("no se pudo borrar %s", b["nombre"], exc_info=True)
     return borrados
 
 
+def _respaldar(dest: Path, prefijo: str, ruta: str, tabla: str, now: datetime) -> dict:
+    """Copia verificada y comprimida de una base. Lanza si algo falla."""
+    nombre = f"{prefijo}-{now:%Y%m%d-%H%M%S}.sqlite.gz"
+    tmp = dest / f".{nombre}.sqlite"
+    try:
+        src = sqlite3.connect(f"file:{ruta}?mode=ro", uri=True)
+        dst = sqlite3.connect(tmp)
+        try:
+            src.backup(dst)
+            ok = dst.execute("PRAGMA integrity_check").fetchone()[0]
+            filas = dst.execute(f"SELECT COUNT(*) FROM {tabla}").fetchone()[0]
+        finally:
+            dst.close()
+            src.close()
+        if ok != "ok":
+            raise RuntimeError(f"{prefijo}: integrity_check: {ok}")
+        with open(tmp, "rb") as fi, gzip.open(dest / f".{nombre}", "wb", compresslevel=6) as fo:
+            shutil.copyfileobj(fi, fo)
+        os.replace(dest / f".{nombre}", dest / nombre)          # aparece completo o no aparece
+        return {"base": prefijo, "nombre": nombre, "bytes": (dest / nombre).stat().st_size, "filas": filas}
+    finally:
+        tmp.unlink(missing_ok=True)
+        (dest / f".{nombre}").unlink(missing_ok=True)
+
+
 def hacer_backup(now: datetime | None = None, motivo: str = "programado") -> dict:
-    """Copia verificada y comprimida de la base. Nunca lanza: el resultado (y el error, si hubo) queda en estado.json."""
+    """Copia verificada y comprimida de cada base (compra, alquiler y autenticación). Nunca lanza: el resultado (y el
+    error, si hubo) queda en estado.json. `nombre`, `bytes` y `publicaciones` son los de la base de compra."""
     now = now or datetime.now()
     with _lock:
         e = estado()
         e.update(ultimo_intento=now.isoformat(timespec="seconds"), motivo=motivo)
         dest = _dir()
-        nombre = f"inmo-{now:%Y%m%d-%H%M%S}.sqlite.gz"
-        tmp = dest / f".{nombre}.sqlite"
+        hechos, errores = [], []
         try:
             dest.mkdir(parents=True, exist_ok=True)
-            src = sqlite3.connect(f"file:{config.DB_PATH}?mode=ro", uri=True)
-            dst = sqlite3.connect(tmp)
-            try:
-                src.backup(dst)
-                ok = dst.execute("PRAGMA integrity_check").fetchone()[0]
-                pubs = dst.execute("SELECT COUNT(*) FROM publicaciones").fetchone()[0]
-            finally:
-                dst.close()
-                src.close()
-            if ok != "ok":
-                raise RuntimeError(f"integrity_check: {ok}")
-            with open(tmp, "rb") as fi, gzip.open(dest / f".{nombre}", "wb", compresslevel=6) as fo:
-                shutil.copyfileobj(fi, fo)
-            os.replace(dest / f".{nombre}", dest / nombre)          # aparece completo o no aparece
-            tam = (dest / nombre).stat().st_size
-            e.update(ok=True, error=None, ultimo_ok=now.isoformat(timespec="seconds"), nombre=nombre, bytes=tam,
-                     publicaciones=pubs, borrados=rotar(dest))
-            log.info("backup %s (%d KB, %d publicaciones)", nombre, tam // 1024, pubs)
-        except Exception as ex:  # noqa: BLE001 - un backup fallido no debe tumbar la web
-            e.update(ok=False, error=f"{type(ex).__name__}: {ex}")
-            log.exception("backup fallido")
+        except OSError as ex:
+            errores.append(f"{type(ex).__name__}: {ex}")
+        else:
+            for prefijo, attr, tabla in BASES_RESPALDO:
+                try:
+                    hechos.append(_respaldar(dest, prefijo, getattr(config, attr), tabla, now))
+                except Exception as ex:  # noqa: BLE001 - un backup fallido no debe tumbar la web
+                    errores.append(f"{prefijo}: {type(ex).__name__}: {ex}")
+                    log.exception("backup de %s fallido", prefijo)
+        if errores or not hechos:
+            e.update(ok=False, error="; ".join(errores) or "no hay bases para respaldar")
             _guardar_estado(e)
             return e
-        finally:
-            tmp.unlink(missing_ok=True)
-            (dest / f".{nombre}").unlink(missing_ok=True)
-        e["extra"] = _copiar_extra(dest / nombre)
+        principal = hechos[0]
+        e.update(ok=True, error=None, ultimo_ok=now.isoformat(timespec="seconds"), nombre=principal["nombre"],
+                 bytes=sum(h["bytes"] for h in hechos), publicaciones=principal["filas"], bases=hechos,
+                 borrados=rotar(dest))
+        log.info("backup %s (%s)", now.strftime("%Y%m%d-%H%M%S"),
+                 ", ".join(f"{h['base']}: {h['bytes'] // 1024} KB, {h['filas']} filas" for h in hechos))
+        e["extra"] = _copiar_extra([dest / h["nombre"] for h in hechos])
         _guardar_estado(e)
         return e
 
 
-def _copiar_extra(archivo: Path) -> dict | None:
+def _copiar_extra(archivos: list[Path]) -> dict | None:
     """Segunda copia (otro disco u otra máquina). Si falla, el backup principal igual queda hecho."""
     if not config.BACKUP_DIR_EXTRA:
         return None
     extra = Path(config.BACKUP_DIR_EXTRA)
     try:
         extra.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(archivo, extra / f".{archivo.name}")
-        os.replace(extra / f".{archivo.name}", extra / archivo.name)
+        for archivo in archivos:
+            shutil.copy2(archivo, extra / f".{archivo.name}")
+            os.replace(extra / f".{archivo.name}", extra / archivo.name)
         rotar(extra)
         return {"ok": True, "carpeta": str(extra)}
     except OSError as ex:

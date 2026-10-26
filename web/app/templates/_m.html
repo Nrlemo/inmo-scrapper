@@ -31,10 +31,10 @@
 </div>
 {% endmacro %}
 
-{% macro usd_m2(p) %}USD {{ '{:,.0f}'.format(p.usd_m2).replace(',', '.') }}/m²{% endmacro %}
+{% macro usd_m2(p) %}{{ p.moneda or 'USD' }} {{ '{:,.0f}'.format(p.usd_m2).replace(',', '.') }}/m²{% endmacro %}
 
 {# USD/m² frente a la mediana del barrio (app/mercado.py): verde si es más barato, rojo si es más caro, gris si ±5 % #}
-{% macro vs_barrio(p) %}{% if p.vb_pct is not none %}{% set d = p.vb_pct %}<span class="badge vb {{ 'baja' if d <= -5 else ('alta' if d >= 5 else '') }}" title="USD/m² {{ 'menor' if d < 0 else 'mayor' }} que la mediana de {{ p.vb_ref }} ({{ p.vb_n }} avisos activos)">{% if -5 < d < 5 %}≈ {{ p.vb_ref }}{% else %}{{ ('−' if d < 0 else '+') ~ ('%.0f'|format(d|abs)) }} % vs {{ p.vb_ref }}{% endif %}</span>{% endif %}{% endmacro %}
+{% macro vs_barrio(p) %}{% if p.vb_pct is not none %}{% set d = p.vb_pct %}<span class="badge vb {{ 'baja' if d <= -5 else ('alta' if d >= 5 else '') }}" title="Precio/m² {{ 'menor' if d < 0 else 'mayor' }} que la mediana de {{ p.vb_ref }} ({{ p.vb_n }} avisos activos)">{% if -5 < d < 5 %}≈ {{ p.vb_ref }}{% else %}{{ ('−' if d < 0 else '+') ~ ('%.0f'|format(d|abs)) }} % vs {{ p.vb_ref }}{% endif %}</span>{% endif %}{% endmacro %}
 
 {# Galería (tarjeta de Revisión y visor): tocar el costado izquierdo/derecho o deslizar la foto (o las flechas en la
    compu) cambia de foto; ver galeria() en app.js #}

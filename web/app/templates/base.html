@@ -7,7 +7,7 @@
 <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
 <link rel="manifest" href="/static/manifest.json">
 <script>try{var t=localStorage.getItem('inmo-tema');if(t==='claro'||t==='oscuro')document.documentElement.dataset.tema=t}catch(e){}</script>{# tema elegido en este dispositivo, antes de pintar (sin parpadeo) #}
-<link rel="stylesheet" href="/static/app.css?v=16">{# subir ?v= (acá y en app.js) al cambiar CSS/JS: el service worker sirve la copia en caché #}
+<link rel="stylesheet" href="/static/app.css?v=17">{# subir ?v= (acá y en app.js) al cambiar CSS/JS: el service worker sirve la copia en caché #}
 {% block head %}{% endblock %}
 <script src="/static/htmx.min.js" defer></script><script src="/static/app.js?v=8" defer></script>
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js',{scope:'/'});</script>
@@ -27,7 +27,7 @@
 {% set path = request.url.path %}
 {% macro tab(href, on, icon, label, n=0) %}<a href="{{ href }}" class="{{ 'on' if on }}"><svg class="i"><use href="#i-{{ icon }}"/></svg><span>{{ label }}</span>{% if n %}<b class="n">{{ n }}</b>{% endif %}</a>{% endmacro %}
 <header class="top">
-  <a class="brand" href="/"><img class="logo logo-c" src="/static/icons/icon.svg" alt="" width="28" height="28"><img class="logo logo-o" src="/static/icons/icon-dark.svg" alt="" width="28" height="28">Inmo</a>
+  <a class="brand" href="/"><img class="logo logo-c" src="/static/icons/icon.svg" alt="" width="28" height="28"><img class="logo logo-o" src="/static/icons/icon-dark.svg" alt="" width="28" height="28">Inmo</a>{% if es_alquiler %}<a class="badge alq" href="#menu" popovertarget="menu" title="Estás viendo la base de alquiler">Alquiler</a>{% endif %}
   <nav class="tabs" aria-label="Principal">
     {{ tab('/', path == '/', 'inbox', 'Revisión', cont.pendientes) }}
     {% set est = request.query_params.get('estado') if path == '/lista' %}
@@ -41,6 +41,10 @@
   {# Menú de la cuenta y la ronda: popover nativo (cierra con Escape o tocando afuera, sin JS) #}
   <nav id="menu" class="menu" popover aria-label="Menú">
     {% if cont.corriendo %}<a href="/estado" class="runlink"><i class="dot"></i>Scrapper corriendo</a>{% endif %}
+    <div class="basemenu" role="group" aria-label="Base de avisos">
+      <button type="button" class="{{ 'on' if not es_alquiler }}" hx-post="/base" hx-vals='{"base": "compra"}' {{ 'aria-current=true' if not es_alquiler }}>Compra</button>
+      <button type="button" class="{{ 'on' if es_alquiler }}" hx-post="/base" hx-vals='{"base": "alquiler"}' {{ 'aria-current=true' if es_alquiler }}>Alquiler</button>
+    </div>
     <a href="/estado" class="{{ 'on' if path == '/estado' }}">Estado</a>
     {% if auth_mode == 'basic' %}{% if user.es_admin %}<a href="/usuarios" class="{{ 'on' if path == '/usuarios' }}">Usuarios</a>{% endif %}<a href="/cuenta" class="{{ 'on' if path == '/cuenta' }}">Cuenta</a>{% else %}<span class="mut user">{{ user.username }}</span>{% endif %}
   </nav>

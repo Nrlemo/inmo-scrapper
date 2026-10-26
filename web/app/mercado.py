@@ -1,5 +1,6 @@
-"""Indicador de oportunidad: USD/m² de cada aviso frente a la mediana de su barrio (y de su cantidad de ambientes,
-si hay muestra suficiente), con las publicaciones activas en USD.
+"""Indicador de oportunidad: precio por m² de cada aviso frente a la mediana de su barrio (y de su cantidad de
+ambientes, si hay muestra suficiente), con las publicaciones activas en la moneda de referencia de la base: USD en
+compra y pesos en alquiler (precio mensual por m²).
 
 Los porcentajes se guardan en `web_vs_barrio` (una fila por aviso) y se recalculan sólo cuando cambian los datos
 (avisos nuevos o vistos de nuevo, cambios de precio, bajas): así el listado puede filtrar y ordenar en SQL sin
@@ -12,17 +13,22 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 MIN_MUESTRA = 5          # publicaciones mínimas para que una mediana sea referencia
-# USD/m² fuera de este rango es un error de carga en el portal (p. ej. m² de más: un depto de 5.400 m²), no una
-# oportunidad: no entra en la muestra ni lleva badge.
-USD_M2_MIN, USD_M2_MAX = 300, 15000
-_RANGO = {"lo": USD_M2_MIN, "hi": USD_M2_MAX}
+# Moneda de referencia y rango de precio/m² de cada base. Fuera del rango es un error de carga en el portal (p. ej. m² de
+# más: un depto de 5.400 m²), no una oportunidad: no entra en la muestra ni lleva badge. En alquiler, con la inflación,
+# un tope en pesos quedaría viejo enseguida: no se acota (la mediana es robusta a los valores raros).
+REFERENCIA = {"compra": ("USD", 300, 15000), "alquiler": ("ARS", 1, 10**9)}
 _lock = threading.Lock()
-_firma: tuple | None = None
+_firma: dict[str, tuple] = {}      # por base
+
+
+def _params(base: str) -> dict:
+    moneda, lo, hi = REFERENCIA[base]
+    return {"m": moneda, "lo": lo, "hi": hi}
 
 _FIRMA_SQL = text("""SELECT COUNT(*), SUM(activa), MAX(fecha_ultima_vista), SUM(COALESCE(precio,0)),
                             (SELECT MAX(id) FROM historial_precios) FROM publicaciones""")
 _MUESTRA_SQL = text("""SELECT id, barrio, ambientes, precio / COALESCE(m2_cubiertos, m2_totales) v FROM publicaciones
-                       WHERE activa = 1 AND moneda = 'USD' AND precio > 0 AND COALESCE(m2_cubiertos, m2_totales) > 0
+                       WHERE activa = 1 AND moneda = :m AND precio > 0 AND COALESCE(m2_cubiertos, m2_totales) > 0
                          AND barrio IS NOT NULL AND barrio != ''
                          AND precio / COALESCE(m2_cubiertos, m2_totales) BETWEEN :lo AND :hi""")
 
@@ -39,7 +45,7 @@ def grupos(barrios: list[str]) -> dict[str, str]:
 
 
 def calcular(filas: list[tuple]) -> tuple[dict[int, tuple[float, str, int]], list[dict]]:
-    """filas: (id, barrio, ambientes, usd_m2). Devuelve ({id: (pct, referencia, n)}, estadísticas por barrio)."""
+    """filas: (id, barrio, ambientes, precio_m2). Devuelve ({id: (pct, referencia, n)}, estadísticas por barrio)."""
     g = grupos([f[1] for f in filas])
     por_barrio: dict[str, list[float]] = {}
     por_amb: dict[tuple[str, int], list[float]] = {}
@@ -64,26 +70,25 @@ def calcular(filas: list[tuple]) -> tuple[dict[int, tuple[float, str, int]], lis
     return out, sorted(stats, key=lambda x: x["mediana"])
 
 
-def actualizar(c: Connection, forzar: bool = False) -> bool:
-    """Recalcula web_vs_barrio si cambiaron los datos. Devuelve True si recalculó. Barato cuando no hay cambios
-    (una consulta de agregados)."""
-    global _firma
+def actualizar(c: Connection, forzar: bool = False, base: str = "compra") -> bool:
+    """Recalcula web_vs_barrio si cambiaron los datos de esa base. Devuelve True si recalculó. Barato cuando no hay
+    cambios (una consulta de agregados)."""
     firma = tuple(c.execute(_FIRMA_SQL).one())
-    if firma == _firma and not forzar:
+    if firma == _firma.get(base) and not forzar:
         return False
     with _lock:
-        if firma == _firma and not forzar:
+        if firma == _firma.get(base) and not forzar:
             return False
-        vs, _ = calcular([tuple(r) for r in c.execute(_MUESTRA_SQL, _RANGO)])
+        vs, _ = calcular([tuple(r) for r in c.execute(_MUESTRA_SQL, _params(base))])
         with c.engine.begin() as w:               # transacción propia: no depende del estado de la del pedido
             w.execute(text("DELETE FROM web_vs_barrio"))
             if vs:
                 w.execute(text("INSERT INTO web_vs_barrio (publicacion_id, pct, ref, n) VALUES (:i, :p, :r, :n)"),
                           [{"i": i, "p": p, "r": r, "n": n} for i, (p, r, n) in vs.items()])
-        _firma = firma
+        _firma[base] = firma
         return True
 
 
-def estadisticas(c: Connection) -> list[dict]:
-    """USD/m² por barrio (sub-barrios agrupados), para la pantalla Comparar."""
-    return calcular([tuple(r) for r in c.execute(_MUESTRA_SQL, _RANGO)])[1]
+def estadisticas(c: Connection, base: str = "compra") -> list[dict]:
+    """Precio/m² por barrio (sub-barrios agrupados), para la pantalla Comparar."""
+    return calcular([tuple(r) for r in c.execute(_MUESTRA_SQL, _params(base))])[1]

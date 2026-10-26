@@ -2,6 +2,7 @@
 import logging
 import re
 import time
+from contextvars import ContextVar
 from datetime import datetime, timedelta
 
 from fastapi import Depends, HTTPException, Request
@@ -12,7 +13,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from . import config, mercado, queries
-from .auth import PasswordChangeRequired, User, current_user, es_https
+from .auth import PasswordChangeRequired, User, base_valida as auth_base, current_user, es_https
 from .models_web import Usuario
 from .security import iguales
 
@@ -76,21 +77,22 @@ def _dir(s: str | None) -> str:
     return "".join(out)
 
 
-_portales_cache: tuple[float, bool] = (0.0, False)
+_portales_cache: dict[str, tuple[float, bool]] = {}     # por base
+_base_actual: ContextVar[str] = ContextVar("base_actual", default=config.BASE_DEFECTO)
 
 
-def _actualizar_portales(conn) -> None:
-    """¿Hay avisos de más de un portal? Se recalcula cada 60 s, en render()."""
-    global _portales_cache
+def _actualizar_portales(conn, base: str) -> None:
+    """¿Hay avisos de más de un portal en esta base? Se recalcula cada 60 s, en render()."""
     ahora = time.monotonic()
-    if ahora - _portales_cache[0] > 60:
+    if ahora - _portales_cache.get(base, (0.0, False))[0] > 60:
         n = conn.execute(text("SELECT COUNT(DISTINCT portal) FROM publicaciones")).scalar_one()
-        _portales_cache = (ahora, n > 1)
+        _portales_cache[base] = (ahora, n > 1)
+    _base_actual.set(base)
 
 
 def varios_portales() -> bool:
     """Si hay un solo portal, no tiene sentido mostrar el nombre en cada aviso (global de plantilla: la usan macros)."""
-    return _portales_cache[1]
+    return _portales_cache.get(_base_actual.get(), (0.0, False))[1]
 
 
 templates.env.filters.update(money=_money, fecha=_fecha, ago=_ago, dir=_dir, chica=queries.foto_chica)
@@ -98,8 +100,21 @@ templates.env.globals.update(spark=spark, varios_portales=varios_portales)
 
 
 # ---------- dependencias ----------
-def get_session(request: Request):
-    with Session(request.app.state.engine) as s:
+def sesion_de(request: Request, base: str) -> Session:
+    """Sesión de la base de avisos pedida. `info["base"]` le dice a los filtros de búsqueda en cuál están."""
+    base = auth_base(base)
+    return Session(request.app.state.engines[base], info={"base": base})
+
+
+def get_session(request: Request, user: User = Depends(current_user)):
+    """Sesión de la base de avisos que está viendo el usuario (compra o alquiler)."""
+    with sesion_de(request, user.base) as s:
+        yield s
+
+
+def get_auth_session(request: Request):
+    """Sesión de la base de autenticación (cuentas, sesiones y tokens), compartida por todas las bases."""
+    with Session(request.app.state.engines["auth"]) as s:
         yield s
 
 
@@ -112,8 +127,10 @@ def puede_administrar(user) -> bool:
 SEGUROS = ("GET", "HEAD", "OPTIONS")
 
 
-def ctx(request: Request, user: User = Depends(current_user), s: Session = Depends(get_session)):
-    """Usuario + protección CSRF + control de 'última visita' (una sesión = >30 min sin actividad)."""
+def ctx(request: Request, user: User = Depends(current_user), s: Session = Depends(get_session),
+        sa: Session = Depends(get_auth_session)):
+    """Usuario + protección CSRF + control de 'última visita' (una sesión = >30 min sin actividad).
+    `s` es la base de avisos del usuario (compra o alquiler) y `sa`, la de autenticación."""
     if request.method not in SEGUROS:
         if request.headers.get("HX-Request") != "true":
             raise HTTPException(403, "Solicitud no permitida")
@@ -134,18 +151,19 @@ def ctx(request: Request, user: User = Depends(current_user), s: Session = Depen
         u.ultima_visita = now
         s.commit()
     try:
-        mercado.actualizar(s.connection())  # USD/m² vs. barrio, antes de consultar: sólo recalcula si cambiaron los datos
+        mercado.actualizar(s.connection(), base=user.base)  # precio/m² vs. barrio, antes de consultar: sólo recalcula si cambiaron los datos
     except OperationalError:                # base ocupada por otra escritura: se usa lo calculado antes
         logging.getLogger("inmo.mercado").warning("no se pudo actualizar el indicador de oportunidad", exc_info=True)
-    return {"user": user, "desde": u.visita_previa, "s": s}
+    return {"user": user, "desde": u.visita_previa, "s": s, "sa": sa}
 
 
 def render(request: Request, name: str, c: dict, **kw):
     conn = c["s"].connection()
-    _actualizar_portales(conn)
+    _actualizar_portales(conn, c["user"].base)
     # Los contadores del header (5 COUNT) sólo hacen falta en páginas completas: los parciales de HTMX no lo muestran
     cont = {} if name.startswith("partials/") else queries.contadores(conn, c["desde"])
-    data = {"user": c["user"], "auth_mode": config.AUTH_MODE, "cont": cont, **kw}
+    data = {"user": c["user"], "auth_mode": config.AUTH_MODE, "cont": cont, "base": c["user"].base,
+            "es_alquiler": c["user"].base == "alquiler", **kw}
     return templates.TemplateResponse(request, name, data)
 
 

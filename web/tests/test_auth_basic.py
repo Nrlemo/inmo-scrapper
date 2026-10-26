@@ -117,7 +117,7 @@ def test_login_requires_csrf_cookie(admin):
 
 def test_lockout_after_failures_even_with_right_password(admin):
     from sqlalchemy.orm import Session
-    from app.main import ENGINE
+    from app.main import AUTH_ENGINE as ENGINE
     from app.models_web import Cuenta
     admin.post("/logout", headers=hx(admin))
     for _ in range(5):
@@ -155,7 +155,7 @@ def test_idle_and_absolute_expiry(admin, monkeypatch):
     login(admin, "admin", PW)
     from sqlalchemy import update
     from sqlalchemy.orm import Session
-    from app.main import ENGINE
+    from app.main import AUTH_ENGINE as ENGINE
     from app.models_web import Sesion
     with Session(ENGINE) as s:
         s.execute(update(Sesion).values(expira=datetime.now() - timedelta(seconds=1)))
@@ -166,7 +166,7 @@ def test_idle_and_absolute_expiry(admin, monkeypatch):
 def test_secrets_are_not_stored_in_clear(admin):
     from sqlalchemy import text
     from sqlalchemy.orm import Session
-    from app.main import ENGINE
+    from app.main import AUTH_ENGINE as ENGINE
     token = admin.cookies.get("inmo_session")
     with Session(ENGINE) as s:
         assert s.execute(text("SELECT password_hash FROM web_cuentas")).scalar().startswith("$argon2id$")
@@ -255,7 +255,7 @@ def test_user_admin_rules(admin):
     assert "Rol inválido" in _crear(admin, "beto", rol="root").text
     _crear(admin, "beto")
     from sqlalchemy.orm import Session
-    from app.main import ENGINE
+    from app.main import AUTH_ENGINE as ENGINE
     from app.models_web import Cuenta
     with Session(ENGINE) as s:
         yo = s.query(Cuenta).filter_by(username="admin").one().id
@@ -275,7 +275,7 @@ def test_disable_kills_sessions_and_reset_password(admin):
     beto.post("/cuenta/clave", data={"actual": temp, "nueva": "Otra-frase-larga-77", "nueva2": "Otra-frase-larga-77"}, headers=hx(beto))
     assert beto.get("/lista").status_code == 200
     from sqlalchemy.orm import Session
-    from app.main import ENGINE
+    from app.main import AUTH_ENGINE as ENGINE
     from app.models_web import Cuenta
     with Session(ENGINE) as s:
         bid = s.query(Cuenta).filter_by(username="beto").one().id
@@ -361,7 +361,7 @@ def test_api_login_gives_working_session_cookie(admin):
 
 
 def test_remember_me_survives_idle_and_lasts_longer(admin, monkeypatch):
-    from app.main import ENGINE
+    from app.main import AUTH_ENGINE as ENGINE
     from app.models_web import Sesion
     from sqlalchemy.orm import Session
     admin.cookies.clear()

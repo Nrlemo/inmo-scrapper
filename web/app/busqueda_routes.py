@@ -55,6 +55,8 @@ def _desde_form(b: dict, form) -> dict:
     for k in filtros.NUMERICOS:
         com[k] = g(k) or None
     com["apto_credito"] = form.get("apto_credito") == "1"
+    if g("moneda") in ("ARS", "USD") and com["operacion"] == "alquiler":   # en compra la moneda es fija (USD)
+        com["moneda"] = g("moneda")
     com["excluir"] = [x.strip() for x in re.split(r"[,\n]", form.get("excluir") or "") if x.strip()]
     for portal in filtros.disponibles():
         if f"{portal}_zonas" not in form:

@@ -11,6 +11,13 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 DB_PATH = os.environ.get("INMO_DB", str(ROOT.parent / "scrapper" / "data" / "inmo.sqlite"))
+# Bases separadas por operación (compra = DB_PATH, la de siempre) y una base propia, compartida, para la autenticación
+# (cuentas, sesiones y tokens de la extensión). Por defecto, junto a la de compra.
+DB_PATH_ALQUILER = os.environ.get("INMO_DB_ALQUILER") or str(Path(DB_PATH).parent / "alquiler.sqlite")
+DB_PATH_AUTH = os.environ.get("INMO_DB_AUTH") or str(Path(DB_PATH).parent / "auth.sqlite")
+BASES = ("compra", "alquiler")
+BASE_DEFECTO = "compra"
+DB_PATHS = {"compra": DB_PATH, "alquiler": DB_PATH_ALQUILER}
 # Cabeceras que inyecta authentik (forward-auth). El proxy debe ser el único camino a la app.
 USER_HEADER = os.environ.get("AUTH_USER_HEADER", "X-authentik-username")
 EMAIL_HEADER = os.environ.get("AUTH_EMAIL_HEADER", "X-authentik-email")

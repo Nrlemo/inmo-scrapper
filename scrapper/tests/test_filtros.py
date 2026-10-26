@@ -169,3 +169,34 @@ def test_m2_maximos():
     assert matches_profile(Listing("zonaprop", "1", "u", m2_totales=80, m2_cubiertos=None), p)
     with pytest.raises(ValueError, match="mínimo de m² totales es mayor"):
         _solo_recoleta(m2_tot_min=90, m2_tot_max=80)
+
+
+def test_expensas_max_filtra_solo_si_se_pueden_comparar():
+    from inmo.connectors.base import Listing
+    from inmo.connectors.common import matches_profile
+    from inmo import filtros
+    doc = {"busquedas": [filtros.nueva_busqueda("alq", "alquiler")]}
+    doc["busquedas"][0]["comunes"]["expensas_max"] = "100.000"
+    doc["busquedas"][0]["portales"]["zonaprop"]["activo"] = False
+    doc = filtros.validar(doc, "alquiler")
+    assert doc["busquedas"][0]["comunes"]["expensas_max"] == 100000
+    perfil = {"currency": "ARS", "expenses_max": 100000}
+    assert matches_profile(Listing("p", "1", "u", expensas=90000, moneda_expensas="ARS"), perfil)
+    assert not matches_profile(Listing("p", "2", "u", expensas=150000, moneda_expensas="ARS"), perfil)
+    assert not matches_profile(Listing("p", "3", "u", expensas=150000), perfil)                 # sin moneda: se asume pesos
+    assert matches_profile(Listing("p", "4", "u", expensas=150000, moneda_expensas="USD"), perfil)   # no comparable
+    assert matches_profile(Listing("p", "5", "u"), perfil)                                       # sin dato: no se descarta
+
+
+def test_busqueda_de_alquiler_arranca_en_pesos_y_sin_portales_activos():
+    from inmo import filtros
+    b = filtros.nueva_busqueda("alq", "alquiler")
+    assert b["comunes"]["operacion"] == "alquiler" and b["comunes"]["moneda"] == "ARS"
+    assert not any(p["activo"] for p in b["portales"].values())
+    assert filtros.nueva_busqueda("c")["portales"]["zonaprop"]["activo"]           # compra, igual que antes
+    try:
+        filtros.validar({"busquedas": [b]}, "compra")
+    except ValueError as e:
+        assert "compra" in str(e)
+    else:
+        raise AssertionError("una búsqueda de alquiler no debería validar en la base de compra")

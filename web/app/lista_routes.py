@@ -5,11 +5,11 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from . import config, queries
 from .core import ctx, render
-from .models_web import BusquedaGuardada
+from .models_web import BusquedaGuardada, Cuenta
 from .queries import Filtros
 
 router = APIRouter()
@@ -23,7 +23,7 @@ def _filtros(request: Request, desde) -> Filtros:
             return cast(g(k)) if g(k) else None
         except ValueError:
             return None
-    return Filtros(q=(g("q") or "").strip(), barrio=g("barrio") or "", portal=g("portal") or "",
+    return Filtros(q=(g("q") or "").strip(), barrio=g("barrio") or "", portal=g("portal") or "", moneda=(g("moneda") or "").upper(),
                    inmo=num("inmo", int), pmin=num("pmin"), pmax=num("pmax"), mmin=num("mmin"), amb=num("amb", int),
                    cochera=g("cochera") == "1", bajo_barrio=g("bajo") == "1", etiqueta=(g("etiqueta") or "").strip(), estado=g("estado") or "", baja=g("baja") == "1",
                    nuevas=g("nuevas") == "1", inactivas=g("inactivas") == "1", fuera=g("fuera") == "1", orden=g("orden") or "nuevas",
@@ -66,8 +66,8 @@ def borrar_busqueda(bid: int, c=Depends(ctx)):
 
 @router.get("/ranking", response_class=HTMLResponse)
 def ranking(request: Request, usuario: str = "", inactivas: int = 0, descartadas: int = 0, c=Depends(ctx)):
-    rows, usuarios = queries.ranking(c["s"].connection(), usuario, bool(inactivas), bool(descartadas),
-                                     solo_cuentas=config.AUTH_MODE == "basic")
+    cuentas = list(c["sa"].scalars(select(Cuenta.username))) if config.AUTH_MODE == "basic" else None
+    rows, usuarios = queries.ranking(c["s"].connection(), usuario, bool(inactivas), bool(descartadas), cuentas=cuentas)
     return render(request, "ranking.html", c, rows=rows, usuarios=usuarios, sel=usuario,
                   inactivas=inactivas, descartadas=descartadas)
 
@@ -89,7 +89,7 @@ def comparar(request: Request, ids: str = "", c=Depends(ctx)):
     props = queries.varios(conn, lista_ids)
     for p in props:
         p["hist"] = queries.historial(conn, p["id"])
-    stats = queries.stats_barrios(conn)
+    stats = queries.stats_barrios(conn, c["user"].base)
     return render(request, "comparar.html", c, props=props, stats=stats, favoritas=usando_favoritas)
 
 

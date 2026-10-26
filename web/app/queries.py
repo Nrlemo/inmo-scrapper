@@ -10,7 +10,7 @@ BASE = """
 SELECT p.*, COALESCE(r.favorito,0) favorito, COALESCE(r.potencial,0) potencial, COALESCE(r.descartada,0) descartada,
   COALESCE(r.contactada,0) contactada, COALESCE(r.revisada,0) revisada, r.notas, r.modificado_por,
   r.fecha_contacto, pu.promedio puntaje, COALESCE(pu.votos,0) votos, c.etiquetas, c.etiquetas_auto,
-  CASE WHEN COALESCE(p.m2_cubiertos, p.m2_totales) > 0 AND p.moneda = 'USD' THEN p.precio / COALESCE(p.m2_cubiertos, p.m2_totales) END usd_m2,
+  CASE WHEN COALESCE(p.m2_cubiertos, p.m2_totales) > 0 THEN p.precio / COALESCE(p.m2_cubiertos, p.m2_totales) END usd_m2,
   ch.variacion_pct, ch.fecha cambio_fecha, i.nombre inmo_nombre, vb.pct vb_pct, vb.ref vb_ref, vb.n vb_n
 FROM publicaciones p
 LEFT JOIN web_revision r ON r.publicacion_id = p.id
@@ -54,6 +54,7 @@ class Filtros:
     q: str = ""
     barrio: str = ""
     portal: str = ""
+    moneda: str = ""       # ARS | USD: los precios sólo se comparan dentro de una moneda
     inmo: int | None = None
     pmin: float | None = None
     pmax: float | None = None
@@ -63,7 +64,7 @@ class Filtros:
     etiqueta: str = ""     # manual o automática
     estado: str = ""       # pendientes | favoritas | potencial | contactadas | descartadas | activas (=no descartadas)
     baja: bool = False     # bajó de precio
-    bajo_barrio: bool = False  # USD/m² debajo de la mediana de su barrio (app/mercado.py)
+    bajo_barrio: bool = False  # precio/m² debajo de la mediana de su barrio (app/mercado.py)
     nuevas: bool = False   # desde tu última visita
     inactivas: bool = False
     fuera: bool = False    # incluir las que no cumplen los filtros de búsqueda
@@ -80,6 +81,8 @@ class Filtros:
             w.append("p.barrio = :barrio"); a["barrio"] = self.barrio
         if self.portal:
             w.append("p.portal = :portal"); a["portal"] = self.portal
+        if self.moneda in ("ARS", "USD"):
+            w.append("p.moneda = :moneda"); a["moneda"] = self.moneda
         if self.inmo:
             w.append("p.inmobiliaria_id = :inmo"); a["inmo"] = self.inmo
         if self.pmin is not None:
@@ -243,10 +246,11 @@ def inmobiliarias(c: Connection, n: int = 60) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def stats_barrios(c: Connection) -> list[dict]:
-    """USD/m² por barrio con las publicaciones activas en USD (sub-barrios agrupados), el mismo cálculo que el badge."""
+def stats_barrios(c: Connection, base: str = "compra") -> list[dict]:
+    """Precio/m² por barrio con las publicaciones activas en la moneda de referencia de la base (sub-barrios agrupados),
+    el mismo cálculo que el badge."""
     from .mercado import estadisticas
-    return estadisticas(c)
+    return estadisticas(c, base)
 
 
 def mapa(c: Connection, f: Filtros) -> list[dict]:
@@ -308,7 +312,7 @@ def puntajes(c: Connection, pid: int) -> list[dict]:
 
 
 def ranking(c: Connection, usuario: str = "", inactivas: bool = False, descartadas: bool = False,
-            solo_cuentas: bool = False) -> tuple[list[dict], list[str]]:
+            cuentas: list[str] | None = None) -> tuple[list[dict], list[str]]:
     """Publicaciones puntuadas, de mayor a menor promedio. Con `usuario`, ordena por el puntaje de esa persona.
     Devuelve las filas (cada una con `por_usuario`: {usuario: puntaje}) y los usuarios que puntuaron."""
     w = ["pu.votos > 0"]
@@ -330,7 +334,7 @@ def ranking(c: Connection, usuario: str = "", inactivas: bool = False, descartad
         r["por_usuario"] = por.get(r["id"], {})
     # Con login propio, una columna por cuenta: puntajes de identidades sin cuenta (p. ej. de antes de que existieran
     # las cuentas) siguen en el promedio, pero no generan columna.
-    cuentas = " WHERE usuario IN (SELECT username FROM web_cuentas)" if solo_cuentas else ""
-    usuarios = [x[0] for x in c.execute(text(f"SELECT usuario FROM web_puntajes{cuentas} GROUP BY usuario "
-                                             "ORDER BY COUNT(*) DESC, usuario"))]
+    # `cuentas` viene de la base de autenticación (otra SQLite): no se puede cruzar con un JOIN
+    puntuaron = [(x[0], x[1]) for x in c.execute(text("SELECT usuario, COUNT(*) FROM web_puntajes GROUP BY usuario"))]
+    usuarios = [u for u, _ in sorted(puntuaron, key=lambda t: (-t[1], t[0])) if cuentas is None or u in cuentas]
     return rows, usuarios

@@ -7,7 +7,13 @@
   {% if error %}<div class="up" role="alert">{{ error }}</div>{% endif %}
   <label class="fld">Usuario<input name="usuario" value="{{ usuario }}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus maxlength="32"></label>
   <label class="fld">Contraseña<input type="password" name="clave" autocomplete="current-password" required maxlength="128"></label>
+  <fieldset class="basesel"><legend>Quiero ver</legend>
+    <label><input type="radio" name="base" value="compra" checked> Compra</label>
+    <label><input type="radio" name="base" value="alquiler"> Alquiler</label>
+  </fieldset>
   <label><input type="checkbox" name="recordar" value="1"> Mantener sesión iniciada</label>
   <button class="pri" type="submit">Ingresar</button>
 </form>
+<script>try{var b=localStorage.getItem('inmo-base'),r=b&&document.querySelector('input[name=base][value='+b+']');if(r)r.checked=true;
+document.querySelector('form').addEventListener('submit',function(){var c=document.querySelector('input[name=base]:checked');if(c)localStorage.setItem('inmo-base',c.value)})}catch(e){}</script>{# recuerda la última base elegida en este dispositivo #}
 {% endblock %}

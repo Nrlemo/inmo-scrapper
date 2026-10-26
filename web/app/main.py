@@ -13,34 +13,40 @@ from .auth_routes import router as auth_router
 from .backup_routes import router as backup_router
 from .busqueda_routes import router as busqueda_router
 from .core import headers
-from .db import init_engine, sembrar_config
+from .db import init_engines, sembrar_config
 from .estado_routes import router as estado_router
 from .lista_routes import router as lista_router
 from .navegador_routes import router as navegador_router
 from .revision_routes import router as revision_router
 
-ENGINE = None     # lo usan los tests (from app.main import ENGINE)
+ENGINE = None     # lo usan los tests (from app.main import ENGINE): la base de compra
+AUTH_ENGINE = None  # ... y la de autenticación
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global ENGINE
+    global ENGINE, AUTH_ENGINE
     sembrar_config()
-    ENGINE = app.state.engine = init_engine()
-    with Session(ENGINE) as s:
-        rondas.marcar_huerfanas(s)
+    app.state.engines = init_engines()          # compra, alquiler y auth
+    ENGINE = app.state.engine = app.state.engines["compra"]
+    AUTH_ENGINE = app.state.engines["auth"]
+    for base in config.BASES:
+        with Session(app.state.engines[base]) as s:
+            rondas.marcar_huerfanas(s)
     log = logging.getLogger("uvicorn.error")
     if config.AUTH_MODE == "none":
         log.warning("AUTENTICACIÓN DESACTIVADA (AUTH_MODE=none): cualquiera que llegue a esta URL puede ver y modificar todo.")
     elif config.AUTH_MODE == "basic":
-        auth.avisar_instalacion(ENGINE)
+        auth.avisar_instalacion(app.state.engines["auth"])
     stop = threading.Event()
     if config.BACKUP_ENABLED:
         threading.Thread(target=backups.run_forever, args=(stop,), daemon=True, name="backups").start()
         log.info("Backups diarios a las %s en %s%s", config.BACKUP_HORA, config.BACKUP_DIR,
                  f" (copia extra en {config.BACKUP_DIR_EXTRA})" if config.BACKUP_DIR_EXTRA else "")
     if config.GEOCODIFICAR:
-        threading.Thread(target=geocodificacion.run_forever, args=(ENGINE, stop), daemon=True, name="geo").start()
+        for base in config.BASES:
+            threading.Thread(target=geocodificacion.run_forever, args=(app.state.engines[base], stop), daemon=True,
+                             name=f"geo-{base}").start()
     yield
     stop.set()
 

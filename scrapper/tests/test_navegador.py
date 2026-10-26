@@ -166,3 +166,49 @@ def test_varios_perfiles_del_mismo_portal(tmp_path):
             navegador.pagina(s, cfg, rid, URL1, _otra(chica, "9"), T0 + timedelta(days=k))
             navegador.pagina(s, cfg, rid, URL2, chica, T0 + timedelta(days=k))
         assert all(p.activa for p in s.scalars(select(Publicacion)))
+
+
+def test_bloqueo_en_otra_base_frena_el_mismo_portal(tmp_path):
+    """Compra y alquiler leen los mismos portales: el cooldown por bloqueo de una base vale para la otra."""
+    eng = make_engine(str(tmp_path / "t.sqlite"))
+    cfg = _cfg()
+    hasta = T0 + timedelta(hours=5)
+    with Session(eng) as s:
+        r = navegador.iniciar(s, cfg, "ana", T0, bloqueos_externos={"zonaprop": hasta})
+        assert "cooldown por bloqueo" in r["omitir"] and "ronda" not in r
+        r = navegador.iniciar(s, cfg, "ana", T0, forzar=True, bloqueos_externos={"zonaprop": hasta})
+        assert "omitir" in r                                      # forzar no pisa un bloqueo
+        r = navegador.iniciar(s, cfg, "ana", hasta + timedelta(minutes=1), bloqueos_externos={"zonaprop": hasta})
+        assert r["ronda"]                                         # pasado el cooldown, corre
+
+
+def test_bloqueos_y_en_curso_de_una_base(tmp_path):
+    eng = make_engine(str(tmp_path / "t.sqlite"))
+    cfg = _cfg(cooldown_hours_on_block=10, min_hours_between_runs=0)
+    with Session(eng) as s:
+        assert navegador.bloqueos(s, cfg) == {} and not navegador.en_curso(s, T0)
+        s.add(Consulta(perfil="t", portal="zonaprop", fecha=T0, cantidad_resultados=0, completa=False, bloqueada=True))
+        s.commit()
+        assert navegador.bloqueos(s, cfg) == {"zonaprop": T0 + timedelta(hours=10)}
+        navegador.iniciar(s, cfg, "ana", T0 + timedelta(hours=11))
+        assert navegador.en_curso(s, T0 + timedelta(hours=11, minutes=5))
+        assert not navegador.en_curso(s, T0 + timedelta(hours=13))     # sin noticias de la extensión: abandonada
+
+
+def test_ronda_de_alquiler_guarda_solo_pesos_hasta_el_maximo(tmp_path):
+    """Página real de alquiler (Zonaprop, San Nicolás, hasta $900.000): se descartan los avisos en dólares."""
+    from inmo import filtros
+    html = (Path(__file__).parent / "fixtures" / "zonaprop_alquiler_listado.html").read_text(encoding="utf-8")
+    b = filtros.nueva_busqueda("alq", "alquiler")
+    b["comunes"]["precio_max"] = 900000
+    b["portales"]["zonaprop"].update(activo=True, zonas=[{"zona": "san-nicolas"}])
+    cfg = {"profiles": filtros.perfiles(filtros.validar({"busquedas": [b]}, "alquiler")), "politeness": {}}
+    url = "https://www.zonaprop.com.ar/departamentos-alquiler-san-nicolas-menos-900000-pesos.html"
+    eng = make_engine(str(tmp_path / "alquiler.sqlite"))
+    with Session(eng) as s:
+        r = navegador.iniciar(s, cfg, "ana", T0)
+        assert r["url"] == url
+        navegador.pagina(s, cfg, r["ronda"], url, html, T0)
+        pubs = s.scalars(select(Publicacion)).all()
+        assert len(pubs) == 26 and {p.moneda for p in pubs} == {"ARS"} and max(p.precio for p in pubs) <= 900000
+        assert sum(bool(p.expensas) for p in pubs) >= 20

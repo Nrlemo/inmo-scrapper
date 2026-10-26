@@ -94,8 +94,8 @@ def page_url(search_url: str, n: int) -> str:
 
 
 TIPOS = {"departamento": "departamentos"}
-OPERACIONES = {"compra": "venta"}
-MONEDAS = {"USD": "dolares"}
+OPERACIONES = {"compra": "venta", "alquiler": "alquiler"}
+MONEDAS = {"USD": "dolares", "ARS": "pesos"}
 
 
 def armar_plantilla(f: dict) -> str:
@@ -103,8 +103,13 @@ def armar_plantilla(f: dict) -> str:
     for clave, validos in (("tipo", TIPOS), ("operacion", OPERACIONES), ("moneda", MONEDAS)):
         if f.get(clave) not in validos:
             raise ValueError(f"Argenprop: {clave} «{f.get(clave)}» no está verificado; usá la plantilla avanzada")
+    if (f["operacion"], f["moneda"]) not in (("compra", "USD"), ("alquiler", "ARS")):
+        raise ValueError("Argenprop: sólo están verificadas la compra en dólares y el alquiler en pesos; usá la plantilla avanzada")
+    # Alquiler, verificado: «/departamentos/alquiler/san-nicolas/pesos-hasta-900000». El portal agrega «?solo-ver-pesos»,
+    # pero robots.txt no permite una consulta junto con la paginación: se pide sin ella y los avisos en dólares se
+    # descartan al recibir la página (matches_profile).
     url = f"{BASE}/{TIPOS[f['tipo']]}/{OPERACIONES[f['operacion']]}/{{zone}}/{MONEDAS[f['moneda']]}-hasta-{{price_max}}"
-    return url + ("/apto-credito" if f.get("apto_credito") else "")
+    return url + ("/apto-credito" if f.get("apto_credito") and f["operacion"] == "compra" else "")
 
 
 _PLANTILLA_RE = re.compile(r"^https://www\.argenprop\.com/departamentos/venta/\{zone\}/dolares-hasta-\{price_max\}(/apto-credito)?$")
@@ -133,6 +138,10 @@ class Argenprop(Portal):
 
     def armar_plantilla(self, filtros: dict) -> str:
         return armar_plantilla(filtros)
+
+    def precios_requeridos(self, filtros: dict) -> tuple[str, ...]:
+        # La URL de alquiler sólo lleva el máximo; en compra se sigue pidiendo también el mínimo (como antes).
+        return ("precio_max",) if filtros.get("operacion") == "alquiler" else ("precio_min", "precio_max")
 
     def leer_plantilla(self, plantilla: str) -> dict | None:
         return leer_plantilla(plantilla)

@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from . import auth, config, security
 from .auth import User
-from .core import ctx, get_session, render, templates
-from .models_web import Cuenta
+from .core import ctx, get_auth_session, render, templates
+from .models_web import Cuenta, Sesion
 
 router = APIRouter()
 log = logging.getLogger("inmo.auth")
@@ -43,8 +43,9 @@ def _csrf_pre_ok(request: Request, enviado: str) -> bool:
     return bool(cookie) and security.iguales(cookie, enviado)
 
 
-def _entrar(request: Request, s: Session, cuenta: Cuenta, destino: str, recordar: bool = False) -> Response:
-    token = auth.crear_sesion(s, cuenta, request, recordar)
+def _entrar(request: Request, s: Session, cuenta: Cuenta, destino: str, recordar: bool = False,
+            base: str = config.BASE_DEFECTO) -> Response:
+    token = auth.crear_sesion(s, cuenta, request, recordar, base)
     resp = RedirectResponse("/cuenta" if cuenta.debe_cambiar else destino, status_code=303)
     auth.poner_cookie(resp, request, auth.cookie_sesion(request), token,
                      max_age=int(auth.duracion_sesion(recordar).total_seconds()))
@@ -54,7 +55,7 @@ def _entrar(request: Request, s: Session, cuenta: Cuenta, destino: str, recordar
 
 # ---------------- instalación inicial ----------------
 @router.get("/setup", response_class=HTMLResponse)
-def setup_form(request: Request, s: Session = Depends(get_session)):
+def setup_form(request: Request, s: Session = Depends(get_auth_session)):
     if config.AUTH_MODE != "basic" or auth.hay_admin(s):
         return RedirectResponse("/", status_code=303)
     return _pagina(request, "setup.html", error=None, usuario="")
@@ -62,7 +63,7 @@ def setup_form(request: Request, s: Session = Depends(get_session)):
 
 @router.post("/setup", response_class=HTMLResponse)
 def setup_post(request: Request, usuario: str = Form(""), clave: str = Form(""), clave2: str = Form(""),
-               codigo: str = Form(""), csrf: str = Form(""), s: Session = Depends(get_session)):
+               codigo: str = Form(""), csrf: str = Form(""), s: Session = Depends(get_auth_session)):
     if config.AUTH_MODE != "basic":
         raise HTTPException(404)
     usuario = security.normalizar_usuario(usuario)
@@ -94,7 +95,7 @@ def setup_post(request: Request, usuario: str = Form(""), clave: str = Form(""),
 
 # ---------------- login / logout ----------------
 @router.get("/login", response_class=HTMLResponse)
-def login_form(request: Request, next: str = "/", s: Session = Depends(get_session)):
+def login_form(request: Request, next: str = "/", s: Session = Depends(get_auth_session)):
     if config.AUTH_MODE != "basic":
         return RedirectResponse("/", status_code=303)
     if not auth.hay_admin(s):
@@ -106,7 +107,8 @@ def login_form(request: Request, next: str = "/", s: Session = Depends(get_sessi
 
 @router.post("/login", response_class=HTMLResponse)
 def login_post(request: Request, usuario: str = Form(""), clave: str = Form(""), next: str = Form("/"),
-               csrf: str = Form(""), recordar: str = Form(""), s: Session = Depends(get_session)):
+               csrf: str = Form(""), recordar: str = Form(""), base: str = Form(config.BASE_DEFECTO),
+               s: Session = Depends(get_auth_session)):
     _solo_basic()
     usuario = security.normalizar_usuario(usuario)
     destino = security.next_seguro(next)
@@ -125,7 +127,7 @@ def login_post(request: Request, usuario: str = Form(""), clave: str = Form(""),
         log.warning("login fallido: usuario=%r ip=%s motivo=%s", usuario[:32], _ip(request), motivo)
         return fallo()
     log.info("login ok: usuario=%r ip=%s", cuenta.username, _ip(request))
-    return _entrar(request, s, cuenta, destino, bool(recordar))  # sesión nueva en cada login (evita fijación de sesión)
+    return _entrar(request, s, cuenta, destino, bool(recordar), base)  # sesión nueva en cada login (evita fijación de sesión)
 
 
 # ---------------- login para la app Android (JSON, sin CSRF de doble envío) ----------------
@@ -136,10 +138,11 @@ class LoginBody(BaseModel):
     usuario: str
     clave: str
     recordar: bool = False
+    base: str = config.BASE_DEFECTO     # sin base (app vieja) = compra
 
 
 @router.post("/api/login")
-def api_login(request: Request, body: LoginBody, s: Session = Depends(get_session)):
+def api_login(request: Request, body: LoginBody, s: Session = Depends(get_auth_session)):
     _solo_basic()
     usuario = security.normalizar_usuario(body.usuario)
     if not ip_login.permitir(_ip(request)):
@@ -149,7 +152,8 @@ def api_login(request: Request, body: LoginBody, s: Session = Depends(get_sessio
     if cuenta is None:
         log.warning("api login fallido: usuario=%r ip=%s motivo=%s", usuario[:32], _ip(request), motivo)
         raise HTTPException(401, _GENERICO)
-    token = auth.crear_sesion(s, cuenta, request, body.recordar)   # mismo mecanismo de sesión que el login web
+    base = auth.base_valida(body.base)
+    token = auth.crear_sesion(s, cuenta, request, body.recordar, base)   # mismo mecanismo de sesión que el login web
     log.info("api login ok: usuario=%r ip=%s", cuenta.username, _ip(request))
     return {
         "usuario": cuenta.username,
@@ -159,6 +163,7 @@ def api_login(request: Request, body: LoginBody, s: Session = Depends(get_sessio
         "cookie_value": token,
         "max_age_seconds": int(auth.duracion_sesion(body.recordar).total_seconds()),
         "secure": auth.es_https(request),
+        "base": base,
     }
 
 
@@ -167,19 +172,34 @@ def logout(request: Request, c=Depends(ctx)):
     _solo_basic()
     u: User = c["user"]
     if u.sesion:
-        from .models_web import Sesion
-        row = c["s"].get(Sesion, u.sesion)
+        row = c["sa"].get(Sesion, u.sesion)
         if row:
-            c["s"].delete(row)
-            c["s"].commit()
+            c["sa"].delete(row)
+            c["sa"].commit()
     resp = Response(status_code=204, headers={"HX-Redirect": "/login"})
     auth.borrar_cookie(resp, request, auth.cookie_sesion(request))
     return resp
 
 
+@router.post("/base")
+def cambiar_base(request: Request, base: str = Form(""), c=Depends(ctx)):
+    """Pasa de la base de compra a la de alquiler (o al revés) sin volver a ingresar."""
+    base, u = auth.base_valida(base), c["user"]
+    if config.AUTH_MODE == "basic":
+        row = c["sa"].get(Sesion, u.sesion) if u.sesion else None
+        if row:
+            row.base = base
+            c["sa"].commit()
+    resp = Response(status_code=204, headers={"HX-Redirect": "/"})
+    if config.AUTH_MODE != "basic":      # sin sesiones propias, la base se recuerda en una cookie (no es secreta)
+        resp.set_cookie(auth.COOKIE_BASE, base, max_age=365 * 86400, path="/", httponly=True,
+                        secure=auth.es_https(request), samesite="lax")
+    return resp
+
+
 # ---------------- cuenta propia ----------------
 def _cuenta_de(c) -> Cuenta:
-    return c["s"].get(Cuenta, c["user"].cuenta_id)
+    return c["sa"].get(Cuenta, c["user"].cuenta_id)
 
 
 @router.get("/cuenta", response_class=HTMLResponse)
@@ -206,8 +226,8 @@ def cambiar_clave(request: Request, actual: str = Form(""), nueva: str = Form(""
         error = security.validar_clave(nueva, cta.username)
     if not error:
         cta.password_hash, cta.debe_cambiar = security.hash_clave(nueva), False
-        c["s"].commit()
-        auth.cerrar_sesiones(c["s"], cta.id, excepto=u.sesion)    # el resto de las sesiones se cierra
+        c["sa"].commit()
+        auth.cerrar_sesiones(c["sa"], cta.id, excepto=u.sesion)    # el resto de las sesiones se cierra
         log.info("clave cambiada: usuario=%r", cta.username)
         msg = "Contraseña actualizada. Se cerraron tus otras sesiones."
     resp = templates.TemplateResponse(request, "partials/cuenta_clave.html", {"error": error, "msg": msg,
@@ -220,7 +240,7 @@ def cambiar_clave(request: Request, actual: str = Form(""), nueva: str = Form(""
 @router.post("/cuenta/cerrar-otras", response_class=HTMLResponse)
 def cerrar_otras(request: Request, c=Depends(ctx)):
     _solo_basic()
-    auth.cerrar_sesiones(c["s"], c["user"].cuenta_id, excepto=c["user"].sesion)
+    auth.cerrar_sesiones(c["sa"], c["user"].cuenta_id, excepto=c["user"].sesion)
     return HTMLResponse('<span class="down">Se cerraron las demás sesiones.</span>')
 
 
@@ -237,21 +257,21 @@ def _admins_activos(s: Session) -> int:
 
 
 def _lista(request: Request, c, **kw):
-    cuentas = c["s"].scalars(select(Cuenta).order_by(Cuenta.username)).all()
+    cuentas = c["sa"].scalars(select(Cuenta).order_by(Cuenta.username)).all()
     return templates.TemplateResponse(request, "partials/usuarios_lista.html",
                                       {"cuentas": cuentas, "yo": c["user"], "ahora": datetime.now(), **kw})
 
 
 @router.get("/usuarios", response_class=HTMLResponse)
 def usuarios(request: Request, c=Depends(admin_ctx)):
-    cuentas = c["s"].scalars(select(Cuenta).order_by(Cuenta.username)).all()
+    cuentas = c["sa"].scalars(select(Cuenta).order_by(Cuenta.username)).all()
     return render(request, "usuarios.html", c, cuentas=cuentas, yo=c["user"], ahora=datetime.now(), error=None, aviso=None)
 
 
 @router.post("/usuarios/crear", response_class=HTMLResponse)
 def crear(request: Request, usuario: str = Form(""), clave: str = Form(""), rol: str = Form("usuario"),
           c=Depends(admin_ctx)):
-    s = c["s"]
+    s = c["sa"]
     usuario = security.normalizar_usuario(usuario)
     error = security.validar_usuario(usuario)
     if not error and rol not in ("admin", "usuario"):
@@ -275,7 +295,7 @@ def crear(request: Request, usuario: str = Form(""), clave: str = Form(""), rol:
 
 
 def _objetivo(c, uid: int) -> Cuenta:
-    cta = c["s"].get(Cuenta, uid)
+    cta = c["sa"].get(Cuenta, uid)
     if cta is None:
         raise HTTPException(404)
     return cta
@@ -283,7 +303,7 @@ def _objetivo(c, uid: int) -> Cuenta:
 
 @router.post("/usuarios/{uid}/activo", response_class=HTMLResponse)
 def activo(request: Request, uid: int, c=Depends(admin_ctx)):
-    s, cta = c["s"], _objetivo(c, uid)
+    s, cta = c["sa"], _objetivo(c, uid)
     error = None
     if cta.id == c["user"].cuenta_id:
         error = "No podés desactivar tu propia cuenta."
@@ -300,7 +320,7 @@ def activo(request: Request, uid: int, c=Depends(admin_ctx)):
 
 @router.post("/usuarios/{uid}/rol", response_class=HTMLResponse)
 def rol(request: Request, uid: int, c=Depends(admin_ctx)):
-    s, cta = c["s"], _objetivo(c, uid)
+    s, cta = c["sa"], _objetivo(c, uid)
     error = None
     if cta.rol == "admin" and cta.activo and _admins_activos(s) <= 1:
         error = "Tiene que quedar al menos un administrador activo."
@@ -314,7 +334,7 @@ def rol(request: Request, uid: int, c=Depends(admin_ctx)):
 
 @router.post("/usuarios/{uid}/clave", response_class=HTMLResponse)
 def resetear(request: Request, uid: int, c=Depends(admin_ctx)):
-    s, cta = c["s"], _objetivo(c, uid)
+    s, cta = c["sa"], _objetivo(c, uid)
     nueva = security.generar_clave()
     cta.password_hash, cta.debe_cambiar, cta.fallos, cta.bloqueado_hasta = security.hash_clave(nueva), True, 0, None
     s.commit()

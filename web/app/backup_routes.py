@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 def panel_ctx(user) -> dict:
-    return {"bk": backups.estado(), "bk_lista": backups.listar()[:20], "bk_puede": puede_administrar(user),
+    return {"bk": backups.estado(), "bk_lista": backups.listar()[:30], "bk_puede": puede_administrar(user),
             "bk_hora": config.BACKUP_HORA, "bk_activo": config.BACKUP_ENABLED, "bk_extra": config.BACKUP_DIR_EXTRA,
             "bk_retencion": (config.BACKUP_DIARIOS, config.BACKUP_SEMANALES, config.BACKUP_MENSUALES)}
 

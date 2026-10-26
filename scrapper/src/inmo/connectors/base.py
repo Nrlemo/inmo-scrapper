@@ -53,6 +53,10 @@ class Portal:
         """Inversa de armar_plantilla (para importar profiles.yaml). None si no la reconoce."""
         return None
 
+    def precios_requeridos(self, filtros: dict[str, Any]) -> tuple[str, ...]:
+        """Filtros de precio que la URL de este portal necesita para armarse (los que vayan en la plantilla)."""
+        return ("precio_min", "precio_max")
+
     def page_url(self, url: str, n: int) -> str:
         raise NotImplementedError
 

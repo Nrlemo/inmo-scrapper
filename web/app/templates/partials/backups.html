@@ -17,7 +17,7 @@
   <div class="row"><button hx-post="/backups/ahora" hx-target="#backups" hx-swap="outerHTML" hx-disabled-elt="this">Hacer backup ahora</button></div>
   {% if bk_lista %}<details><summary class="mut" style="cursor:pointer;font-size:.88rem">{{ bk_lista|length }} backup{{ 's' if bk_lista|length != 1 }} guardado{{ 's' if bk_lista|length != 1 }} (descargar)</summary>
     <ul style="margin:.3rem 0 0;padding-left:1.1rem;font-size:.85rem">
-      {% for b in bk_lista %}<li><a href="/backups/{{ b.nombre }}" download>{{ b.fecha.strftime('%d/%m/%Y %H:%M') }}</a> <span class="mut">· {{ tam(b.bytes) }}</span></li>{% endfor %}</ul>
+      {% for b in bk_lista %}<li><a href="/backups/{{ b.nombre }}" download>{{ b.fecha.strftime('%d/%m/%Y %H:%M') }}</a> <span class="mut">· {{ {'inmo': 'compra', 'alquiler': 'alquiler', 'auth': 'usuarios'}[b.base] }} · {{ tam(b.bytes) }}</span></li>{% endfor %}</ul>
     <div class="mut" style="font-size:.8rem;margin-top:.3rem">Incluyen usuarios y sesiones: guardalos en un lugar seguro. Cómo restaurar: <code>deploy/servidor.md</code>.</div>
   </details>{% endif %}
   {% endif %}

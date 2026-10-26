@@ -6,7 +6,11 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class WebBase(DeclarativeBase):
-    pass
+    """Tablas de cada base de avisos (compra y alquiler tienen el mismo esquema)."""
+
+
+class AuthBase(DeclarativeBase):
+    """Tablas de la base de autenticación, compartida por compra y alquiler."""
 
 
 class Usuario(WebBase):
@@ -88,7 +92,7 @@ class ConfigBusqueda(WebBase):
     fecha: Mapped[datetime] = mapped_column(DateTime)
 
 
-class TokenApi(WebBase):
+class TokenApi(AuthBase):
     """Token de la extensión del navegador (ronda por navegador). Uno por usuario; se guarda sólo el hash."""
     __tablename__ = "web_tokens"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -98,7 +102,7 @@ class TokenApi(WebBase):
     ultimo_uso: Mapped[datetime | None] = mapped_column(DateTime)
 
 
-class Cuenta(WebBase):
+class Cuenta(AuthBase):
     """Cuenta de usuario del modo de autenticación `basic`."""
     __tablename__ = "web_cuentas"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -113,7 +117,7 @@ class Cuenta(WebBase):
     bloqueado_hasta: Mapped[datetime | None] = mapped_column(DateTime)
 
 
-class Sesion(WebBase):
+class Sesion(AuthBase):
     """Sesión del lado del servidor. Se guarda sólo el hash del token de la cookie."""
     __tablename__ = "web_sesiones"
     id_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -125,3 +129,4 @@ class Sesion(WebBase):
     ip: Mapped[str | None] = mapped_column(String(45))
     agente: Mapped[str | None] = mapped_column(String(200))
     recordar: Mapped[bool] = mapped_column(Boolean, default=False)   # «Mantener sesión iniciada»
+    base: Mapped[str] = mapped_column(String(8), default="compra", server_default="compra")   # compra | alquiler
