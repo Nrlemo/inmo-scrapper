@@ -1,4 +1,4 @@
-{% from "_m.html" import acciones, fichas, variacion, estados, etiquetas, usd_m2, vs_barrio, galeria, mini_mapa, stars %}
+{% from "_m.html" import acciones, fichas_foto, variacion, estados, etiquetas_card, usd_m2, vs_barrio, galeria, mini_mapa, stars %}
 {% if not p %}
   <div class="card empty"><div style="font-size:2.2rem">🎉</div><p>No quedan publicaciones sin revisar.</p><a class="btn pri" href="/lista">Ver todas</a></div>
 {% else %}
@@ -8,34 +8,36 @@
 <article class="card">
   {% call galeria(p) %}
     <div class="h-info">
-      <span class="price">{{ p.precio|money(p.moneda) }}</span> {{ variacion(p) }}
-      <div class="h-sub">{% if p.usd_m2 %}{{ usd_m2(p) }} {{ vs_barrio(p) }}{% endif %}{% if p.usd_m2 and p.expensas %} · {% endif %}{% if p.expensas %}exp. {{ p.expensas|money(p.moneda_expensas) }}{% endif %}</div>
+      <div><span class="price">{{ p.precio|money(p.moneda) }}</span> {{ variacion(p) }}</div>
+      {% if p.usd_m2 %}<div class="h-sub">{{ usd_m2(p) }} {{ vs_barrio(p) }}</div>{% endif %}
+      {% if p.expensas %}<div class="h-sub h-exp">exp. {{ p.expensas|money(p.moneda_expensas) }}</div>{% endif %}
+      {{ fichas_foto(p) }}
     </div>
+    <button type="button" class="h-ojo" aria-label="Mostrar u ocultar los datos sobre la foto" title="Mostrar u ocultar los datos sobre la foto">👁</button>
   {% endcall %}
   <div class="in">
     <div>
       <div class="addr-l">{{ p.direccion|dir or p.titulo }}</div>
       <div class="mut">{{ p.barrio }}{% if p.inmo_nombre %} · {{ p.inmo_nombre }}{% endif %}</div>
     </div>
-    {{ fichas(p) }}
-    <div class="chips">{{ estados(p) }}{{ etiquetas(p) }}</div>
+    <div class="chips">{{ estados(p) }}{{ etiquetas_card(p) }}</div>
+    {% set desc = p.descripcion or p.titulo or '' %}{% set largo = desc|length > 600 %}
+    <p class="desc-txt">{{ desc[:600] }}{{ '…' if largo }}{% if largo %} <a href="#" class="d-mas">ver descripción completa</a>{% endif %}</p>
+    {% if largo %}<p class="desc-full" hidden>{{ desc }} <a href="#" class="d-menos">ver menos</a></p>{% endif %}
+    {# Puntaje y etiquetas propias, antes de los botones: se decide con esto a la vista #}
+    <details class="mas">
+      <summary>Más: puntaje y etiquetas</summary>
+      {{ stars(p, mio, puntajes) }}
+      <input name="etiquetas" placeholder="Etiquetas separadas por coma (patio, luminoso, ver…)" value="{{ p.etiquetas|join(', ') }}" hx-post="/p/{{ p.id }}/etiquetas" hx-trigger="change" hx-swap="none">
+      <a href="/p/{{ p.id }}">Ver ficha completa (historial, actividad) ↗</a>
+    </details>
     {{ acciones(p, 'card') }}
     <div class="acts">
       <button class="pri" data-key="n" hx-get="/?despues={{ p.id }}" hx-target="#card" hx-swap="innerHTML">Saltar →</button>
       <a class="btn" data-key="o" href="{{ p.url }}" target="_blank" rel="noopener noreferrer">Abrir aviso ↗</a>
     </div>
-    {% set desc = p.descripcion or p.titulo or '' %}
-    <p class="desc-txt">{{ desc[:600] }}{{ '…' if desc|length > 600 }}</p>
     {# Mapa estático: no toma gestos, así deslizar y el doble toque siguen andando #}
     {{ mini_mapa(p) }}
-    {# Lo que antes obligaba a abrir la vista rápida: puntaje, etiquetas propias y la descripción completa #}
-    <details class="mas">
-      <summary>Más: puntaje, etiquetas{{ ' y descripción completa' if desc|length > 600 }}</summary>
-      {{ stars(p, mio, puntajes) }}
-      <input name="etiquetas" placeholder="Etiquetas separadas por coma (patio, luminoso, ver…)" value="{{ p.etiquetas|join(', ') }}" hx-post="/p/{{ p.id }}/etiquetas" hx-trigger="change" hx-swap="none">
-      {% if desc|length > 600 %}<p class="desc-full">{{ desc }}</p>{% endif %}
-      <a href="/p/{{ p.id }}">Ver ficha completa (historial, actividad) ↗</a>
-    </details>
     <textarea placeholder="Observaciones…" name="notas" hx-post="/p/{{ p.id }}/notas" hx-trigger="keyup changed delay:700ms, change" hx-swap="none">{{ p.notas or '' }}</textarea>
   </div>
 </article>

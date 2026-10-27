@@ -102,7 +102,7 @@ a.badge:hover{text-decoration:none;filter:brightness(1.1)}
 .acts.main button{min-height:50px;border-radius:14px;font-weight:600;flex-direction:column;gap:0;font-size:.85rem}
 .acts.main .ic{font-size:1.25rem;line-height:1}
 .fab,.swipe-hint{display:none}
-.desc-txt{max-height:9em;overflow:auto;margin:.2rem 0;color:var(--mut);font-size:.95rem}
+.desc-txt{margin:.2rem 0;color:var(--mut);font-size:.95rem}
 .stars{display:flex;flex-wrap:wrap;gap:.2rem;align-items:center;margin:.3rem 0}.stars .prom{margin-left:.4rem;font-size:.85rem}.stars button{min-height:36px;width:36px;padding:0}.stars button.on{background:var(--fav);border-color:var(--fav);color:#241a00}
 .pager{display:flex;gap:1rem;justify-content:center;align-items:center;margin:1.1rem 0}
 .empty{text-align:center;padding:2.5rem 1rem;color:var(--mut)}
@@ -123,10 +123,17 @@ a.badge:hover{text-decoration:none;filter:brightness(1.1)}
 .cola-bar{height:4px;border-radius:9px;background:var(--line);margin-bottom:.75rem;overflow:hidden}
 .cola-bar i{display:block;height:100%;background:var(--acc);border-radius:9px;transition:width .3s}
 .hero-w{position:relative}
-.hero-w::after{content:"";position:absolute;left:0;right:0;bottom:0;height:55%;background:linear-gradient(transparent,#000c);pointer-events:none}
+.hero-w::after{content:"";position:absolute;left:0;right:0;bottom:0;height:68%;background:linear-gradient(transparent,#000c);pointer-events:none}
 .h-info{position:absolute;left:1rem;right:1rem;bottom:.7rem;z-index:1;color:#fff}
 .h-info .price{font-size:1.7rem;font-weight:800;text-shadow:0 1px 8px #0006}
-.h-sub{font-size:.85rem;opacity:.92}
+.h-info{line-height:1.25}
+.h-info .price{font-size:1.6rem}
+.h-sub{font-size:.85rem;opacity:.95;text-shadow:0 1px 4px #0008}
+.h-exp{margin-top:.05rem}
+.h-fichas{margin-top:.2rem;font-size:.88rem;font-weight:600;text-shadow:0 1px 4px #000a}
+.h-ojo{position:absolute;top:2.4rem;right:.6rem;z-index:3;min-height:0;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#0008;color:#fff;font-size:1rem}
+.hero-w.sin-datos .h-info,.hero-w.sin-datos::after{display:none}
+.hero-w.sin-datos .h-ojo{opacity:.7}
 .h-portal,.h-fotos{position:absolute;top:.9rem;z-index:1;font-size:.72rem;font-weight:700;padding:.15rem .6rem;border-radius:999px}
 .h-portal{left:.6rem;background:#ffffffe0;color:#333}.h-fotos{right:.6rem;background:#0009;color:#fff}
 /* galería (#14): barritas arriba, contador y flechas (sólo con mouse) */
@@ -186,6 +193,12 @@ details.mas{border:1px solid var(--line);border-radius:12px;padding:.1rem .7rem}
 details.mas[open]{padding-bottom:.7rem;display:flex;flex-direction:column;gap:.5rem}
 details.mas summary{cursor:pointer;padding:.45rem 0;color:var(--acc);font-weight:600;font-size:.92rem}
 details.mas .desc-full{color:var(--mut)}
+.chips .et-x{display:none}.chips.abierto .et-x{display:inline-block}
+.et-mas{min-height:0;padding:0 .55rem;font-size:.7rem;line-height:1.5;border-radius:999px;color:var(--acc);border-color:var(--acc)}
+.badge.k-ok{background:var(--ok-soft);color:var(--ok-txt);border:1px solid var(--ok);line-height:1.35}
+.badge.k-mal{background:var(--bad-soft);color:var(--bad-txt);border:1px solid var(--bad);line-height:1.35}
+.badge.k-ojo{background:var(--fav-soft);color:var(--fav-txt);border:1px solid var(--fav-ic);line-height:1.35}
+.d-mas,.d-menos{font-weight:600;white-space:nowrap}
 iframe.emb{width:100%;height:70vh;border:1px solid var(--line);border-radius:12px}
 #map{height:calc(100dvh - 250px);min-height:340px;border-radius:var(--r);border:1px solid var(--line)}
 .leaflet-popup-content{margin:.6rem .7rem}
@@ -198,7 +211,7 @@ iframe.emb{width:100%;height:70vh;border:1px solid var(--line);border-radius:12p
   .item{padding:.55rem;gap:.65rem}
   .item img.th{width:96px;height:96px}
   .item .lbl,.keys{display:none}
-  .card .hero{max-height:300px}
+  .card .hero{aspect-ratio:7/6;max-height:340px}
   /* Revisión: en vez de la fila de acciones (no entraba a lo ancho), botones flotantes a la derecha y a media altura */
   #card .card .acts.main{display:none}
   /* Gestos (app.js): ← descartar, → siguiente; cartel mientras se arrastra más allá del umbral */

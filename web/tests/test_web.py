@@ -597,10 +597,36 @@ def test_costo_mensual_en_alquiler_y_orden_por_expensas(client):
 
 def test_orden_de_la_tarjeta_y_de_la_fila_para_el_celular(client):
     h = client.get("/").text
-    assert h.index('class="fichas"') < h.index('class="chips"') < h.index('data-key="n"') < h.index('class="desc-txt"') < h.index('mini-mapa')
+    assert h.index('class="h-fichas"') < h.index('class="addr-l"') < h.index('class="desc-txt"') < h.index('class="mas"') < h.index('data-key="n"') < h.index('mini-mapa')
+    assert 'class="h-ojo"' in h and "ver descripción completa" not in h and "desc-full" not in h        # descripción corta: sin enlace
     assert h.count('class="fab"') == 1
     fila = client.get("/lista").text
     assert 'class="selph"' in fila and fila.index('class="price"') < fila.index('class="foot"') and fila.index('class="foot"') < fila.index('class="mut vis"')
     assert '<details id="fdet" open' not in fila and "Más filtros" in fila                      # sin filtros extra, plegado
     assert '<details id="fdet" open' in client.get("/lista?emax=1000").text
     assert '<details id="fdet" open' not in client.get("/lista?pmax=999999&barrio=Almagro").text   # los esenciales no lo abren
+
+
+def test_tarjeta_fichas_en_la_foto_expensas_aparte_y_descripcion_larga(client):
+    from sqlalchemy import text
+    with client.app.state.engine.begin() as c:
+        c.execute(text("UPDATE publicaciones SET dormitorios=2, banos=2, expensas=180000, moneda_expensas='ARS', moneda='ARS', "
+                       "m2_totales=60, descripcion=:d"), {"d": "Luminoso. " * 120})
+    h = client.get("/").text
+    foto = h[h.index('class="hero-w"'):h.index('class="addr-l"')]
+    assert "50 m² cub. · 60 m² tot. · 3 amb. · 2 dorm. · 2 baños" in foto
+    assert 'class="h-sub h-exp"' in foto and foto.index("h-sub") < foto.index("h-exp") < foto.index("h-fichas")   # expensas en su línea
+    assert h.count("ver descripción completa") == 1 and h.index("ver descripción completa") < h.index('class="desc-full"')
+    assert "…" in h and h.index('class="desc-full"') < h.index('class="mas"')
+
+
+def test_tarjeta_etiquetas_clave_primero_y_ver_mas(client):
+    from sqlalchemy import text
+    with client.app.state.engine.begin() as c:
+        c.execute(text("UPDATE categorizacion SET etiquetas='[\"ver\",\"patio\"]', "
+                       "etiquetas_auto='[\"balcon\",\"luminoso\",\"sin_mascotas\",\"amoblado\"]'"))
+    h = client.get("/").text
+    chips = h[h.index('<div class="chips">'):h.index('class="desc-txt"')]
+    assert chips.index("#sin_mascotas") < chips.index("#amoblado") < chips.index("#ver") or chips.index("#amoblado") < chips.index("#sin_mascotas") < chips.index("#ver")
+    assert "k-mal" in chips and "k-ok" in chips and chips.index("k-ok") < chips.index("#ver") and chips.index("k-mal") < chips.index("#ver")
+    assert chips.count("et-x") == 2 and "+2 más" in chips                                                  # 6 etiquetas: 4 visibles

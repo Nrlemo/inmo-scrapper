@@ -276,3 +276,33 @@ document.addEventListener('htmx:afterSwap', e => { if (e.detail.target.id === 'c
   document.addEventListener('htmx:afterSwap', () => { todos = false; refrescar(); });
   document.addEventListener('DOMContentLoaded', refrescar);
 })();
+
+// Tarjeta de Revisión: «+N más» de las etiquetas, «ver descripción completa» y ocultar los datos de la foto.
+(() => {
+  const guardado = () => { try { return localStorage.getItem('inmoSinDatos') === '1'; } catch { return false; } };
+  const aplicar = () => document.querySelectorAll('#card .hero-w').forEach(w => w.classList.toggle('sin-datos', guardado()));
+  document.addEventListener('click', e => {
+    const mas = e.target.closest('.et-mas');
+    if (mas) {
+      const c = mas.closest('.chips'), abierto = c.classList.toggle('abierto');
+      mas.textContent = abierto ? 'menos' : '+' + mas.dataset.n + ' más';
+      return;
+    }
+    const d = e.target.closest('.d-mas, .d-menos');
+    if (d) {
+      e.preventDefault();
+      const card = d.closest('.in'), largo = card.querySelector('.desc-full'), corto = card.querySelector('.desc-txt');
+      const abrir = d.classList.contains('d-mas');
+      largo.hidden = !abrir; corto.hidden = abrir;
+      return;
+    }
+    const ojo = e.target.closest('.h-ojo');
+    if (ojo) {
+      const oculto = !ojo.closest('.hero-w').classList.contains('sin-datos');
+      try { localStorage.setItem('inmoSinDatos', oculto ? '1' : '0'); } catch { /* sin almacenamiento: sólo esta tarjeta */ }
+      document.querySelectorAll('#card .hero-w').forEach(w => w.classList.toggle('sin-datos', oculto));
+    }
+  });
+  document.addEventListener('DOMContentLoaded', aplicar);
+  document.addEventListener('htmx:afterSwap', e => { if (e.detail.target.id === 'card') aplicar(); });
+})();

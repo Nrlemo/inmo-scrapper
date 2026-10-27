@@ -82,6 +82,28 @@
 </div>
 {% endmacro %}
 
+{# Datos principales en una sola línea de texto, para ponerlos sobre la foto (tarjeta de Revisión) #}
+{% macro fichas_foto(p) %}
+{% set it = [] %}
+{% if p.m2_cubiertos %}{% set _ = it.append('%g m² cub.'|format(p.m2_cubiertos)) %}{% endif %}
+{% if p.m2_totales and p.m2_totales != p.m2_cubiertos %}{% set _ = it.append('%g m² tot.'|format(p.m2_totales)) %}{% endif %}
+{% if p.ambientes %}{% set _ = it.append(p.ambientes ~ ' amb.') %}{% endif %}
+{% if p.dormitorios %}{% set _ = it.append(p.dormitorios ~ ' dorm.') %}{% endif %}
+{% if p.banos %}{% set _ = it.append(p.banos ~ (' baños' if p.banos > 1 else ' baño')) %}{% endif %}
+{% if p.cocheras %}{% set _ = it.append(p.cocheras ~ ' coch.') %}{% endif %}
+{% if it %}<div class="h-fichas">{{ it|join(' · ') }}</div>{% endif %}
+{% endmacro %}
+
+{# Etiquetas de la tarjeta: las que más pesan en un alquiler primero y con color; se ven `n` y el resto tras «+N más» #}
+{% macro etiquetas_card(p, n=4) %}
+{% set claves = {'mascotas': 'ok', 'amoblado': 'ok', 'expensas_incluidas': 'ok', 'servicios_incluidos': 'ok', 'garantia_propietaria': 'ok',
+                 'sin_mascotas': 'mal', 'temporario': 'mal', 'seguro_caucion': 'ojo'} %}
+{% set todas = p.etiquetas + (p.etiquetas_auto|reject('in', p.etiquetas)|list) %}
+{% set orden = (todas|select('in', claves)|list) + (todas|reject('in', claves)|list) %}
+{% for t in orden %}<a class="badge {{ 'man' if t in p.etiquetas else 'auto' }}{{ ' k-' ~ claves[t] if t in claves }}{{ ' et-x' if loop.index > n }}" href="/lista?etiqueta={{ t|urlencode }}"{% if t not in p.etiquetas %} title="Automática: palabra clave en la descripción"{% endif %}>#{{ t }}</a>{% endfor %}
+{% if orden|length > n %}<button type="button" class="et-mas" data-n="{{ orden|length - n }}">+{{ orden|length - n }} más</button>{% endif %}
+{% endmacro %}
+
 {# Puntaje propio (cada usuario puntúa por su cuenta) + promedio y detalle de los demás #}
 {% macro stars(p, mio, puntajes) %}
 <div class="stars" hx-target="this" hx-swap="outerHTML">
