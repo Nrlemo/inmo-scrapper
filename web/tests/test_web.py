@@ -454,3 +454,69 @@ def test_revision_sin_vista_rapida_pero_con_mas(client):
     assert 'class="mas"' in html and "Mi puntaje" in html and 'name="etiquetas"' in html and "Ver ficha completa" in html
     r = client.post("/p/3/accion", data={"accion": "potencial", "vista": "card"}, headers={"HX-Request": "true"}).text
     assert "Mi puntaje" in r                                               # la tarjeta siguiente también trae «Más»
+
+
+# ---------- m² máximos y descarte desde el listado ----------
+HX = {"HX-Request": "true"}
+
+
+def _m2(client, datos):
+    from sqlalchemy import text
+    with client.app.state.engine.begin() as c:
+        for pid, (cub, tot) in datos.items():
+            c.execute(text("UPDATE publicaciones SET m2_cubiertos=:c, m2_totales=:t WHERE id=:i"), {"c": cub, "t": tot, "i": pid})
+
+
+def _ids_lista(html):
+    import re
+    return sorted(int(x) for x in re.findall(r'<article class="item[^"]*" id="p(\d+)"', html))
+
+
+def test_filtros_de_m2_maximos(client):
+    _m2(client, {1: (40, 60), 2: (80, 90), 3: (None, 70)})
+    assert _ids_lista(client.get("/lista").text) == [1, 2, 3]
+    assert _ids_lista(client.get("/lista?mmax=50").text) == [1]                  # sin dato de cubiertos queda afuera
+    assert _ids_lista(client.get("/lista?tmax=70").text) == [1, 3]
+    assert _ids_lista(client.get("/lista?mmax=100&tmax=70").text) == [1]          # se combinan
+    html = client.get("/lista?mmax=50&tmax=70").text
+    assert 'name="mmax"' in html and 'value="50"' in html and 'value="70"' in html and "<details id=\"fdet\" open" in html
+
+
+def test_cada_fila_tiene_descartar_y_casilla_de_seleccion(client):
+    html = client.get("/lista").text
+    assert html.count('hx-vals=\'{"accion":"descartar","vista":"fila"}\'') == 3
+    assert html.count('class="sel"') == 3 and 'id="masa"' in html and "/lista/descartar" in html
+    r = client.post("/p/1/accion", data={"accion": "descartar", "vista": "fila"}, headers=HX).text
+    assert 'id="p1"' in r and "item desc" in r and "Restaurar" in r and '"accion":"descartar"' not in r
+
+
+def test_descartar_en_masa_los_tildados(client):
+    r = client.post("/lista/descartar", data={"ids": [1, 3]}, headers=HX)
+    assert r.headers["HX-Redirect"] == "/lista?descartados=2"
+    assert _ids_lista(client.get("/lista?estado=descartadas").text) == [1, 3]
+    assert _ids_lista(client.get("/lista?estado=activas").text) == [2]
+    assert "2 avisos descartados" in client.get("/lista?descartados=2").text
+    ev = client.get("/p/1").text
+    assert "descartar" in ev                                                      # queda el evento en la actividad
+
+
+def test_descartar_en_masa_todo_el_filtro_con_varias_paginas(client, monkeypatch):
+    from app import config
+    monkeypatch.setattr(config, "PAGE_SIZE", 1)
+    _m2(client, {1: (40, 60), 2: (80, 90), 3: (45, 70)})
+    html = client.get("/lista?mmax=50").text                                      # 2 resultados en 2 páginas
+    assert "2 resultados" in html and 'data-total="2"' in html
+    r = client.post("/lista/descartar", data={"todos": "1", "querystring": "mmax=50&pagina=2"}, headers=HX)
+    assert r.headers["HX-Redirect"] == "/lista?mmax=50&descartados=2"
+    monkeypatch.setattr(config, "PAGE_SIZE", 40)
+    assert _ids_lista(client.get("/lista?estado=descartadas").text) == [1, 3]       # los dos del filtro, de ambas páginas
+    assert _ids_lista(client.get("/lista?estado=activas").text) == [2]              # el 2 (80 m²) no estaba en el filtro
+
+
+def test_descartar_en_masa_respeta_el_tope_y_no_repite(client, monkeypatch):
+    from app import lista_routes
+    monkeypatch.setattr(lista_routes, "TOPE_MASA", 2)
+    r = client.post("/lista/descartar", data={"todos": "1", "querystring": ""}, headers=HX)
+    assert r.headers["HX-Redirect"] == "/lista?descartados=2"
+    r = client.post("/lista/descartar", data={"ids": [1, 1, 1]}, headers=HX)      # ya descartado u repetido: se cuenta una vez
+    assert r.headers["HX-Redirect"].endswith("descartados=1")

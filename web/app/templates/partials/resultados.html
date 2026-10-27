@@ -2,6 +2,14 @@
   <span class="mut">{{ total }} resultados</span>
   <span><a href="/export.csv?{{ qs }}">⬇ CSV</a></span>
 </div>
+{% if rows %}<form id="masa" class="masa" autocomplete="off">
+  <input type="hidden" name="todos" value=""><input type="hidden" name="querystring" value="{{ qs }}">
+  <label><input type="checkbox" id="sel-pagina"> Seleccionar esta página</label>
+  <span id="sel-info" class="mut"></span>
+  <button type="button" id="sel-todos" class="lnk" hidden data-total="{{ total }}">Seleccionar los {{ total }} resultados del filtro</button>
+  <button type="button" id="sel-nada" class="lnk" hidden>Quitar selección</button>
+  <button class="bad" id="sel-desc" hx-post="/lista/descartar" hx-include="#masa, .sel:checked" hx-swap="none" hidden>✕ Descartar</button>
+</form>{% endif %}
 {% for p in rows %}{% include "partials/fila.html" %}{% else %}<div class="empty">Sin resultados con estos filtros.</div>{% endfor %}
 {% if paginas > 1 %}
 <div class="pager">

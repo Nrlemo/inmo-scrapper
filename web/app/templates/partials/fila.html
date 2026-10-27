@@ -11,6 +11,7 @@
     <div class="mut barrio">{{ p.barrio }}{% if varios_portales() %} · {{ p.portal }}{% endif %}</div>
     <div class="chips">{{ estados(p) }}{{ etiquetas(p, 3) }}</div>
     <div class="foot"><span class="mut vis">visto {{ p.fecha_primera_vista|fecha }}{% if p.notas %} · 📝 {{ p.notas[:70] }}{% endif %}</span>
-      <label class="cmpl"><input type="checkbox" class="cmp" value="{{ p.id }}">comparar</label></div>
+      <span><label class="cmpl"><input type="checkbox" class="sel" name="ids" value="{{ p.id }}" aria-label="Seleccionar para descartar">seleccionar</label>
+      <label class="cmpl"><input type="checkbox" class="cmp" value="{{ p.id }}">comparar</label></span></div>
   </div>
 </article>

@@ -262,3 +262,9 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding
 .basemenu{display:flex;gap:.3rem;padding:.2rem .35rem .45rem}.basemenu button{flex:1;min-height:0;padding:.35rem .5rem;font-size:.85rem}
 .basemenu button.on{background:var(--acc);color:var(--acc-fg);border-color:var(--acc)}
 .basesel{border:1px solid var(--line);border-radius:10px;padding:.4rem .7rem;display:flex;gap:1.1rem}.basesel legend{font-size:.8rem;color:var(--mut);padding:0 .3rem}
+
+/* Descartar en masa */
+.masa{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:.6rem;font-size:.9rem}
+.masa .lnk{background:none;border:0;color:var(--acc);text-decoration:underline;padding:0;min-height:0;cursor:pointer}
+.masa [hidden]{display:none}
+.item.picked{outline:2px solid var(--acc)}

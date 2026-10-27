@@ -241,3 +241,37 @@ function miniMapa(raiz) {
 }
 document.addEventListener('DOMContentLoaded', miniMapa);
 document.addEventListener('htmx:afterSwap', e => { if (e.detail.target.id === 'card') miniMapa(); });
+
+// Descartar en masa (lista): casillas por fila, «esta página» y «todos los resultados del filtro».
+(function () {
+  const $ = id => document.getElementById(id);
+  let todos = false;                                   // true: la acción vale para todo el filtro, no sólo lo tildado
+  function filas() { return [...document.querySelectorAll('#resultados .sel')]; }
+  function refrescar() {
+    const f = $('masa'); if (!f) return;
+    const marcadas = filas().filter(c => c.checked).length, n = filas().length, total = +$('sel-todos').dataset.total;
+    $('sel-pagina').checked = n > 0 && marcadas === n;
+    $('sel-pagina').indeterminate = marcadas > 0 && marcadas < n;
+    const puedeTodos = marcadas === n && total > n && !todos;
+    $('sel-todos').hidden = !puedeTodos;
+    $('sel-nada').hidden = !(marcadas || todos);
+    $('sel-desc').hidden = !(marcadas || todos);
+    f.elements.todos.value = todos ? '1' : '';
+    const cant = todos ? total : marcadas;
+    $('sel-info').textContent = todos ? `Se descartan los ${total} resultados` : marcadas ? `${marcadas} seleccionada${marcadas > 1 ? 's' : ''}` : '';
+    $('sel-desc').textContent = `✕ Descartar ${cant}`;
+    $('sel-desc').setAttribute('hx-confirm', `¿Descartar ${cant} aviso${cant > 1 ? 's' : ''}? Podés restaurarlos desde «Descartadas».`);
+    document.querySelectorAll('#resultados .item').forEach(a => a.classList.toggle('picked', todos || !!a.querySelector('.sel:checked')));
+  }
+  document.addEventListener('change', e => {
+    if (e.target.id === 'sel-pagina') { filas().forEach(c => c.checked = e.target.checked); todos = false; refrescar(); }
+    else if (e.target.classList && e.target.classList.contains('sel')) { todos = false; refrescar(); }
+  });
+  document.addEventListener('click', e => {
+    if (e.target.id === 'sel-todos') { todos = true; refrescar(); }
+    else if (e.target.id === 'sel-nada') { todos = false; filas().forEach(c => c.checked = false); refrescar(); }
+  });
+  // Con «todos» el servidor ignora los ids: no se mandan las casillas (hx-include las suma igual, no molesta).
+  document.addEventListener('htmx:afterSwap', () => { todos = false; refrescar(); });
+  document.addEventListener('DOMContentLoaded', refrescar);
+})();

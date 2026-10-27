@@ -1,22 +1,24 @@
 """Todas (listado con filtros y búsquedas guardadas), Ranking, Precios (cambios), Comparar, Mapa y export a CSV."""
 import csv
 import io
-from urllib.parse import urlencode
+import logging
+from urllib.parse import parse_qsl, urlencode
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from sqlalchemy import select, text
 
-from . import config, queries
+from . import config, queries, revision_routes
 from .core import ctx, render
 from .models_web import BusquedaGuardada, Cuenta
 from .queries import Filtros
 
+log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _filtros(request: Request, desde) -> Filtros:
-    g = request.query_params.get
+def _filtros(request: Request, desde, params=None) -> Filtros:
+    g = (params if params is not None else request.query_params).get
 
     def num(k, cast=float):
         try:
@@ -24,7 +26,7 @@ def _filtros(request: Request, desde) -> Filtros:
         except ValueError:
             return None
     return Filtros(q=(g("q") or "").strip(), barrio=g("barrio") or "", portal=g("portal") or "", moneda=(g("moneda") or "").upper(),
-                   inmo=num("inmo", int), pmin=num("pmin"), pmax=num("pmax"), mmin=num("mmin"), amb=num("amb", int),
+                   inmo=num("inmo", int), pmin=num("pmin"), pmax=num("pmax"), mmin=num("mmin"), mmax=num("mmax"), tmax=num("tmax"), amb=num("amb", int),
                    cochera=g("cochera") == "1", bajo_barrio=g("bajo") == "1", etiqueta=(g("etiqueta") or "").strip(), estado=g("estado") or "", baja=g("baja") == "1",
                    nuevas=g("nuevas") == "1", inactivas=g("inactivas") == "1", fuera=g("fuera") == "1", orden=g("orden") or "nuevas",
                    pagina=num("pagina", int) or 1, desde=desde)
@@ -33,7 +35,7 @@ def _filtros(request: Request, desde) -> Filtros:
 def _lista_ctx(request: Request, c):
     f = _filtros(request, c["desde"])
     rows, total = queries.listar(c["s"].connection(), f, config.PAGE_SIZE)
-    qs = {k: v for k, v in request.query_params.items() if k != "pagina" and v}
+    qs = {k: v for k, v in request.query_params.items() if k not in ("pagina", "descartados") and v}
     return {"f": f, "rows": rows, "total": total, "qs": urlencode(qs),
             "paginas": max(1, -(-total // config.PAGE_SIZE))}
 
@@ -47,6 +49,26 @@ def lista(request: Request, c=Depends(ctx)):
     guardadas = [dict(r) for r in conn.execute(text("SELECT id, nombre, querystring FROM web_busquedas ORDER BY nombre")).mappings()]
     return render(request, "lista.html", c, **d, barrios=queries.barrios(conn), portales=queries.portales(conn),
                   inmos=queries.inmobiliarias(conn), etiquetas=queries.etiquetas(conn), guardadas=guardadas)
+
+
+TOPE_MASA = 5000   # tope de avisos por descarte en masa
+
+
+@router.post("/lista/descartar")
+def descartar_en_masa(ids: list[int] = Form(default=[]), todos: str = Form(""), querystring: str = Form(""), c=Depends(ctx)):
+    """Descarta los avisos tildados (`ids`) o, con `todos=1`, todo lo que devuelve el listado con `querystring`."""
+    s, user = c["s"], c["user"].username
+    if todos == "1":
+        params = dict(parse_qsl(querystring))
+        ids = queries.ids_filtrados(s.connection(), _filtros(None, c["desde"], params), TOPE_MASA)
+    ids = list(dict.fromkeys(ids))[:TOPE_MASA]
+    for pid in ids:
+        revision_routes.aplicar_accion(s, pid, "descartar", user)
+    s.commit()
+    log.info("descarte en masa por %s: %d avisos (%s)", user, len(ids), "filtro" if todos == "1" else "selección")
+    qs = {k: v for k, v in parse_qsl(querystring) if k not in ("pagina", "descartados") and v}
+    qs["descartados"] = len(ids)
+    return Response(headers={"HX-Redirect": "/lista?" + urlencode(qs)})
 
 
 @router.post("/busquedas", response_class=HTMLResponse)

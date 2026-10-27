@@ -9,6 +9,9 @@
   <button class="fav {{ 'on' if p.favorito }}" title="Favorita (F)" data-key="{{ 'f' if vista != 'fila' }}" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"favorito","vista":"{{ vista }}"}'><span class="ic">{{ '★' if p.favorito else '☆' }}</span><span class="lbl">Favorita</span></button>
   <button class="pot {{ 'on' if p.potencial }}" title="Tiene potencial (P)" data-key="{{ 'p' if vista != 'fila' }}" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"potencial","vista":"{{ vista }}"}'><span class="ic">{{ '◆' if p.potencial else '◇' }}</span><span class="lbl">Potencial</span></button>
   {% endif %}
+  {% if rapidas and not p.descartada and vista == 'fila' %}
+  <button class="bad" title="Descartar" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"descartar","vista":"fila"}'><span class="ic">✕</span><span class="lbl">Descartar</span></button>
+  {% endif %}
   {% if not rapidas %}
   {% if p.descartada %}
   <button title="Restaurar" hx-post="/p/{{ p.id }}/accion" hx-vals='{"accion":"restaurar","vista":"{{ vista }}"}'><span class="ic">↩</span><span class="lbl">Restaurar</span></button>

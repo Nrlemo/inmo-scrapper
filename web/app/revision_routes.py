@@ -64,11 +64,8 @@ def _card_ctx(conn, p, user: str) -> dict:
     return {"hoy": queries.revisadas_hoy(conn, user), **(_puntajes_ctx(conn, p["id"], user) if p else {})}
 
 
-@router.post("/p/{pid}/accion", response_class=HTMLResponse)
-def accion(request: Request, pid: int, accion: str = Form(...), vista: str = Form("fila"), c=Depends(ctx)):
-    if accion not in ACCIONES:
-        raise HTTPException(400)
-    s, user = c["s"], c["user"].username
+def aplicar_accion(s: Session, pid: int, accion: str, user: str) -> None:
+    """Cambia el estado de revisión de un aviso (sin commit) y deja el evento. Lo usan la acción individual y el descarte en masa."""
     r = _rev(s, pid, user)
     if accion == "favorito":
         r.favorito = not r.favorito
@@ -89,6 +86,14 @@ def accion(request: Request, pid: int, accion: str = Form(...), vista: str = For
         r.revisada = True
     _sync_estado(s, r)
     _log(s, pid, user, accion, "on" if getattr(r, {"descartar": "descartada"}.get(accion, accion), False) else "off")
+
+
+@router.post("/p/{pid}/accion", response_class=HTMLResponse)
+def accion(request: Request, pid: int, accion: str = Form(...), vista: str = Form("fila"), c=Depends(ctx)):
+    if accion not in ACCIONES:
+        raise HTTPException(400)
+    s, user = c["s"], c["user"].username
+    aplicar_accion(s, pid, accion, user)
     s.commit()
     if vista == "card":  # en la cola de revisión: pasar a la siguiente
         p, total = queries.siguiente_pendiente(s.connection(), pid)

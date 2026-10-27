@@ -59,6 +59,8 @@ class Filtros:
     pmin: float | None = None
     pmax: float | None = None
     mmin: float | None = None
+    mmax: float | None = None   # m² cubiertos máx
+    tmax: float | None = None   # m² totales máx
     amb: int | None = None
     cochera: bool = False
     etiqueta: str = ""     # manual o automática
@@ -91,6 +93,10 @@ class Filtros:
             w.append("p.precio <= :pmax"); a["pmax"] = self.pmax
         if self.mmin is not None:
             w.append("COALESCE(p.m2_cubiertos, p.m2_totales) >= :mmin"); a["mmin"] = self.mmin
+        if self.mmax is not None:
+            w.append("p.m2_cubiertos <= :mmax"); a["mmax"] = self.mmax
+        if self.tmax is not None:
+            w.append("p.m2_totales <= :tmax"); a["tmax"] = self.tmax
         if self.amb:
             w.append("p.ambientes >= :amb"); a["amb"] = self.amb
         if self.cochera:
@@ -140,6 +146,16 @@ def listar(c: Connection, f: Filtros, size: int) -> tuple[list[dict], int]:
     rows = c.execute(text(f"{BASE}{where} ORDER BY {order} NULLS LAST, p.id DESC LIMIT :n OFFSET :o"),
                      {**args, "n": size, "o": (max(f.pagina, 1) - 1) * size}).mappings().all()
     return [_row(r) for r in rows], total
+
+
+def ids_filtrados(c: Connection, f: Filtros, tope: int) -> list[int]:
+    """Ids de todo lo que devuelve el listado con estos filtros (sin paginar), para acciones en masa. Los ya
+    descartados quedan afuera. Usa el mismo where() y las mismas tablas que el conteo, así coincide con «N resultados»."""
+    where, args = f.where()
+    extra = "COALESCE(r.descartada,0) = 0"
+    where = f"{where} AND {extra}" if where else f" WHERE {extra}"
+    sql = _CONTEO.replace("COUNT(*)", "p.id", 1) + (_JOIN_CAMBIO if f.baja else "") + where + " ORDER BY p.id LIMIT :tope"
+    return [r[0] for r in c.execute(text(sql), {**args, "tope": tope})]
 
 
 def uno(c: Connection, pid: int) -> dict | None:
