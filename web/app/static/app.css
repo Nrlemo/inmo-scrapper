@@ -234,6 +234,7 @@ iframe.emb{width:100%;height:70vh;border:1px solid var(--line);border-radius:12p
   .fab .acts .cont.on .ic{background:var(--blue-fill);color:#fff;border-color:var(--blue-fill)}
   .fab .acts .bad .ic{background:var(--bad-fill);color:#fff;border-color:var(--bad-fill)}
   dialog{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
+  .rapida .r-top{backdrop-filter:none;background:var(--bg)}   /* el desenfoque se recortaba al scrollear en el WebView */
   .rapida .r-top .acts .lbl{display:none}.rapida .r-top .acts button{width:42px;padding:0;border-radius:50%}
   .rapida .hero{max-height:none}
   #map{height:calc(100dvh - 300px)}
@@ -282,11 +283,13 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding
 .item.picked{outline:2px solid var(--acc)}
 
 /* Panel de filtros por secciones */
-.sec{border:0;border-top:1px solid var(--line);margin:.4rem 0 0;padding:.35rem .25rem 0}
-.sec legend{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);padding:0 .35rem}
+.secs{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:.6rem;padding:.5rem .25rem .25rem}
+.fsec{margin:0;min-width:0;border:1px solid var(--line);border-radius:12px;padding:.2rem .6rem .6rem;background:var(--bg)}
+.fsec .grid{padding:.3rem 0 0;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.fsec legend{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);padding:0 .35rem}
 .par{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
 .par .pl{flex:1 0 100%;font-size:.78rem;color:var(--mut)}
-.par input{flex:1;min-width:0;width:0}
+.par input{flex:1;min-width:4.2rem;width:0}
 .multi{border:1px solid var(--line);border-radius:10px;padding:.25rem .5rem;background:var(--card)}
 .multi summary{cursor:pointer;list-style:none;font-size:.9rem}
 .multi .mlist{display:flex;flex-direction:column;max-height:14rem;overflow:auto;padding:.3rem 0;gap:.15rem}

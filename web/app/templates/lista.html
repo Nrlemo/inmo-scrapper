@@ -10,9 +10,9 @@
   <input name="{{ kmin }}" type="number" step="any" min="0" placeholder="mín" aria-label="{{ etiq }} mínimo" value="{{ '%g'|format(vmin) if vmin is not none }}"><span class="mut">–</span>
   <input name="{{ kmax }}" type="number" step="any" min="0" placeholder="máx" aria-label="{{ etiq }} máximo" value="{{ '%g'|format(vmax) if vmax is not none }}"></div>
 {% endmacro %}
-{% macro simple(etiq, k, v, tip='') %}
+{% macro simple(etiq, k, v, tip='', ph='mín') %}
 <div class="par" {% if tip %}title="{{ tip }}"{% endif %}><span class="pl">{{ etiq }}</span>
-  <input name="{{ k }}" type="number" min="0" placeholder="mín" aria-label="{{ etiq }}" value="{{ v if v is not none }}"></div>
+  <input name="{{ k }}" type="number" min="0" placeholder="{{ ph }}" aria-label="{{ etiq }}" value="{{ v if v is not none }}"></div>
 {% endmacro %}
 {% macro multi(nombre, titulo, opciones, elegidos, prefijo='') %}{# opciones: [(valor, texto)] #}
 <details class="multi"><summary>{{ titulo }}{% if elegidos %} <b>({{ elegidos|length }})</b>{% endif %}</summary>
@@ -32,32 +32,33 @@
     {{ multi('barrio', 'Barrios', opc_barrios, f.barrios) }}
   </div>
   <details id="fdet" {{ 'open' if f.hay_mas }}><summary>Más filtros</summary>
-  <fieldset class="sec"><legend>Portal</legend><div class="grid">
+  <div class="secs">
+  <fieldset class="fsec"><legend>Portal</legend><div class="grid">
     <select name="portal" aria-label="Portal"><option value="">Todos los portales</option>
       {% for b in portales %}<option {{ 'selected' if f.portal == b }}>{{ b }}</option>{% endfor %}</select>
     <select name="inmo" aria-label="Inmobiliaria"><option value="">Toda inmobiliaria</option>
       {% for i in inmos %}<option value="{{ i.id }}" {{ 'selected' if f.inmo == i.id }}>{{ i.nombre }} ({{ i.n }})</option>{% endfor %}</select>
   </div></fieldset>
-  <fieldset class="sec"><legend>Más sobre el precio</legend><div class="grid">
+  <fieldset class="fsec"><legend>Más sobre el precio</legend><div class="grid">
     {% if es_alquiler %}<select name="moneda" aria-label="Moneda" title="Los precios sólo se comparan dentro de una moneda"><option value="">ARS y USD</option>
       {% for m in ('ARS', 'USD') %}<option {{ 'selected' if f.moneda == m }}>{{ m }}</option>{% endfor %}</select>{% endif %}
     {{ par('Precio por m²', 'pm2min', f.pm2min, 'pm2max', f.pm2max, 'Precio dividido los m² cubiertos (o los totales si no hay cubiertos)') }}
     {{ par('Expensas', 'emin', f.emin, 'emax', f.emax, 'Tal como las informa el aviso (casi siempre en pesos)') }}
     {% if es_alquiler %}{{ par('Costo mensual', 'cmmin', f.cmmin, 'cmmax', f.cmmax, 'Precio + expensas (si están en la misma moneda)') }}{% endif %}
   </div></fieldset>
-  <fieldset class="sec"><legend>Superficie y ambientes</legend><div class="grid">
-    {{ simple('m² totales máx', 'tmax', f.tmax|int if f.tmax is not none else none) }}
+  <fieldset class="fsec"><legend>Superficie y ambientes</legend><div class="grid">
+    {{ simple('m² totales máx', 'tmax', f.tmax|int if f.tmax is not none else none, '', 'máx') }}
     {{ par('Ambientes', 'amb', f.amb, 'amax', f.amax) }}
     {{ par('Dormitorios', 'dmin', f.dmin, 'dmax', f.dmax) }}
     {{ simple('Baños mín', 'bmin', f.bmin) }}
     {{ simple('Cocheras mín', 'cmin', f.cmin) }}
   </div></fieldset>
-  <fieldset class="sec"><legend>Etiquetas y exclusiones</legend><div class="grid">
+  <fieldset class="fsec"><legend>Etiquetas y exclusiones</legend><div class="grid">
     {{ multi('no_barrio', 'Excluir barrios', opc_barrios, f.no_barrio) }}
     {{ multi('etiqueta', 'Con etiquetas (todas)', opc_etiquetas, f.etiquetas, '#') }}
     {{ multi('no_etiqueta', 'Sin etiquetas', opc_etiquetas, f.no_etiqueta, '#') }}
   </div></fieldset>
-  <fieldset class="sec"><legend>Otros</legend><div class="grid">
+  <fieldset class="fsec"><legend>Otros</legend><div class="grid">
     <label><input type="checkbox" name="baja" value="1" {{ 'checked' if f.baja }}> Bajó de precio</label>
     <label class="wide"><input type="checkbox" name="nuevas" value="1" {{ 'checked' if f.nuevas }}> Nuevas desde mi última visita ({{ cont.nuevas }})</label>
     <label><input type="checkbox" name="cochera" value="1" {{ 'checked' if f.cochera }}> Cochera</label>
@@ -68,6 +69,7 @@
     <label title="Precio/m² menor que la mediana de su barrio (y cantidad de ambientes, si hay muestra)"><input type="checkbox" name="bajo" value="1" {{ 'checked' if f.bajo_barrio }}> Debajo del precio del barrio</label>
     <label title="Avisos que no cumplen los filtros de búsqueda de Estado (los que marcaste se ven siempre)"><input type="checkbox" name="fuera" value="1" {{ 'checked' if f.fuera }}> Incluir fuera de filtros</label>
   </div></fieldset>
+  </div>
   </details>
 </form>
 <details class="filters"><summary>Guardar esta búsqueda</summary><form class="row" style="padding:.4rem" hx-post="/busquedas">
