@@ -53,6 +53,9 @@ def parse_card(item: Node) -> Listing | None:
         m = re.match(r"([\d.,]+)\s*(m²\s*cubie|m²\s*tot|dorm|baño|ambiente|amb)", t)
         if m and (v := _num(m.group(1))) is not None:
             feats[re.sub(r"\s+", "", m.group(2)).replace("ambiente", "amb")] = v
+    if "amb" not in feats and any(re.match(r"monoam", _clean(li.text(separator=" ")) or "", re.I)
+                                  for li in item.css("ul.card__main-features li")):
+        feats["amb"] = 1.0                              # «Monoam.» es un solo ambiente
     direccion = barrio = None
     if addr := _text(item, "p.card__address"):
         direccion, _, barrio = addr.rpartition(",")

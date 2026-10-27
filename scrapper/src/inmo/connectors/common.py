@@ -68,11 +68,15 @@ def matches_profile(l: Listing, profile: dict[str, Any]) -> bool:
             return False
         if dorm.get("max") is not None and l.dormitorios > dorm["max"]:
             return False
+    # Algunos listados (Argenprop) sólo informan los m² cubiertos. Como totales >= cubiertos, un cubierto por encima del
+    # máximo total descarta con certeza; para el mínimo total se usa el cubierto como mejor estimación (en un
+    # departamento la diferencia es el balcón).
+    tot = l.m2_totales if l.m2_totales is not None else l.m2_cubiertos
     min_tot = profile.get("total_m2_min")  # el listado da m² totales de casi todos los avisos; cubiertos casi nunca
-    if min_tot is not None and l.m2_totales is not None and l.m2_totales < min_tot:
+    if min_tot is not None and tot is not None and tot < min_tot:
         return False
     max_tot = profile.get("total_m2_max")
-    if max_tot is not None and l.m2_totales is not None and l.m2_totales > max_tot:
+    if max_tot is not None and tot is not None and tot > max_tot:
         return False
     max_cub = profile.get("covered_m2_max")
     if max_cub is not None and l.m2_cubiertos is not None and l.m2_cubiertos > max_cub:

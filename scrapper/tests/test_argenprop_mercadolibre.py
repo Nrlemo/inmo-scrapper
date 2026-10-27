@@ -197,3 +197,16 @@ def test_alquiler_zonaprop_y_argenprop_traen_expensas_y_mercadolibre_no():
         con = [a for a in cargar(portal) if a.expensas]
         assert len(con) >= 15 and all(a.moneda_expensas == "ARS" for a in con)
     assert not any(a.expensas for a in cargar("mercadolibre"))
+
+
+def test_argenprop_monoambiente_y_filtros_de_m2_con_solo_cubiertos():
+    html = (FX / "argenprop_alquiler_listado.html").read_text(encoding="utf-8")
+    avisos, _ = REGISTRO["argenprop"].parse_page(html)
+    mono = [a for a in avisos if a.ambientes == 1]
+    assert mono and all(a.m2_totales is None for a in avisos)               # «Monoam.» = 1 ambiente; el listado no trae totales
+    perfil = {"rooms": {"min": 3}, "total_m2_min": 60}
+    assert not any(matches_profile(a, perfil) for a in mono)               # un monoambiente no cumple «3 ambientes mín.»
+    chico = next(a for a in avisos if a.m2_cubiertos and a.m2_cubiertos < 50 and a.ambientes is None)
+    assert not matches_profile(chico, {"total_m2_min": 60})                # sin totales, se usa el cubierto
+    assert not matches_profile(chico, {"total_m2_max": 10})                # cubierto > máximo total: descarta seguro
+    assert matches_profile(chico, {"total_m2_min": 30, "total_m2_max": 200})
