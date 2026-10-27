@@ -593,3 +593,14 @@ def test_costo_mensual_en_alquiler_y_orden_por_expensas(client):
     html = client.get("/lista?orden=expensas_desc").text
     assert html.index('id="p1"') < html.index('id="p2"')
     assert ids("?orden=costo_asc") == [1, 2, 3]
+
+
+def test_orden_de_la_tarjeta_y_de_la_fila_para_el_celular(client):
+    h = client.get("/").text
+    assert h.index('class="fichas"') < h.index('class="chips"') < h.index('data-key="n"') < h.index('class="desc-txt"') < h.index('mini-mapa')
+    assert h.count('class="fab"') == 1
+    fila = client.get("/lista").text
+    assert 'class="selph"' in fila and fila.index('class="price"') < fila.index('class="foot"') and fila.index('class="foot"') < fila.index('class="mut vis"')
+    assert '<details id="fdet" open' not in fila and "Más filtros" in fila                      # sin filtros extra, plegado
+    assert '<details id="fdet" open' in client.get("/lista?emax=1000").text
+    assert '<details id="fdet" open' not in client.get("/lista?pmax=999999&barrio=Almagro").text   # los esenciales no lo abren

@@ -121,6 +121,12 @@ class Filtros:
         return any(getattr(self, k) not in (None, "", False, []) for k in self._PANEL)
 
     @property
+    def hay_mas(self) -> bool:
+        """Hay algún filtro fuera de los «esenciales» (siempre visibles): el panel «Más filtros» se muestra abierto."""
+        esenciales = ("estado", "barrio", "pmin", "pmax", "mmin", "mmax")
+        return any(getattr(self, k) not in (None, "", False, []) for k in self._PANEL if k not in esenciales)
+
+    @property
     def barrios(self) -> list[str]:
         return _lista(self.barrio)
 

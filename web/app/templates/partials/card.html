@@ -17,17 +17,17 @@
       <div class="addr-l">{{ p.direccion|dir or p.titulo }}</div>
       <div class="mut">{{ p.barrio }}{% if p.inmo_nombre %} · {{ p.inmo_nombre }}{% endif %}</div>
     </div>
-    {# Mapa estático: no toma gestos, así deslizar y el doble toque siguen andando #}
-    {{ mini_mapa(p) }}
     {{ fichas(p) }}
     <div class="chips">{{ estados(p) }}{{ etiquetas(p) }}</div>
-    {% set desc = p.descripcion or p.titulo or '' %}
-    <p class="desc-txt">{{ desc[:600] }}{{ '…' if desc|length > 600 }}</p>
     {{ acciones(p, 'card') }}
     <div class="acts">
       <button class="pri" data-key="n" hx-get="/?despues={{ p.id }}" hx-target="#card" hx-swap="innerHTML">Saltar →</button>
       <a class="btn" data-key="o" href="{{ p.url }}" target="_blank" rel="noopener noreferrer">Abrir aviso ↗</a>
     </div>
+    {% set desc = p.descripcion or p.titulo or '' %}
+    <p class="desc-txt">{{ desc[:600] }}{{ '…' if desc|length > 600 }}</p>
+    {# Mapa estático: no toma gestos, así deslizar y el doble toque siguen andando #}
+    {{ mini_mapa(p) }}
     {# Lo que antes obligaba a abrir la vista rápida: puntaje, etiquetas propias y la descripción completa #}
     <details class="mas">
       <summary>Más: puntaje, etiquetas{{ ' y descripción completa' if desc|length > 600 }}</summary>

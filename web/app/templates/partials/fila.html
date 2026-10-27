@@ -2,16 +2,17 @@
 {# La franja de color a la izquierda indica el estado: descartada > favorita > potencial > contactada #}
 {% set est = 'desc' if p.descartada else 'fav' if p.favorito else 'pot' if p.potencial else 'cont' if p.contactada else '' %}
 <article class="item {{ 'desc' if p.descartada }} {{ 'e-' ~ est if est }}" id="p{{ p.id }}"{% if oob %} hx-swap-oob="true"{% endif %}>
-  <a class="ph" hx-get="/p/{{ p.id }}/rapida" hx-target="#panel-body" href="/p/{{ p.id }}" title="Vista rápida">
+  <div class="phw"><a class="ph" hx-get="/p/{{ p.id }}/rapida" hx-target="#panel-body" href="/p/{{ p.id }}" title="Vista rápida">
     <img class="th" loading="lazy" referrerpolicy="no-referrer" src="{{ p.fotos[0]|chica if p.fotos }}" alt="">{{ variacion(p) }}</a>
+    <label class="selph" title="Seleccionar para descartar en masa"><input type="checkbox" class="sel" name="ids" value="{{ p.id }}" aria-label="Seleccionar para descartar"></label></div>
   <div class="b">
-    <div class="top-l"><span class="price">{{ p.precio|money(p.moneda) }}</span>{{ acciones(p, 'fila', rapidas=True) }}</div>
+    <div class="top-l"><span class="price">{{ p.precio|money(p.moneda) }}</span></div>
     <div class="sub">{% if p.usd_m2 %}{{ usd_m2(p) }} {{ vs_barrio(p) }} · {% endif %}{% if p.m2_cubiertos or p.m2_totales %}{{ (p.m2_cubiertos or p.m2_totales)|round|int }} m² · {% endif %}{% if p.ambientes %}{{ p.ambientes }} amb.{% endif %}{% if p.expensas %} · exp. {{ p.expensas|money(p.moneda_expensas) }}{% endif %}</div>
     <a class="addr" href="/p/{{ p.id }}">{{ p.direccion|dir or p.titulo }}</a>
     <div class="mut barrio">{{ p.barrio }}{% if varios_portales() %} · {{ p.portal }}{% endif %}</div>
     <div class="chips">{{ estados(p) }}{{ etiquetas(p, 3) }}</div>
-    <div class="foot"><span class="mut vis">visto {{ p.fecha_primera_vista|fecha }}{% if p.notas %} · 📝 {{ p.notas[:70] }}{% endif %}</span>
-      <span><label class="cmpl"><input type="checkbox" class="sel" name="ids" value="{{ p.id }}" aria-label="Seleccionar para descartar">seleccionar</label>
-      <label class="cmpl"><input type="checkbox" class="cmp" value="{{ p.id }}">comparar</label></span></div>
+    <div class="foot">{{ acciones(p, 'fila', rapidas=True) }}
+      <label class="cmpl"><input type="checkbox" class="cmp" value="{{ p.id }}">comparar</label></div>
+    <div class="mut vis">visto {{ p.fecha_primera_vista|fecha }}{% if p.notas %} · 📝 {{ p.notas[:70] }}{% endif %}</div>
   </div>
 </article>

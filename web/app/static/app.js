@@ -256,6 +256,7 @@ document.addEventListener('htmx:afterSwap', e => { if (e.detail.target.id === 'c
     $('sel-todos').hidden = !puedeTodos;
     $('sel-nada').hidden = !(marcadas || todos);
     $('sel-desc').hidden = !(marcadas || todos);
+    f.classList.toggle('activa', !!(marcadas || todos));
     f.elements.todos.value = todos ? '1' : '';
     const cant = todos ? total : marcadas;
     $('sel-info').textContent = todos ? `Se descartan los ${total} resultados` : marcadas ? `${marcadas} seleccionada${marcadas > 1 ? 's' : ''}` : '';

@@ -20,42 +20,44 @@
 {% endmacro %}
 <form class="filters" hx-get="/lista" hx-target="#resultados" hx-push-url="true" hx-trigger="change, keyup changed delay:400ms from:input[type=search], submit">
   <input type="search" name="q" placeholder="Buscar en título, dirección, descripción, notas…" value="{{ f.q }}">
-  <details id="fdet" {{ 'open' if f.hay_filtros }}><summary>Filtros y orden</summary>
-  <fieldset class="sec"><legend>Estado y portal</legend><div class="grid">
+  <div class="esenciales">
     <select name="estado" aria-label="Estado">
       {% for v, l in [('', 'Todas'), ('pendientes', 'Sin revisar'), ('activas', 'No descartadas'), ('favoritas', '★ Favoritas'), ('potencial', '◆ Potencial'), ('contactadas', 'Contactadas'), ('descartadas', 'Descartadas')] %}
       <option value="{{ v }}" {{ 'selected' if f.estado == v }}>{{ l }}</option>{% endfor %}</select>
+    <select name="orden" aria-label="Orden">
+      {% for v, l in [('nuevas', 'Más nuevas'), ('precio_asc', 'Precio ↑'), ('precio_desc', 'Precio ↓'), ('usd_m2', 'Precio/m² ↑'), ('oportunidad', 'Más barato vs barrio'), ('m2', 'Más m²'), ('baja', 'Mayor baja'), ('puntaje', 'Puntaje promedio'), ('expensas_asc', 'Expensas ↑'), ('expensas_desc', 'Expensas ↓')] + ([('costo_asc', 'Costo mensual ↑')] if es_alquiler else []) %}
+      <option value="{{ v }}" {{ 'selected' if f.orden == v }}>{{ l }}</option>{% endfor %}</select>
+    {{ par('Precio', 'pmin', f.pmin, 'pmax', f.pmax) }}
+    {{ par('m² cubiertos', 'mmin', f.mmin, 'mmax', f.mmax) }}
+    {{ multi('barrio', 'Barrios', opc_barrios, f.barrios) }}
+  </div>
+  <details id="fdet" {{ 'open' if f.hay_mas }}><summary>Más filtros</summary>
+  <fieldset class="sec"><legend>Portal</legend><div class="grid">
     <select name="portal" aria-label="Portal"><option value="">Todos los portales</option>
       {% for b in portales %}<option {{ 'selected' if f.portal == b }}>{{ b }}</option>{% endfor %}</select>
     <select name="inmo" aria-label="Inmobiliaria"><option value="">Toda inmobiliaria</option>
       {% for i in inmos %}<option value="{{ i.id }}" {{ 'selected' if f.inmo == i.id }}>{{ i.nombre }} ({{ i.n }})</option>{% endfor %}</select>
   </div></fieldset>
-  <fieldset class="sec"><legend>Precio</legend><div class="grid">
+  <fieldset class="sec"><legend>Más sobre el precio</legend><div class="grid">
     {% if es_alquiler %}<select name="moneda" aria-label="Moneda" title="Los precios sólo se comparan dentro de una moneda"><option value="">ARS y USD</option>
       {% for m in ('ARS', 'USD') %}<option {{ 'selected' if f.moneda == m }}>{{ m }}</option>{% endfor %}</select>{% endif %}
-    {{ par('Precio', 'pmin', f.pmin, 'pmax', f.pmax) }}
     {{ par('Precio por m²', 'pm2min', f.pm2min, 'pm2max', f.pm2max, 'Precio dividido los m² cubiertos (o los totales si no hay cubiertos)') }}
     {{ par('Expensas', 'emin', f.emin, 'emax', f.emax, 'Tal como las informa el aviso (casi siempre en pesos)') }}
     {% if es_alquiler %}{{ par('Costo mensual', 'cmmin', f.cmmin, 'cmmax', f.cmmax, 'Precio + expensas (si están en la misma moneda)') }}{% endif %}
   </div></fieldset>
   <fieldset class="sec"><legend>Superficie y ambientes</legend><div class="grid">
-    {{ par('m² cubiertos', 'mmin', f.mmin, 'mmax', f.mmax) }}
     {{ simple('m² totales máx', 'tmax', f.tmax|int if f.tmax is not none else none) }}
     {{ par('Ambientes', 'amb', f.amb, 'amax', f.amax) }}
     {{ par('Dormitorios', 'dmin', f.dmin, 'dmax', f.dmax) }}
     {{ simple('Baños mín', 'bmin', f.bmin) }}
     {{ simple('Cocheras mín', 'cmin', f.cmin) }}
   </div></fieldset>
-  <fieldset class="sec"><legend>Ubicación y etiquetas</legend><div class="grid">
-    {{ multi('barrio', 'Barrios', opc_barrios, f.barrios) }}
+  <fieldset class="sec"><legend>Etiquetas y exclusiones</legend><div class="grid">
     {{ multi('no_barrio', 'Excluir barrios', opc_barrios, f.no_barrio) }}
     {{ multi('etiqueta', 'Con etiquetas (todas)', opc_etiquetas, f.etiquetas, '#') }}
     {{ multi('no_etiqueta', 'Sin etiquetas', opc_etiquetas, f.no_etiqueta, '#') }}
   </div></fieldset>
   <fieldset class="sec"><legend>Otros</legend><div class="grid">
-    <select name="orden" aria-label="Orden">
-      {% for v, l in [('nuevas', 'Más nuevas'), ('precio_asc', 'Precio ↑'), ('precio_desc', 'Precio ↓'), ('usd_m2', 'Precio/m² ↑'), ('oportunidad', 'Más barato vs barrio'), ('m2', 'Más m²'), ('baja', 'Mayor baja'), ('puntaje', 'Puntaje promedio'), ('expensas_asc', 'Expensas ↑'), ('expensas_desc', 'Expensas ↓')] + ([('costo_asc', 'Costo mensual ↑')] if es_alquiler else []) %}
-      <option value="{{ v }}" {{ 'selected' if f.orden == v }}>{{ l }}</option>{% endfor %}</select>
     <label><input type="checkbox" name="baja" value="1" {{ 'checked' if f.baja }}> Bajó de precio</label>
     <label class="wide"><input type="checkbox" name="nuevas" value="1" {{ 'checked' if f.nuevas }}> Nuevas desde mi última visita ({{ cont.nuevas }})</label>
     <label><input type="checkbox" name="cochera" value="1" {{ 'checked' if f.cochera }}> Cochera</label>
