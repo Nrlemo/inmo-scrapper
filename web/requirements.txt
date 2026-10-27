@@ -5,5 +5,5 @@ python-multipart
 sqlalchemy>=2
 argon2-cffi
 # dependencias del paquete inmo (carpeta scrapper/: modelos, parsers de los portales, ronda por navegador)
-selectolax
+selectolax<1.0
 pyyaml
