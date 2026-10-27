@@ -73,6 +73,6 @@ def config_efectiva(s: Session) -> dict:
     """La configuración que usa la ronda: profiles.yaml con los perfiles reemplazados por los filtros de la base."""
     cfg = _yaml()
     cfg["profiles"] = filtros.perfiles(obtener(s))
-    if operacion(s) == "alquiler":      # etiquetas propias del alquiler, además de las comunes (las propias pisan)
-        cfg["auto_tags"] = {**(cfg.get("auto_tags") or {}), **(cfg.get("auto_tags_alquiler") or {})}
+    # `auto_tags` son las comunes; `auto_tags_compra` / `auto_tags_alquiler` se suman sólo en esa base (las propias pisan)
+    cfg["auto_tags"] = {**(cfg.get("auto_tags") or {}), **(cfg.get(f"auto_tags_{operacion(s)}") or {})}
     return cfg

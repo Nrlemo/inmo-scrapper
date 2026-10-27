@@ -18,12 +18,16 @@ def main() -> None:
     t = sub.add_parser("retag", help="recalcula las etiquetas automáticas (auto_tags del YAML) de todo lo guardado")
     t.add_argument("--config", default=str(DEFAULT_CONFIG))
     t.add_argument("--db", default=DEFAULT_DB)
+    t.add_argument("--operacion", choices=["compra", "alquiler"], default="compra",
+                   help="base que se recalcula: suma las auto_tags_<operacion> a las comunes")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     Path(args.db).parent.mkdir(parents=True, exist_ok=True)
     engine = make_engine(args.db)
     with Session(engine) as s:
-        n = tags.aplicar(s, load_config(args.config).get("auto_tags"))
+        cfg = load_config(args.config)
+        reglas = {**(cfg.get("auto_tags") or {}), **(cfg.get(f"auto_tags_{args.operacion}") or {})}
+        n = tags.aplicar(s, reglas)
         s.commit()
     print(f"{n} publicaciones con etiquetas automáticas actualizadas")
 

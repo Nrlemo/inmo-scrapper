@@ -255,9 +255,9 @@ def test_etiquetas_de_alquiler_se_suman_solo_en_esa_base(client, tmp_path):
     from app import busqueda, config
     Path(config.CONFIG_PATH).write_text(
         "profiles:\n  - name: p\n    portals:\n      zonaprop:\n        search_url_template: x\n        zones: [almagro]\n"
-        "auto_tags:\n  patio: [patio]\n  mascotas: [mascotas]\nauto_tags_alquiler:\n  amoblado: [amoblado]\n  mascotas: [pet]\n")
+        "auto_tags:\n  patio: [patio]\n  mascotas: [mascotas]\nauto_tags_compra:\n  apto_credito: [credito]\nauto_tags_alquiler:\n  amoblado: [amoblado]\n  mascotas: [pet]\n")
     with Session(client.app.state.engines["compra"], info={"base": "compra"}) as s:
-        assert set(busqueda.config_efectiva(s)["auto_tags"]) == {"patio", "mascotas"}
+        assert set(busqueda.config_efectiva(s)["auto_tags"]) == {"patio", "mascotas", "apto_credito"}
     with Session(client.app.state.engines["alquiler"], info={"base": "alquiler"}) as s:
         tags = busqueda.config_efectiva(s)["auto_tags"]
         assert set(tags) == {"patio", "mascotas", "amoblado"} and tags["mascotas"] == ["pet"]

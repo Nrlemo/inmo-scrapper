@@ -206,8 +206,9 @@ auto_tags:
   apto_credito: ["apto crédito", "apto credito", "apto banco"]
 ```
 - No distingue mayúsculas ni tildes y busca por palabra completa. No cuentan las menciones negadas («sin cochera», «no tiene patio», «ni balcón»).
+- `auto_tags` vale para las dos bases. `auto_tags_compra` y `auto_tags_alquiler` se suman sólo en esa base (si una se llama igual, pisa a la común); sirven para reglas que no aplican a la otra, como `apto_credito` en compra o `sin_mascotas` en alquiler.
 - Se guardan aparte de las etiquetas manuales: no las pisan. En la web se ven con borde punteado, y el listado tiene un filtro por etiqueta.
-- Se recalculan sobre todo lo guardado al final de cada ronda, así que un cambio en las reglas se aplica solo. Para aplicarlo en el momento: `python -m inmo retag` (en Docker: `docker compose run --rm -e PYTHONPATH=/srv/scrapper_src web python -m inmo retag`).
+- Se recalculan sobre todo lo guardado al final de cada ronda, así que un cambio en las reglas se aplica solo. Para aplicarlo en el momento: `python -m inmo retag [--operacion alquiler]` (en Docker: `docker compose run --rm -e PYTHONPATH=/srv/scrapper_src web python -m inmo retag`).
 
 ### Si la ronda queda «bloqueada»
 El portal mostró su verificación anti-bot (Cloudflare) y no se resolvió sola en ~30 s. La ronda se corta, queda
