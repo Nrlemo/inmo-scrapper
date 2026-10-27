@@ -6,11 +6,16 @@ from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+# Precio por m² (sobre los cubiertos o, si no hay, los totales) y costo mensual de un alquiler (precio + expensas, sólo si
+# las expensas están en la misma moneda que el precio). Se usan en las columnas, los filtros y los órdenes.
+PRECIO_M2 = "CASE WHEN COALESCE(p.m2_cubiertos, p.m2_totales) > 0 THEN p.precio / COALESCE(p.m2_cubiertos, p.m2_totales) END"
+COSTO_MES = "(p.precio + COALESCE(CASE WHEN p.moneda_expensas IS NULL OR p.moneda_expensas = p.moneda THEN p.expensas END, 0))"
+
 BASE = """
 SELECT p.*, COALESCE(r.favorito,0) favorito, COALESCE(r.potencial,0) potencial, COALESCE(r.descartada,0) descartada,
   COALESCE(r.contactada,0) contactada, COALESCE(r.revisada,0) revisada, r.notas, r.modificado_por,
   r.fecha_contacto, pu.promedio puntaje, COALESCE(pu.votos,0) votos, c.etiquetas, c.etiquetas_auto,
-  CASE WHEN COALESCE(p.m2_cubiertos, p.m2_totales) > 0 THEN p.precio / COALESCE(p.m2_cubiertos, p.m2_totales) END usd_m2,
+  {PRECIO_M2} usd_m2,
   ch.variacion_pct, ch.fecha cambio_fecha, i.nombre inmo_nombre, vb.pct vb_pct, vb.ref vb_ref, vb.n vb_n
 FROM publicaciones p
 LEFT JOIN web_revision r ON r.publicacion_id = p.id
@@ -22,7 +27,7 @@ LEFT JOIN historial_precios ch ON ch.id = (
   ORDER BY h.fecha DESC, h.id DESC LIMIT 1)
 LEFT JOIN inmobiliarias i ON i.id = p.inmobiliaria_id
 LEFT JOIN web_vs_barrio vb ON vb.publicacion_id = p.id
-"""
+""".replace("{PRECIO_M2}", PRECIO_M2)
 
 # Para contar resultados no hacen falta el promedio de puntajes ni el último cambio de precio por fila: sólo las tablas
 # que puede usar Filtros.where() (el último cambio, sólo con el filtro «bajó de precio»).
@@ -43,16 +48,33 @@ VISIBLE = ("(COALESCE(p.fuera_filtro,0) = 0 OR COALESCE(r.favorito,0) = 1 OR COA
 ORDENES = {
     "nuevas": "p.fecha_primera_vista DESC, p.id DESC",
     "precio_asc": "p.precio ASC", "precio_desc": "p.precio DESC",
-    "usd_m2": "usd_m2 ASC", "m2": "COALESCE(p.m2_cubiertos, p.m2_totales) DESC",
+    "usd_m2": "usd_m2 ASC", "expensas_asc": "p.expensas ASC", "expensas_desc": "p.expensas DESC", "costo_asc": COSTO_MES + " ASC", "m2": "COALESCE(p.m2_cubiertos, p.m2_totales) DESC",
     "baja": "ch.variacion_pct ASC", "puntaje": "puntaje DESC NULLS LAST, votos DESC",
     "oportunidad": "vb.pct ASC",
 }
 
 
+_TIENE_ET = ("EXISTS (SELECT 1 FROM json_each(COALESCE(c.etiquetas, '[]')) WHERE value = {k})"
+             " OR EXISTS (SELECT 1 FROM json_each(COALESCE(c.etiquetas_auto, '[]')) WHERE value = {k})")
+
+
+def _lista(v) -> list[str]:
+    """Un valor suelto o una lista, como lista sin vacíos (los enlaces viejos traen `barrio=X`)."""
+    return [x for x in ([v] if isinstance(v, str) else (v or [])) if x]
+
+
+def _marcas(prefijo: str, valores: list[str], args: dict) -> str:
+    """Parámetros nombrados para un IN (...): agrega a `args` y devuelve «:b0, :b1…»."""
+    for i, v in enumerate(valores):
+        args[f"{prefijo}{i}"] = v
+    return ", ".join(f":{prefijo}{i}" for i in range(len(valores)))
+
+
 @dataclass
 class Filtros:
     q: str = ""
-    barrio: str = ""
+    barrio: str | list[str] = ""      # uno o varios (cualquiera de ellos)
+    no_barrio: list[str] = field(default_factory=list)
     portal: str = ""
     moneda: str = ""       # ARS | USD: los precios sólo se comparan dentro de una moneda
     inmo: int | None = None
@@ -61,9 +83,24 @@ class Filtros:
     mmin: float | None = None
     mmax: float | None = None   # m² cubiertos máx
     tmax: float | None = None   # m² totales máx
+    emin: float | None = None   # expensas (tal como las informa el aviso)
+    emax: float | None = None
+    pm2min: float | None = None  # precio por m²
+    pm2max: float | None = None
+    cmmin: float | None = None  # costo mensual (precio + expensas), alquiler
+    cmmax: float | None = None
     amb: int | None = None
+    amax: int | None = None
+    dmin: int | None = None
+    dmax: int | None = None
+    bmin: int | None = None
+    cmin: int | None = None     # cocheras mín
     cochera: bool = False
-    etiqueta: str = ""     # manual o automática
+    etiqueta: str | list[str] = ""   # manual o automática; varias = todas
+    no_etiqueta: list[str] = field(default_factory=list)
+    sin_etiquetas: bool = False
+    sin_notas: bool = False
+    sin_dup: bool = False   # un solo aviso por inmueble repetido en varios portales
     estado: str = ""       # pendientes | favoritas | potencial | contactadas | descartadas | activas (=no descartadas)
     baja: bool = False     # bajó de precio
     bajo_barrio: bool = False  # precio/m² debajo de la mediana de su barrio (app/mercado.py)
@@ -74,13 +111,34 @@ class Filtros:
     pagina: int = 1
     desde: datetime | None = field(default=None, repr=False)   # visita previa del usuario
 
+    # Filtros que cuentan para decidir si el panel se muestra abierto (no son búsqueda de texto, orden ni página).
+    _PANEL = ("barrio", "no_barrio", "portal", "moneda", "inmo", "pmin", "pmax", "mmin", "mmax", "tmax", "emin", "emax", "pm2min",
+              "pm2max", "cmmin", "cmmax", "amb", "amax", "dmin", "dmax", "bmin", "cmin", "cochera", "etiqueta", "no_etiqueta",
+              "sin_etiquetas", "sin_notas", "sin_dup", "estado", "baja", "bajo_barrio", "nuevas", "inactivas", "fuera")
+
+    @property
+    def hay_filtros(self) -> bool:
+        return any(getattr(self, k) not in (None, "", False, []) for k in self._PANEL)
+
+    @property
+    def barrios(self) -> list[str]:
+        return _lista(self.barrio)
+
+    @property
+    def etiquetas(self) -> list[str]:
+        return _lista(self.etiqueta)
+
     def where(self) -> tuple[str, dict]:
         w, a = [], {}
         if self.q:
             w.append("(p.titulo LIKE :q OR p.direccion LIKE :q OR p.descripcion LIKE :q OR r.notas LIKE :q)")
             a["q"] = f"%{self.q}%"
-        if self.barrio:
-            w.append("p.barrio = :barrio"); a["barrio"] = self.barrio
+        if self.barrios:
+            ph = _marcas("b", self.barrios, a)
+            w.append(f"p.barrio IN ({ph})")
+        if self.no_barrio:
+            ph = _marcas("nb", self.no_barrio, a)
+            w.append(f"COALESCE(p.barrio, '') NOT IN ({ph})")
         if self.portal:
             w.append("p.portal = :portal"); a["portal"] = self.portal
         if self.moneda in ("ARS", "USD"):
@@ -97,14 +155,27 @@ class Filtros:
             w.append("p.m2_cubiertos <= :mmax"); a["mmax"] = self.mmax
         if self.tmax is not None:
             w.append("p.m2_totales <= :tmax"); a["tmax"] = self.tmax
+        for campo, expr, op in (("emin", "p.expensas", ">="), ("emax", "p.expensas", "<="),
+                                ("pm2min", PRECIO_M2, ">="), ("pm2max", PRECIO_M2, "<="),
+                                ("cmmin", COSTO_MES, ">="), ("cmmax", COSTO_MES, "<="),
+                                ("amax", "p.ambientes", "<="), ("dmin", "p.dormitorios", ">="), ("dmax", "p.dormitorios", "<="),
+                                ("bmin", "p.banos", ">="), ("cmin", "p.cocheras", ">=")):
+            if getattr(self, campo) is not None:
+                w.append(f"{expr} {op} :{campo}"); a[campo] = getattr(self, campo)
         if self.amb:
             w.append("p.ambientes >= :amb"); a["amb"] = self.amb
         if self.cochera:
             w.append("p.cocheras > 0")
-        if self.etiqueta:
-            w.append("(EXISTS (SELECT 1 FROM json_each(COALESCE(c.etiquetas, '[]')) WHERE value = :et)"
-                     " OR EXISTS (SELECT 1 FROM json_each(COALESCE(c.etiquetas_auto, '[]')) WHERE value = :et))")
-            a["et"] = self.etiqueta
+        for i, et in enumerate(self.etiquetas):         # varias: tiene que tener todas
+            w.append(f"({_TIENE_ET.format(k=f':et{i}')})"); a[f"et{i}"] = et
+        for i, et in enumerate(self.no_etiqueta):
+            w.append(f"NOT ({_TIENE_ET.format(k=f':ne{i}')})"); a[f"ne{i}"] = et
+        if self.sin_etiquetas:
+            w.append("(json_array_length(COALESCE(c.etiquetas, '[]')) = 0 AND json_array_length(COALESCE(c.etiquetas_auto, '[]')) = 0)")
+        if self.sin_notas:
+            w.append("COALESCE(r.notas, '') = ''")
+        if self.sin_dup:
+            w.append("(p.grupo_id IS NULL OR p.id = (SELECT MIN(q.id) FROM publicaciones q WHERE q.grupo_id = p.grupo_id AND q.activa = 1))")
         estados = {
             "pendientes": "COALESCE(r.revisada,0) = 0 AND COALESCE(r.descartada,0) = 0",
             "favoritas": "r.favorito = 1", "potencial": "r.potencial = 1", "contactadas": "r.contactada = 1",

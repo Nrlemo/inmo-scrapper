@@ -1,3 +1,5 @@
+{% if chips %}<div class="chips activos">{% for ch in chips %}<a class="chip" href="{{ ch.href }}" title="Quitar este filtro">{{ ch.texto }} ✕</a>{% endfor %}
+  <a class="chip lim" href="/lista">Limpiar todo</a></div>{% endif %}
 <div class="row" style="justify-content:space-between;margin-bottom:.5rem">
   <span class="mut">{{ total }} resultados</span>
   <span><a href="/export.csv?{{ qs }}">⬇ CSV</a></span>

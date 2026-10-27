@@ -280,7 +280,7 @@ def test_etiquetas_automaticas_filtro_y_badges(client):
         c.execute(text("""UPDATE categorizacion SET etiquetas_auto='["patio"]' WHERE publicacion_id=1"""))
         c.execute(text("""UPDATE categorizacion SET etiquetas='["patio","ver"]' WHERE publicacion_id=2"""))
     html = client.get("/lista").text
-    assert '<option value="patio"' in html and "#patio (2)" in html and "#ver (1)" in html
+    assert 'name="etiqueta" value="patio"' in html and "#patio (2)" in html and "#ver (1)" in html
     r = client.get("/lista?etiqueta=patio").text
     assert "Calle 1" in r and "Calle 2" in r and "Calle 3" not in r
     assert 'class="badge auto"' in r                                      # la 1 la tiene sólo automática
@@ -520,3 +520,76 @@ def test_descartar_en_masa_respeta_el_tope_y_no_repite(client, monkeypatch):
     assert r.headers["HX-Redirect"] == "/lista?descartados=2"
     r = client.post("/lista/descartar", data={"ids": [1, 1, 1]}, headers=HX)      # ya descartado u repetido: se cuenta una vez
     assert r.headers["HX-Redirect"].endswith("descartados=1")
+
+
+# ---------- más filtros: expensas, precio/m², ambientes, exclusiones, costo mensual, duplicados ----------
+def _set(client, **cols):
+    """UPDATE por id: _set(client, {1: {"expensas": 100}, ...})"""
+    from sqlalchemy import text
+    with client.app.state.engine.begin() as c:
+        for pid, vals in cols["datos"].items():
+            sets = ", ".join(f"{k}=:{k}" for k in vals)
+            c.execute(text(f"UPDATE publicaciones SET {sets} WHERE id=:i"), {**vals, "i": pid})
+
+
+def test_filtros_de_expensas_precio_m2_y_ambientes(client):
+    # precios 100000/90000/120000 USD con 50 m² cub.: precio/m² 2000 / 1800 / 2400
+    _set(client, datos={1: {"expensas": 50000, "dormitorios": 1, "banos": 1, "cocheras": 0, "ambientes": 2},
+                        2: {"expensas": 90000, "dormitorios": 2, "banos": 2, "cocheras": 1, "ambientes": 3},
+                        3: {"expensas": None, "dormitorios": 3, "banos": 1, "cocheras": 2, "ambientes": 4}})
+    ids = lambda q: _ids_lista(client.get("/lista" + q).text)
+    assert ids("?emax=60000") == [1] and ids("?emin=60000") == [2] and ids("?emin=1&emax=1000000") == [1, 2]   # sin dato queda afuera
+    assert ids("?pm2max=1900") == [2] and ids("?pm2min=2100") == [3] and ids("?pm2min=1900&pm2max=2100") == [1]
+    assert ids("?amax=3") == [1, 2] and ids("?dmin=2&dmax=2") == [2] and ids("?bmin=2") == [2] and ids("?cmin=2") == [3]
+    assert ids("?cmin=1&amax=3") == [2]                                                                        # se combinan
+    assert 'name="emax"' in client.get("/lista?emax=60000").text and "<details id=\"fdet\" open" in client.get("/lista?bmin=2").text
+
+
+def test_barrios_y_etiquetas_multiples_y_excluidos(client):
+    from sqlalchemy import text
+    with client.app.state.engine.begin() as c:
+        c.execute(text("UPDATE categorizacion SET etiquetas='[\"patio\"]' WHERE publicacion_id=1"))
+        c.execute(text("UPDATE categorizacion SET etiquetas='[\"patio\",\"ver\"]', etiquetas_auto='[\"amoblado\"]' WHERE publicacion_id=2"))
+    ids = lambda q: _ids_lista(client.get("/lista" + q).text)
+    assert ids("?barrio=Almagro") == [1, 2]                                                                    # enlaces viejos siguen
+    assert ids("?barrio=Almagro&barrio=Palermo") == [1, 2, 3] and ids("?no_barrio=Almagro") == [3]
+    assert ids("?etiqueta=patio") == [1, 2] and ids("?etiqueta=patio&etiqueta=ver") == [2]                      # todas las elegidas
+    assert ids("?etiqueta=amoblado") == [2] and ids("?no_etiqueta=ver") == [1, 3] and ids("?no_etiqueta=patio&no_etiqueta=ver") == [3]
+    assert ids("?sin_etiquetas=1") == [3]
+    html = client.get("/lista?barrio=Almagro&barrio=Palermo&etiqueta=patio&etiqueta=ver").text
+    assert html.count('name="barrio" value="Almagro" checked') == 1 and "Barrios <b>(2)</b>" in html
+    assert 'name="etiqueta" value="ver" checked' in html
+
+
+def test_sin_notas_y_sin_duplicados(client):
+    from sqlalchemy import text
+    client.post("/p/1/notas", data={"notas": "llamar"}, headers=HX)
+    with client.app.state.engine.begin() as c:
+        c.execute(text("UPDATE publicaciones SET grupo_id=1 WHERE id IN (1, 2)"))
+    ids = lambda q: _ids_lista(client.get("/lista" + q).text)
+    assert ids("?sin_notas=1") == [2, 3] and ids("?sin_dup=1") == [1, 3]
+
+
+def test_chips_de_filtros_activos_y_paginacion_con_varios_valores(client, monkeypatch):
+    from app import config
+    monkeypatch.setattr(config, "PAGE_SIZE", 1)
+    html = client.get("/lista?barrio=Almagro&barrio=Palermo&pmax=999999", headers=HX | {"HX-Target": "resultados"}).text
+    assert "Barrio: Almagro ✕" in html and "Precio ≤ 999999 ✕" in html and "Limpiar todo" in html
+    assert 'href="/lista?barrio=Palermo&amp;pmax=999999"' in html                                                # quitar un barrio deja el otro
+    assert "pagina=2" in html and "barrio=Almagro&amp;barrio=Palermo" in html                                       # el pager conserva los repetidos
+
+
+def test_descarte_en_masa_con_filtros_repetidos(client):
+    r = client.post("/lista/descartar", data={"todos": "1", "querystring": "barrio=Almagro&barrio=Palermo"}, headers=HX)
+    assert r.headers["HX-Redirect"] == "/lista?barrio=Almagro&barrio=Palermo&descartados=3"
+
+
+def test_costo_mensual_en_alquiler_y_orden_por_expensas(client):
+    _set(client, datos={1: {"moneda": "ARS", "precio": 500000, "expensas": 100000, "moneda_expensas": "ARS"},
+                        2: {"moneda": "ARS", "precio": 600000, "expensas": 20000, "moneda_expensas": "USD"},   # otra moneda: no se suma
+                        3: {"moneda": "ARS", "precio": 400000, "expensas": None, "moneda_expensas": None}})
+    ids = lambda q: _ids_lista(client.get("/lista" + q).text)
+    assert ids("?cmmax=450000") == [3] and ids("?cmmin=550000&cmmax=650000") == [1, 2]
+    html = client.get("/lista?orden=expensas_desc").text
+    assert html.index('id="p1"') < html.index('id="p2"')
+    assert ids("?orden=costo_asc") == [1, 2, 3]

@@ -7,6 +7,7 @@ from urllib.parse import parse_qsl, urlencode
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from sqlalchemy import select, text
+from starlette.datastructures import QueryParams
 
 from . import config, queries, revision_routes
 from .core import ctx, render
@@ -18,25 +19,55 @@ router = APIRouter()
 
 
 def _filtros(request: Request, desde, params=None) -> Filtros:
-    g = (params if params is not None else request.query_params).get
+    qp = params if params is not None else request.query_params
+    g, lst = qp.get, qp.getlist
 
     def num(k, cast=float):
         try:
             return cast(g(k)) if g(k) else None
         except ValueError:
             return None
-    return Filtros(q=(g("q") or "").strip(), barrio=g("barrio") or "", portal=g("portal") or "", moneda=(g("moneda") or "").upper(),
-                   inmo=num("inmo", int), pmin=num("pmin"), pmax=num("pmax"), mmin=num("mmin"), mmax=num("mmax"), tmax=num("tmax"), amb=num("amb", int),
-                   cochera=g("cochera") == "1", bajo_barrio=g("bajo") == "1", etiqueta=(g("etiqueta") or "").strip(), estado=g("estado") or "", baja=g("baja") == "1",
+    return Filtros(q=(g("q") or "").strip(), barrio=[x for x in lst("barrio") if x], no_barrio=[x for x in lst("no_barrio") if x],
+                   portal=g("portal") or "", moneda=(g("moneda") or "").upper(),
+                   inmo=num("inmo", int), pmin=num("pmin"), pmax=num("pmax"), mmin=num("mmin"), mmax=num("mmax"), tmax=num("tmax"),
+                   emin=num("emin"), emax=num("emax"), pm2min=num("pm2min"), pm2max=num("pm2max"),
+                   cmmin=num("cmmin"), cmmax=num("cmmax"), amb=num("amb", int), amax=num("amax", int),
+                   dmin=num("dmin", int), dmax=num("dmax", int), bmin=num("bmin", int), cmin=num("cmin", int),
+                   cochera=g("cochera") == "1", bajo_barrio=g("bajo") == "1",
+                   etiqueta=[x.strip() for x in lst("etiqueta") if x.strip()], no_etiqueta=[x.strip() for x in lst("no_etiqueta") if x.strip()],
+                   sin_etiquetas=g("sin_etiquetas") == "1", sin_notas=g("sin_notas") == "1", sin_dup=g("sin_dup") == "1",
+                   estado=g("estado") or "", baja=g("baja") == "1",
                    nuevas=g("nuevas") == "1", inactivas=g("inactivas") == "1", fuera=g("fuera") == "1", orden=g("orden") or "nuevas",
                    pagina=num("pagina", int) or 1, desde=desde)
+
+
+# Chips de filtros activos: parámetro -> texto («{}» es el valor). Casillas: el texto va sin valor.
+_CHIPS = {"estado": "Estado: {}", "barrio": "Barrio: {}", "no_barrio": "Sin barrio {}", "portal": "Portal: {}", "moneda": "Moneda: {}",
+          "inmo": "Inmobiliaria #{}", "pmin": "Precio ≥ {}", "pmax": "Precio ≤ {}", "pm2min": "Precio/m² ≥ {}", "pm2max": "Precio/m² ≤ {}",
+          "emin": "Expensas ≥ {}", "emax": "Expensas ≤ {}", "cmmin": "Costo mensual ≥ {}", "cmmax": "Costo mensual ≤ {}",
+          "mmin": "m² cub. ≥ {}", "mmax": "m² cub. ≤ {}", "tmax": "m² tot. ≤ {}", "amb": "Ambientes ≥ {}", "amax": "Ambientes ≤ {}",
+          "dmin": "Dormitorios ≥ {}", "dmax": "Dormitorios ≤ {}", "bmin": "Baños ≥ {}", "cmin": "Cocheras ≥ {}",
+          "etiqueta": "#{}", "no_etiqueta": "Sin #{}", "cochera": "Cochera", "baja": "Bajó de precio", "bajo": "Debajo del barrio",
+          "nuevas": "Nuevas", "inactivas": "Incluye dadas de baja", "fuera": "Incluye fuera de filtros", "sin_etiquetas": "Sin etiquetas",
+          "sin_notas": "Sin notas", "sin_dup": "Sin duplicados"}
+
+
+def _chips(request: Request) -> list[dict]:
+    """Un chip por filtro activo; su enlace es la misma búsqueda sin ese filtro."""
+    pares = [(k, v) for k, v in request.query_params.multi_items() if k not in ("pagina", "descartados")]
+    chips = []
+    for i, (k, v) in enumerate(pares):
+        if k in _CHIPS and v:
+            resto = [x for j, x in enumerate(pares) if j != i]
+            chips.append({"texto": _CHIPS[k].format(v), "href": "/lista?" + urlencode(resto)})
+    return chips
 
 
 def _lista_ctx(request: Request, c):
     f = _filtros(request, c["desde"])
     rows, total = queries.listar(c["s"].connection(), f, config.PAGE_SIZE)
-    qs = {k: v for k, v in request.query_params.items() if k not in ("pagina", "descartados") and v}
-    return {"f": f, "rows": rows, "total": total, "qs": urlencode(qs),
+    qs = [(k, v) for k, v in request.query_params.multi_items() if k not in ("pagina", "descartados") and v]
+    return {"f": f, "rows": rows, "total": total, "qs": urlencode(qs), "chips": _chips(request),
             "paginas": max(1, -(-total // config.PAGE_SIZE))}
 
 
@@ -47,8 +78,13 @@ def lista(request: Request, c=Depends(ctx)):
         return render(request, "partials/resultados.html", c, **d)
     conn = c["s"].connection()
     guardadas = [dict(r) for r in conn.execute(text("SELECT id, nombre, querystring FROM web_busquedas ORDER BY nombre")).mappings()]
-    return render(request, "lista.html", c, **d, barrios=queries.barrios(conn), portales=queries.portales(conn),
-                  inmos=queries.inmobiliarias(conn), etiquetas=queries.etiquetas(conn), guardadas=guardadas)
+    barrios, etiquetas = queries.barrios(conn), queries.etiquetas(conn)
+    f = d["f"]   # lo elegido que ya no existe (otro barrio, otra base) se sigue mostrando para poder quitarlo
+    opc_barrios = [(b, b) for b in dict.fromkeys(barrios + f.barrios + f.no_barrio)]
+    nombres = {e["nombre"]: e["n"] for e in etiquetas}
+    opc_etiquetas = [(n, f"{n} ({nombres[n]})" if n in nombres else n) for n in dict.fromkeys([*nombres, *f.etiquetas, *f.no_etiqueta])]
+    return render(request, "lista.html", c, **d, barrios=barrios, portales=queries.portales(conn), inmos=queries.inmobiliarias(conn),
+                  etiquetas=etiquetas, opc_barrios=opc_barrios, opc_etiquetas=opc_etiquetas, guardadas=guardadas)
 
 
 TOPE_MASA = 5000   # tope de avisos por descarte en masa
@@ -59,16 +95,14 @@ def descartar_en_masa(ids: list[int] = Form(default=[]), todos: str = Form(""), 
     """Descarta los avisos tildados (`ids`) o, con `todos=1`, todo lo que devuelve el listado con `querystring`."""
     s, user = c["s"], c["user"].username
     if todos == "1":
-        params = dict(parse_qsl(querystring))
-        ids = queries.ids_filtrados(s.connection(), _filtros(None, c["desde"], params), TOPE_MASA)
+        ids = queries.ids_filtrados(s.connection(), _filtros(None, c["desde"], QueryParams(querystring)), TOPE_MASA)
     ids = list(dict.fromkeys(ids))[:TOPE_MASA]
     for pid in ids:
         revision_routes.aplicar_accion(s, pid, "descartar", user)
     s.commit()
     log.info("descarte en masa por %s: %d avisos (%s)", user, len(ids), "filtro" if todos == "1" else "selección")
-    qs = {k: v for k, v in parse_qsl(querystring) if k not in ("pagina", "descartados") and v}
-    qs["descartados"] = len(ids)
-    return Response(headers={"HX-Redirect": "/lista?" + urlencode(qs)})
+    qs = [(k, v) for k, v in parse_qsl(querystring) if k not in ("pagina", "descartados") and v]
+    return Response(headers={"HX-Redirect": "/lista?" + urlencode(qs + [("descartados", len(ids))])})
 
 
 @router.post("/busquedas", response_class=HTMLResponse)

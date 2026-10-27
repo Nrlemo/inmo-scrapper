@@ -268,3 +268,16 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding
 .masa .lnk{background:none;border:0;color:var(--acc);text-decoration:underline;padding:0;min-height:0;cursor:pointer}
 .masa [hidden]{display:none}
 .item.picked{outline:2px solid var(--acc)}
+
+/* Panel de filtros por secciones */
+.sec{border:0;border-top:1px solid var(--line);margin:.4rem 0 0;padding:.35rem .25rem 0}
+.sec legend{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);padding:0 .35rem}
+.par{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
+.par .pl{flex:1 0 100%;font-size:.78rem;color:var(--mut)}
+.par input{flex:1;min-width:0;width:0}
+.multi{border:1px solid var(--line);border-radius:10px;padding:.25rem .5rem;background:var(--card)}
+.multi summary{cursor:pointer;list-style:none;font-size:.9rem}
+.multi .mlist{display:flex;flex-direction:column;max-height:14rem;overflow:auto;padding:.3rem 0;gap:.15rem}
+.chips.activos{margin:.2rem 0 .6rem}
+.chips.activos .chip{text-decoration:none}
+.chips.activos .lim{background:none;border:1px solid var(--line);color:var(--mut)}

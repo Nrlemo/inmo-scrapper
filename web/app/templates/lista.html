@@ -5,38 +5,68 @@
 <h1>Publicaciones</h1>
 {% if guardadas %}<div class="row" style="margin-bottom:.5rem">
   {% for g in guardadas %}<a class="chip" href="/lista?{{ g.querystring }}">{{ g.nombre }}</a>{% endfor %}</div>{% endif %}
+{% macro par(etiq, kmin, vmin, kmax, vmax, tip='') %}
+<div class="par" {% if tip %}title="{{ tip }}"{% endif %}><span class="pl">{{ etiq }}</span>
+  <input name="{{ kmin }}" type="number" step="any" min="0" placeholder="mín" aria-label="{{ etiq }} mínimo" value="{{ '%g'|format(vmin) if vmin is not none }}"><span class="mut">–</span>
+  <input name="{{ kmax }}" type="number" step="any" min="0" placeholder="máx" aria-label="{{ etiq }} máximo" value="{{ '%g'|format(vmax) if vmax is not none }}"></div>
+{% endmacro %}
+{% macro simple(etiq, k, v, tip='') %}
+<div class="par" {% if tip %}title="{{ tip }}"{% endif %}><span class="pl">{{ etiq }}</span>
+  <input name="{{ k }}" type="number" min="0" placeholder="mín" aria-label="{{ etiq }}" value="{{ v if v is not none }}"></div>
+{% endmacro %}
+{% macro multi(nombre, titulo, opciones, elegidos, prefijo='') %}{# opciones: [(valor, texto)] #}
+<details class="multi"><summary>{{ titulo }}{% if elegidos %} <b>({{ elegidos|length }})</b>{% endif %}</summary>
+  <div class="mlist">{% for v, tx in opciones %}<label><input type="checkbox" name="{{ nombre }}" value="{{ v }}" {{ 'checked' if v in elegidos }}> {{ prefijo }}{{ tx }}</label>{% endfor %}</div></details>
+{% endmacro %}
 <form class="filters" hx-get="/lista" hx-target="#resultados" hx-push-url="true" hx-trigger="change, keyup changed delay:400ms from:input[type=search], submit">
   <input type="search" name="q" placeholder="Buscar en título, dirección, descripción, notas…" value="{{ f.q }}">
-  <details id="fdet" {{ 'open' if f.barrio or f.portal or f.inmo or f.pmin or f.pmax or f.mmin or f.mmax or f.tmax or f.amb or f.cochera or f.etiqueta or f.baja or f.nuevas or f.inactivas or f.fuera or f.bajo_barrio }}><summary>Filtros y orden</summary><div class="grid">
-  <select name="estado">
-    {% for v, l in [('', 'Todas'), ('pendientes', 'Sin revisar'), ('activas', 'No descartadas'), ('favoritas', '★ Favoritas'), ('potencial', '◆ Potencial'), ('contactadas', 'Contactadas'), ('descartadas', 'Descartadas')] %}
-    <option value="{{ v }}" {{ 'selected' if f.estado == v }}>{{ l }}</option>{% endfor %}</select>
-  <select name="barrio"><option value="">Todos los barrios</option>
-    {% for b in barrios %}<option {{ 'selected' if f.barrio == b }}>{{ b }}</option>{% endfor %}</select>
-  <select name="portal"><option value="">Todos los portales</option>
-    {% for b in portales %}<option {{ 'selected' if f.portal == b }}>{{ b }}</option>{% endfor %}</select>
-  <select name="inmo"><option value="">Toda inmobiliaria</option>
-    {% for i in inmos %}<option value="{{ i.id }}" {{ 'selected' if f.inmo == i.id }}>{{ i.nombre }} ({{ i.n }})</option>{% endfor %}</select>
-  {% if es_alquiler %}<select name="moneda" title="Los precios sólo se comparan dentro de una moneda"><option value="">ARS y USD</option>
-    {% for m in ('ARS', 'USD') %}<option {{ 'selected' if f.moneda == m }}>{{ m }}</option>{% endfor %}</select>{% endif %}
-  <input name="pmin" type="number" placeholder="Precio mín" value="{{ f.pmin|int if f.pmin is not none }}">
-  <input name="pmax" type="number" placeholder="Precio máx" value="{{ f.pmax|int if f.pmax is not none }}">
-  <input name="mmin" type="number" placeholder="m² cub. mín" value="{{ f.mmin|int if f.mmin is not none }}">
-  <input name="mmax" type="number" placeholder="m² cub. máx" value="{{ f.mmax|int if f.mmax is not none }}">
-  <input name="tmax" type="number" placeholder="m² tot. máx" value="{{ f.tmax|int if f.tmax is not none }}">
-  <select name="etiqueta"><option value="">Todas las etiquetas</option>
-    {% for t in etiquetas %}<option value="{{ t.nombre }}" {{ 'selected' if f.etiqueta == t.nombre }}>#{{ t.nombre }} ({{ t.n }})</option>{% endfor %}</select>
-  <select name="amb"><option value="">Ambientes</option>{% for n in range(1, 7) %}<option value="{{ n }}" {{ 'selected' if f.amb == n }}>{{ n }}+</option>{% endfor %}</select>
-  <select name="orden">
-    {% for v, l in [('nuevas', 'Más nuevas'), ('precio_asc', 'Precio ↑'), ('precio_desc', 'Precio ↓'), ('usd_m2', 'Precio/m² ↑'), ('oportunidad', 'Más barato vs barrio'), ('m2', 'Más m²'), ('baja', 'Mayor baja'), ('puntaje', 'Puntaje promedio')] %}
-    <option value="{{ v }}" {{ 'selected' if f.orden == v }}>{{ l }}</option>{% endfor %}</select>
-  <label><input type="checkbox" name="baja" value="1" {{ 'checked' if f.baja }}> Bajó de precio</label>
-  <label class="wide"><input type="checkbox" name="nuevas" value="1" {{ 'checked' if f.nuevas }}> Nuevas desde mi última visita ({{ cont.nuevas }})</label>
-  <label><input type="checkbox" name="cochera" value="1" {{ 'checked' if f.cochera }}> Cochera</label>
-  <label><input type="checkbox" name="inactivas" value="1" {{ 'checked' if f.inactivas }}> Incluir dadas de baja</label>
-  <label title="Precio/m² menor que la mediana de su barrio (y cantidad de ambientes, si hay muestra)"><input type="checkbox" name="bajo" value="1" {{ 'checked' if f.bajo_barrio }}> Debajo del precio del barrio</label>
-  <label title="Avisos que no cumplen los filtros de búsqueda de Estado (los que marcaste se ven siempre)"><input type="checkbox" name="fuera" value="1" {{ 'checked' if f.fuera }}> Incluir fuera de filtros</label>
-  </div></details>
+  <details id="fdet" {{ 'open' if f.hay_filtros }}><summary>Filtros y orden</summary>
+  <fieldset class="sec"><legend>Estado y portal</legend><div class="grid">
+    <select name="estado" aria-label="Estado">
+      {% for v, l in [('', 'Todas'), ('pendientes', 'Sin revisar'), ('activas', 'No descartadas'), ('favoritas', '★ Favoritas'), ('potencial', '◆ Potencial'), ('contactadas', 'Contactadas'), ('descartadas', 'Descartadas')] %}
+      <option value="{{ v }}" {{ 'selected' if f.estado == v }}>{{ l }}</option>{% endfor %}</select>
+    <select name="portal" aria-label="Portal"><option value="">Todos los portales</option>
+      {% for b in portales %}<option {{ 'selected' if f.portal == b }}>{{ b }}</option>{% endfor %}</select>
+    <select name="inmo" aria-label="Inmobiliaria"><option value="">Toda inmobiliaria</option>
+      {% for i in inmos %}<option value="{{ i.id }}" {{ 'selected' if f.inmo == i.id }}>{{ i.nombre }} ({{ i.n }})</option>{% endfor %}</select>
+  </div></fieldset>
+  <fieldset class="sec"><legend>Precio</legend><div class="grid">
+    {% if es_alquiler %}<select name="moneda" aria-label="Moneda" title="Los precios sólo se comparan dentro de una moneda"><option value="">ARS y USD</option>
+      {% for m in ('ARS', 'USD') %}<option {{ 'selected' if f.moneda == m }}>{{ m }}</option>{% endfor %}</select>{% endif %}
+    {{ par('Precio', 'pmin', f.pmin, 'pmax', f.pmax) }}
+    {{ par('Precio por m²', 'pm2min', f.pm2min, 'pm2max', f.pm2max, 'Precio dividido los m² cubiertos (o los totales si no hay cubiertos)') }}
+    {{ par('Expensas', 'emin', f.emin, 'emax', f.emax, 'Tal como las informa el aviso (casi siempre en pesos)') }}
+    {% if es_alquiler %}{{ par('Costo mensual', 'cmmin', f.cmmin, 'cmmax', f.cmmax, 'Precio + expensas (si están en la misma moneda)') }}{% endif %}
+  </div></fieldset>
+  <fieldset class="sec"><legend>Superficie y ambientes</legend><div class="grid">
+    {{ par('m² cubiertos', 'mmin', f.mmin, 'mmax', f.mmax) }}
+    {{ simple('m² totales máx', 'tmax', f.tmax|int if f.tmax is not none else none) }}
+    {{ par('Ambientes', 'amb', f.amb, 'amax', f.amax) }}
+    {{ par('Dormitorios', 'dmin', f.dmin, 'dmax', f.dmax) }}
+    {{ simple('Baños mín', 'bmin', f.bmin) }}
+    {{ simple('Cocheras mín', 'cmin', f.cmin) }}
+  </div></fieldset>
+  <fieldset class="sec"><legend>Ubicación y etiquetas</legend><div class="grid">
+    {{ multi('barrio', 'Barrios', opc_barrios, f.barrios) }}
+    {{ multi('no_barrio', 'Excluir barrios', opc_barrios, f.no_barrio) }}
+    {{ multi('etiqueta', 'Con etiquetas (todas)', opc_etiquetas, f.etiquetas, '#') }}
+    {{ multi('no_etiqueta', 'Sin etiquetas', opc_etiquetas, f.no_etiqueta, '#') }}
+  </div></fieldset>
+  <fieldset class="sec"><legend>Otros</legend><div class="grid">
+    <select name="orden" aria-label="Orden">
+      {% for v, l in [('nuevas', 'Más nuevas'), ('precio_asc', 'Precio ↑'), ('precio_desc', 'Precio ↓'), ('usd_m2', 'Precio/m² ↑'), ('oportunidad', 'Más barato vs barrio'), ('m2', 'Más m²'), ('baja', 'Mayor baja'), ('puntaje', 'Puntaje promedio'), ('expensas_asc', 'Expensas ↑'), ('expensas_desc', 'Expensas ↓')] + ([('costo_asc', 'Costo mensual ↑')] if es_alquiler else []) %}
+      <option value="{{ v }}" {{ 'selected' if f.orden == v }}>{{ l }}</option>{% endfor %}</select>
+    <label><input type="checkbox" name="baja" value="1" {{ 'checked' if f.baja }}> Bajó de precio</label>
+    <label class="wide"><input type="checkbox" name="nuevas" value="1" {{ 'checked' if f.nuevas }}> Nuevas desde mi última visita ({{ cont.nuevas }})</label>
+    <label><input type="checkbox" name="cochera" value="1" {{ 'checked' if f.cochera }}> Cochera</label>
+    <label><input type="checkbox" name="sin_etiquetas" value="1" {{ 'checked' if f.sin_etiquetas }}> Sin etiquetas</label>
+    <label><input type="checkbox" name="sin_notas" value="1" {{ 'checked' if f.sin_notas }}> Sin notas</label>
+    <label title="El mismo inmueble publicado en varios portales se muestra una sola vez"><input type="checkbox" name="sin_dup" value="1" {{ 'checked' if f.sin_dup }}> Ocultar duplicados</label>
+    <label><input type="checkbox" name="inactivas" value="1" {{ 'checked' if f.inactivas }}> Incluir dadas de baja</label>
+    <label title="Precio/m² menor que la mediana de su barrio (y cantidad de ambientes, si hay muestra)"><input type="checkbox" name="bajo" value="1" {{ 'checked' if f.bajo_barrio }}> Debajo del precio del barrio</label>
+    <label title="Avisos que no cumplen los filtros de búsqueda de Estado (los que marcaste se ven siempre)"><input type="checkbox" name="fuera" value="1" {{ 'checked' if f.fuera }}> Incluir fuera de filtros</label>
+  </div></fieldset>
+  </details>
 </form>
 <details class="filters"><summary>Guardar esta búsqueda</summary><form class="row" style="padding:.4rem" hx-post="/busquedas">
   <input type="hidden" name="querystring" value="{{ qs }}"><input name="nombre" placeholder="Guardar esta búsqueda como…" required>
